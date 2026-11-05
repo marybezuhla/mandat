@@ -2,8 +2,9 @@
 <resources>
     <color name="background">#F7F6F2</color>
     <!-- Icon: flag blue background, a white open hand holding a yellow square -->
-    <color name="icon_bg">#0057B7</color>
+    <color name="icon_background_light">#FF013E7C</color>
+    <color name="icon_background_dark">#FF01306A</color>
     <color name="icon_neutral_bg">#5F6368</color>
-    <color name="icon_hand">#FFFFFF</color>
-    <color name="icon_square">#FFD700</color>
+    <color name="icon_hand">#FFF9EBCE</color>
+    <color name="icon_square">#FFFDC218</color>
 </resources>
