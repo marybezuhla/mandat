@@ -11,3 +11,6 @@ captures/
 /signing/*.jks
 __pycache__/
 *.pyc
+
+# Instructions for AI assistants live in the owner's own project settings, not here
+CLAUDE.md
