@@ -1368,4 +1368,33 @@
     <string name="backup_due_later">Пізніше</string>
     <string name="backup_due_open">Зробити копію</string>
     <string name="notice_restore_too_big">Нічого не замінено: дані завеликі для автоматичної копії, тож поточні дані не вдалося спершу скопіювати. Зробіть копію вручну, вимкніть автоматичні копії й тоді відновлюйте.</string>
+    <!-- The author's letter and Support Ukraine (About) -->
+    <string name="author_letter_1">Ідея робити зручні українські застосунки, що просять мінімум дозволів і добре працюють без інтернету, зʼявилася, коли я працювала за ноутбуком майже в повній темряві: після чергової російської атаки дронів знову зникло світло. Так народився Мандат для тих, хто служить людям: депутатів, посадовців і їхніх команд. Щоб жодне звернення, доручення чи обіцянка не загубилися, а робота для українського народу й держави ставала кращою.</string>
+    <string name="author_letter_2">Мандат є вільним програмним забезпеченням: код відкритий, і будь-хто може перевірити, що застосунок робить. Без реклами, стеження й облікових записів. Свобода в програмах не дрібниця, а право знати, що відбувається у вашому телефоні, і не віддавати нікому свого життя.</string>
+    <string name="author_letter_3">Мандат зроблено в Україні 🇺🇦. Мандат означає довіру людей, а виконувати обіцянки наш обовʼязок. Діліться ним із колегами: що більше нас працюватиме чесно й упорядковано, то сильніша держава. Це наша автентика, вона жива. Ми живі.</string>
+    <string name="author_letter_4">Та з 2014 року, а від 24 лютого 2022-го на повну силу, росія веде війну проти нашої країни. Щодня ракети й дрони бʼють по містах, домівках, лікарнях і електростанціях. Окупанти вбивають, викрадають українських дітей, нищать музеї, храми й бібліотеки, забороняють нашу мову на захоплених землях. Вони хочуть, щоб українців як народу не стало.</string>
+    <string name="author_letter_5">Ми боремося за право бути: жити на своїй землі, говорити своєю мовою, творити своє. Свобода, яку ви цінуєте в програмах, для нас сьогодні питання життя.</string>
+    <string name="author_letter_6">Якщо Мандат вам корисний, підтримайте Україну. Я не отримую цих коштів: посилання ведуть просто на офіційні сайти організацій.</string>
+    <string name="author_letter_7">Якщо ви з України, дякую, що ви тут. Тримаємося. Обороняємося, донатимо, бережемо одне одного й обираємо українське: так ми разом наближаємо перемогу.</string>
+    <string name="author_letter_signature">Авторка Мандата 💙💛</string>
+    <string name="author_author_name">Марʼяна Безугла</string>
+    <string name="author_support_note">Посилання відкриваються в браузері, на сайтах самих організацій. Застосунок нічого про це не знає й не отримує.</string>
+    <string name="author_open_site">Відкрити сайт</string>
+    <string name="author_org_united24">UNITED24</string>
+    <string name="author_org_united24_url">https://u24.gov.ua/</string>
+    <string name="author_org_redcross">Товариство Червоного Хреста України</string>
+    <string name="author_org_redcross_what">Національне товариство Червоного Хреста: допомога людям, що постраждали від війни</string>
+    <string name="author_org_redcross_url">https://redcross.org.ua/</string>
+    <string name="author_org_brave1">Brave1</string>
+    <string name="author_org_brave1_what">Державний кластер оборонних технологій: дізнатися, як Україна їх створює</string>
+    <string name="author_org_brave1_url">https://brave1.gov.ua/</string>
+    <string name="author_org_united24_defence">Офіційна платформа зборів від держави: напрям «Оборона»</string>
+    <string name="author_org_united24_humanitarian">Та сама платформа: медична допомога, гуманітарне розмінування, відбудова</string>
+    <string name="author_org_nbu">Спецрахунок Національного банку</string>
+    <string name="author_org_nbu_what">Рахунок для збору коштів на потреби армії, відкритий 24 лютого 2022 року; НБУ щомісяця звітує</string>
+    <string name="author_org_nbu_url">https://bank.gov.ua/ua/news/all/natsionalniy-bank-vidkriv-spetsrahunok-dlya-zboru-koshtiv-na-potrebi-armiyi</string>
+    <string name="author_support_title">Підтримати Україну 💙💛</string>
+    <string name="author_support_defence">Оборона</string>
+    <string name="author_support_humanitarian">Гуманітарна допомога</string>
+    <string name="author_support_any">Підтримати можна й будь-який перевірений фонд, волонтерів чи підрозділ, яким ви довіряєте. Перевіряйте збори: офіційні реквізити й звіти.</string>
 </resources>

@@ -258,6 +258,13 @@ fun Options(session: Session, onBack: () -> Unit) {
 
             OptionGroup(stringResource(R.string.about_title), stringResource(R.string.opt_about_hint), Sym.info) {
                 Text(stringResource(R.string.about_text, appVersion()), style = MaterialTheme.typography.bodyMedium)
+                // The author's letter and how to support Ukraine, as in the author's other apps
+                val context = androidx.compose.ui.platform.LocalContext.current
+                AuthorLetter(Modifier.padding(top = 12.dp))
+                SupportUkraine(open = { url ->
+                    // In the browser; a phone without one simply opens nothing
+                    runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+                }, modifier = Modifier.padding(top = 24.dp))
             }
             Spacer(Modifier.height(24.dp))
         }
