@@ -697,8 +697,11 @@ class Session(app: Application) : AndroidViewModel(app) {
             val note = try {
                 val r = ai.models.import(uri, deleteOriginal) { p -> modelImport = p }
                 when (r.originalDeleted) { true -> app.getString(R.string.ai_original_deleted); false -> app.getString(R.string.ai_original_kept); null -> null }
+            } catch (e: ua.mandat.ai.ModelStore.Refused) {
+                e.message
             } catch (e: Throwable) {
-                app.getString(R.string.ai_failed, e.message ?: "")
+                // Whatever the system said stays out of sight: only Mandat's own words reach the screen
+                app.getString(R.string.ai_failed)
             }
             withContext(Dispatchers.Main) {
                 modelImport = null

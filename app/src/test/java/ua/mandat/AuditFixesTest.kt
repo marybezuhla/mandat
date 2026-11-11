@@ -32,6 +32,11 @@ class AuditFixesTest {
         assertEquals(BackupDue.AUTO_STOPPED, backupDue(true, null, now - 3 * day, now - day, true, now))
         // Automatic copies turned off do not count as a copy
         assertEquals(BackupDue.NEVER, backupDue(true, null, now - day, null, false, now))
+        // Copies in order but nearly full: warned; a missing or older copy is said first
+        val nearlyFull = ua.mandat.ui.BACKUP_WARN_BYTES + 1
+        assertEquals(BackupDue.NEAR_LIMIT, backupDue(true, now - day, null, null, false, now, size = nearlyFull))
+        assertNull(backupDue(true, now - day, null, null, false, now, size = ua.mandat.ui.BACKUP_WARN_BYTES))
+        assertEquals(BackupDue.OLD, backupDue(true, now - 20 * day, null, null, false, now, size = nearlyFull))
     }
 
     @Test fun automaticCopiesKeepWeeksToo() {

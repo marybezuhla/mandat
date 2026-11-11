@@ -32,6 +32,8 @@ object AutoBackup {
     const val KEY_MANUAL = PREFIX + "manual"
     const val KEY_LAST_FAIL = PREFIX + "last_fail"
     private const val KEY_FAIL_REASON = PREFIX + "fail_reason"
+    /** How many bytes the last copy held before encryption (this phone only), to warn before [BackupCrypto.MAX_FILE_BYTES] is reached. */
+    const val KEY_SIZE = PREFIX + "size"
     private const val KEY_FILES = PREFIX + "files"
     private const val KEY_PENDING = PREFIX + "pending"
     private const val KEY_TO_DELETE = PREFIX + "to_delete"
@@ -117,6 +119,7 @@ object AutoBackup {
         val key = s.get(KEY_KEY)?.value?.unhex() ?: return null
         val json = BackupData.dump(db)
         try {
+            s.put(Setting(KEY_SIZE, json.size.toString()))
             if (json.size > BackupCrypto.MAX_FILE_BYTES - 64) {
                 fail(db, REASON_TOO_BIG, now)
                 return null

@@ -1060,7 +1060,7 @@
     <string name="ai_open_page">Model page</string>
     <string name="ai_importing">Copying and checking the model…</string>
     <string name="ai_ready">Model ready (%1$d MB)</string>
-    <string name="ai_failed">Could not: %1$s</string>
+    <string name="ai_failed">Could not copy the model. Check that the file is reachable and there is enough free space, then try again.</string>
     <string name="ai_delete">Delete the model</string>
     <string name="ai_delete_question">Delete the model from the phone? Your data stays as it is; the AI can be added again.</string>
     <string name="ai_delete_original">Delete the downloaded file after copying</string>
@@ -1349,6 +1349,7 @@
     <string name="backup_due_never">There is no backup yet. If the phone is lost or broken, everything in Mandat is lost with it.</string>
     <string name="backup_due_old">The last backup is more than two weeks old. A fresh one takes a minute.</string>
     <string name="backup_due_auto">Automatic backups have stopped working. Check the folder in the settings.</string>
+    <string name="backup_due_near_limit">The backup already takes more than three quarters of the largest size (16 MB). When there is more data, backups will stop being made. To free space, delete texts you no longer need (each keeps up to 20 earlier versions) or old records.</string>
     <string name="backup_due_later">Later</string>
     <string name="backup_due_open">Make a backup</string>
     <string name="notice_restore_too_big">Nothing was replaced: the data is too big for an automatic copy, so the current data could not be copied first. Make a backup by hand, turn automatic copies off, then restore.</string>

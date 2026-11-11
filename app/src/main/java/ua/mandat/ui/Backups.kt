@@ -159,6 +159,8 @@ class Backups(private val context: Context, private val session: Session) {
             null
         }
         if (json == null) return@run BackupNotice.SaveFailed
+        // Remembered (only the number, on this phone), so the owner is warned before copies stop fitting
+        session.withRealDb { it.settings().put(ua.mandat.data.Setting(ua.mandat.backup.AutoBackup.KEY_SIZE, json.size.toString())) }
         // Said plainly before anything is written, rather than a copy that could not be opened again
         if (json.size > BackupCrypto.MAX_FILE_BYTES - 64) {
             json.fill(0)
