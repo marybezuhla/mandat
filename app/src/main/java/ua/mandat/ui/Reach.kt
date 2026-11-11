@@ -191,8 +191,10 @@ object PhoneCalendar {
             intent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, LocalDate.ofEpochDay(day).atStartOfDay(zone).toInstant().toEpochMilli())
             intent.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, LocalDate.ofEpochDay((endDay ?: day) + 1).atStartOfDay(zone).toInstant().toEpochMilli())
         } else {
-            val start = LocalDate.ofEpochDay(day).atStartOfDay(zone).plusMinutes(startMin.toLong())
-            val end = LocalDate.ofEpochDay(endDay ?: day).atStartOfDay(zone).plusMinutes((endMin ?: (startMin + 60)).toLong())
+            // Minutes are added to the time on the clock and only then placed in the zone,
+            // so the hour stays right on the days the clocks change
+            val start = LocalDate.ofEpochDay(day).atStartOfDay().plusMinutes(startMin.toLong()).atZone(zone)
+            val end = LocalDate.ofEpochDay(endDay ?: day).atStartOfDay().plusMinutes((endMin ?: (startMin + 60)).toLong()).atZone(zone)
             intent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, start.toInstant().toEpochMilli())
             intent.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, maxOf(end, start.plusMinutes(15)).toInstant().toEpochMilli())
         }

@@ -119,7 +119,8 @@ fun App(session: Session, onUnlock: () -> Unit, onStartOver: () -> Unit) {
 @Composable
 private fun Centered(content: @Composable () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(32.dp),
+        // Scrolls when the text does not fit (the largest font on a small phone), so the button is always reachable
+        modifier = Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) { content() }

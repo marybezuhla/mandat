@@ -160,9 +160,13 @@ class Backups(private val context: Context, private val session: Session) {
         }
         if (json == null) return@run BackupNotice.SaveFailed
         // Remembered (only the number, on this phone), so the owner is warned before copies stop fitting
-        session.withRealDb { it.settings().put(ua.mandat.data.Setting(ua.mandat.backup.AutoBackup.KEY_SIZE, json.size.toString())) }
+        try {
+            session.withRealDb { it.settings().put(ua.mandat.data.Setting(ua.mandat.backup.AutoBackup.KEY_SIZE, json.size.toString())) }
+        } catch (e: Exception) {
+            // Only the warning depends on it; the copy itself must still be made (say, with the phone's storage full)
+        }
         // Said plainly before anything is written, rather than a copy that could not be opened again
-        if (json.size > BackupCrypto.MAX_FILE_BYTES - 64) {
+        if (json.size > BackupCrypto.MAX_PLAIN_BYTES) {
             json.fill(0)
             deleteQuietly(uri)
             return@run BackupNotice.TooBig
@@ -180,7 +184,11 @@ class Backups(private val context: Context, private val session: Session) {
             check.fill(0)
             if (ok) {
                 // Remembered for the reminder to make a copy (only the time, on this phone)
-                session.withRealDb { it.settings().put(ua.mandat.data.Setting(ua.mandat.backup.AutoBackup.KEY_MANUAL, System.currentTimeMillis().toString())) }
+                try {
+                    session.withRealDb { it.settings().put(ua.mandat.data.Setting(ua.mandat.backup.AutoBackup.KEY_MANUAL, System.currentTimeMillis().toString())) }
+                } catch (e: Exception) {
+                    // The copy is written and checked: failing to note the time must not remove it
+                }
                 BackupNotice.Saved(rows)
             } else {
                 deleteQuietly(uri)
@@ -256,7 +264,10 @@ class Backups(private val context: Context, private val session: Session) {
                     refreshAuto()
                     if (!ok) return@run BackupNotice.RestoreNoSafetyCopy
                 }
-                session.withRealDb { BackupData.restore(it, restore.json) }
+                session.withRealDb { db ->
+                    BackupData.restore(db, restore.json)
+                    noteRestoredCopy(db, restore.summary.createdAt)
+                }
                     ?.let { BackupNotice.Restored(restore.summary.rows) }
                     ?: BackupNotice.RestoreFailed
             } catch (e: BackupData.Incompatible) {
@@ -266,6 +277,22 @@ class Backups(private val context: Context, private val session: Session) {
             } finally {
                 restore.json.fill(0)
             }
+        }
+    }
+
+    /**
+     * The file just restored is a copy of this data, made at [createdAt]: noted as the last copy made
+     * by hand, so the first tab does not say there is none (on a new phone nothing else is known).
+     */
+    private suspend fun noteRestoredCopy(db: ua.mandat.data.MandatDb, createdAt: Long) {
+        try {
+            val s = db.settings()
+            // (a time from the file is never trusted beyond now)
+            val made = minOf(createdAt, System.currentTimeMillis())
+            val known = s.get(ua.mandat.backup.AutoBackup.KEY_MANUAL)?.value?.toLongOrNull() ?: 0L
+            if (made > known) s.put(ua.mandat.data.Setting(ua.mandat.backup.AutoBackup.KEY_MANUAL, made.toString()))
+        } catch (e: Exception) {
+            // Only the reminder depends on it; the restore itself is done
         }
     }
 

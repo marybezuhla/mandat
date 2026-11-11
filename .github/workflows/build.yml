@@ -69,6 +69,7 @@ jobs:
         with:
           name: test-log
           path: log/
+          retention-days: 14
 
   # Builds the unsigned APK in a fresh machine, without running any tests. No secrets, no write access.
   build:
@@ -160,11 +161,13 @@ jobs:
         with:
           name: build-log
           path: log/
+          retention-days: 14
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: mandat-unsigned
           path: app/build/outputs/apk/release/app-release-unsigned.apk
+          retention-days: 14
 
   # Saves the build log to the ci-logs branch. Runs no project code.
   logs:
@@ -201,6 +204,10 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: release
+    # One release at a time: a second merge waits instead of racing the first
+    concurrency:
+      group: release
+      cancel-in-progress: false
     permissions:
       contents: read
     outputs:
@@ -264,6 +271,7 @@ jobs:
         with:
           name: mandat-signed
           path: out/*.apk
+          retention-days: 7
 
   # Publishes the signed APK. Never sees the signing key; uses only GitHub's own gh tool.
   publish:

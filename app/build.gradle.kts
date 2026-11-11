@@ -12,7 +12,9 @@ val appVersion = rootProject.file("version.txt").readText().trim()
 // versionCode comes from the same file, so anyone can rebuild the same APK from source:
 // 0.2.0 -> 200. Releases up to 0.1.191 used the CI run number as versionCode, and Android
 // refuses an update with a lower one, so nothing below 200 is accepted here.
-val appVersionCode = appVersion.split(".").map { it.toInt() }.let { (a, b, c) ->
+val appVersionCode = appVersion.split(".").map { it.toInt() }.let { parts ->
+    require(parts.size == 3) { "version.txt: must be major.minor.patch" }
+    val (a, b, c) = parts
     require(b < 100 && c < 100) { "version.txt: minor and patch must be below 100" }
     (a * 10000 + b * 100 + c).also { require(it >= 200) { "version.txt: must be 0.2.0 or above" } }
 }
@@ -27,6 +29,12 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersion
+    }
+
+    // No Google-encrypted dependency list in the APK (F-Droid and IzzyOnDroid reject it).
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     buildTypes {

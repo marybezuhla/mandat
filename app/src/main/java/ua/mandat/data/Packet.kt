@@ -102,7 +102,7 @@ object Packet {
             matters = arr("matters").mapNotNull { m ->
                 val id = m.l("id") ?: return@mapNotNull null
                 Matter(id = id, title = m.s("title", 300), type = MatterType.of(m.optString("type")).name, roleId = m.l("role"),
-                    attention = Attention.of(m.optString("attention")).name, nextStep = m.s("nextStep", 1000), goal = m.s("goal", 2000),
+                    attention = Attention.of(m.optString("attention")).name, nextStep = m.s("nextStep", 2000), goal = m.s("goal", 2000),
                     description = m.s("description", 20_000), status = MatterStatus.of(m.optString("status")).name, createdAt = now, updatedAt = now)
                     .takeIf { it.title.isNotBlank() }
             }.distinctBy { it.id },
@@ -135,7 +135,7 @@ object Packet {
                 Event(id = e.l("id") ?: return@mapNotNull null, title = e.s("title", 500), day = e.d("day") ?: return@mapNotNull null,
                     endDay = e.d("endDay")?.takeIf { end -> e.d("day")?.let { end >= it && end - it <= 366 } == true },
                     startMin = e.i("start")?.takeIf { it in 0..1439 }, endMin = e.i("end")?.takeIf { it in 0..1440 }, kind = EventKind.of(e.optString("kind")).name,
-                    place = e.s("place", 300), matterId = e.l("matter"), notes = e.s("notes", 20_000), outcome = e.s("outcome", 20_000),
+                    place = e.s("place", 500), matterId = e.l("matter"), notes = e.s("notes", 20_000), outcome = e.s("outcome", 20_000),
                     createdAt = now, updatedAt = now).takeIf { it.title.isNotBlank() }
             }.distinctBy { it.id },
             eventPeople = arr("eventPeople").mapNotNull { l -> EventPerson(l.l("event") ?: return@mapNotNull null, l.l("person") ?: return@mapNotNull null) },

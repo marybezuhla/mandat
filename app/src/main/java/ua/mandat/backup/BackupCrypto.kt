@@ -51,6 +51,9 @@ object BackupCrypto {
     const val MIN_PASSWORD_LENGTH = 16
     const val MAX_FILE_BYTES = 16L * 1024 * 1024
 
+    /** The most a copy can hold before encryption: the file limit less room for the salt, nonce and tag. */
+    const val MAX_PLAIN_BYTES = MAX_FILE_BYTES - 64
+
     /**
      * The first bytes inside an export file (.mandatx), after decryption. A backup holds JSON
      * instead, so each kind of file is recognised and never taken for the other.

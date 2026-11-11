@@ -24,8 +24,10 @@ fun Mode.label(): Int = when (this) {
 }
 
 /** Types that do not fit the chosen mode are not offered for new matters (old ones keep theirs). */
-fun matterTypesForMode(): List<MatterType> =
-    if (AppMode.mode == Mode.COUNCIL) MatterType.entries.filter { it != MatterType.INTERNATIONAL } else MatterType.entries
+fun matterTypesForMode(): List<MatterType> = when (AppMode.mode) {
+    Mode.COUNCIL -> MatterType.entries.filter { it != MatterType.INTERNATIONAL }
+    Mode.RADA, Mode.OFFICIAL, Mode.CITIZEN -> MatterType.entries
+}
 
 /** The stored type is the same in every mode; only the name shown follows the mode. */
 fun MatterType.label(): Int = when (this) {

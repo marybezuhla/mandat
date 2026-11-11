@@ -441,10 +441,10 @@ class Session(app: Application) : AndroidViewModel(app) {
         val h = Hidden(sensitive, emptySet(), emptySet(), emptySet(), names)
         val days = reminderDays(
             db.deadlines().open().filterNot { h.item(it.matterId, it.title, it.basis) },
-            db.delegations().open().filterNot { h.item(it.matterId, it.what, it.purpose) },
-            db.promises().open().filterNot { h.item(it.matterId, it.what, it.toWhom) },
+            db.delegations().open().filterNot { h.item(it.matterId, it.what, it.purpose, it.doneMeans) },
+            db.promises().open().filterNot { h.item(it.matterId, it.what, it.toWhom, it.source, it.statusNote) },
             today,
-            db.events().withReminder(today).filterNot { h.item(it.matterId, it.title, it.notes) },
+            db.events().withReminder(today).filterNot { h.item(it.matterId, it.title, it.place, it.notes, it.outcome) },
         )
         Reminders.storeDays(getApplication(), days)
     }

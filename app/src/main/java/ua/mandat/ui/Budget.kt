@@ -581,6 +581,8 @@ private fun AidDialog(session: Session, matterId: Long, collected: Boolean, onCl
     var party by remember { mutableStateOf("") }
     var day by remember { mutableStateOf(Dates.today()) }
     val minor = parseAmount(amount) ?: 0L
+    // Something typed that is not an amount: said in the field, and not saved as 0
+    val badAmount = amount.isNotBlank() && parseAmount(amount) == null
     // Filled in but not saved yet: a lock saves it as it is
     if (minor > 0 || what.isNotBlank()) SaveOnLock(session, "aid") { db ->
         db.money().insertAid(AidRecord(matterId = matterId, day = day, collected = collected, amount = minor, currency = "UAH", uah = minor,
@@ -596,10 +598,10 @@ private fun AidDialog(session: Session, matterId: Long, collected: Boolean, onCl
                     what = what.trim(), party = party.trim(), createdAt = System.currentTimeMillis()))
             }
         },
-        saveEnabled = minor > 0 || what.isNotBlank(),
+        saveEnabled = (minor > 0 || what.isNotBlank()) && !badAmount,
     ) {
         SheetGroup {
-            OutlinedTextField(amount, { amount = it.take(20) }, label = { Text(stringResource(R.string.aid_amount)) }, singleLine = true,
+            OutlinedTextField(amount, { amount = it.take(20) }, label = { Text(stringResource(R.string.aid_amount)) }, singleLine = true, isError = badAmount,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
             OutlinedTextField(what, { what = it.take(300) }, label = { Text(stringResource(R.string.aid_what)) }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(party, { party = it.take(300) }, label = { Text(stringResource(if (collected) R.string.aid_from else R.string.aid_to)) },

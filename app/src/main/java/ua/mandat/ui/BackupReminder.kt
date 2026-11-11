@@ -26,25 +26,30 @@ import ua.mandat.backup.AutoBackup
 import ua.mandat.data.MandatDb
 
 /** Why a copy is worth making now. */
-enum class BackupDue { NEVER, OLD, AUTO_STOPPED, NEAR_LIMIT }
+enum class BackupDue { NEVER, OLD, AUTO_STOPPED, NEAR_LIMIT, TOO_BIG }
 
 /** Days after the last copy when the reminder comes. */
 const val BACKUP_REMIND_DAYS = 14
 
 /** A copy this large (three quarters of the most a copy can hold) brings a warning, while there is still time to tidy up. */
-const val BACKUP_WARN_BYTES = ua.mandat.backup.BackupCrypto.MAX_FILE_BYTES * 3 / 4
+const val BACKUP_WARN_BYTES = ua.mandat.backup.BackupCrypto.MAX_PLAIN_BYTES * 3 / 4
 
 /**
- * Works out whether to remind: never copied (while there is something to lose), the newest copy
- * older than [BACKUP_REMIND_DAYS], automatic copies failing since the last good one, or, with the
- * copies themselves in order, the last one ([size] bytes) close to the most a copy can hold.
+ * Works out whether to remind. First of all: the data ([size] bytes at the last attempt) no longer
+ * fits into a copy. Then: never copied (while there is something to lose), the newest copy older
+ * than [BACKUP_REMIND_DAYS], or automatic copies failing since the last good one. Last, with the
+ * copies themselves in order: the data is close to the most a copy can hold.
  */
 fun backupDue(hasData: Boolean, manual: Long?, autoOk: Long?, autoFail: Long?, autoOn: Boolean, now: Long, size: Long? = null): BackupDue? {
-    if (!hasData) return null
+    // No copy can be made at all until there is less: the other reminders would only mislead
+    if (size != null && size > ua.mandat.backup.BackupCrypto.MAX_PLAIN_BYTES) return BackupDue.TOO_BIG
+    val nearLimit = size != null && size > BACKUP_WARN_BYTES
+    // (so much data without a single matter is possible: texts, people, the diary)
+    if (!hasData) return if (nearLimit) BackupDue.NEAR_LIMIT else null
     if (autoOn && autoFail != null && autoFail > (autoOk ?: 0L)) return BackupDue.AUTO_STOPPED
     val last = listOfNotNull(manual, if (autoOn) autoOk else null).maxOrNull() ?: return BackupDue.NEVER
     if (now - last > BACKUP_REMIND_DAYS * 86_400_000L) return BackupDue.OLD
-    return if (size != null && size > BACKUP_WARN_BYTES) BackupDue.NEAR_LIMIT else null
+    return if (nearLimit) BackupDue.NEAR_LIMIT else null
 }
 
 /** A small card on the first tab when a backup is due; it leads to the settings. */
@@ -78,14 +83,14 @@ fun BackupReminder(db: MandatDb, onOpen: () -> Unit) {
                         BackupDue.OLD -> R.string.backup_due_old
                         BackupDue.AUTO_STOPPED -> R.string.backup_due_auto
                         BackupDue.NEAR_LIMIT -> R.string.backup_due_near_limit
+                        BackupDue.TOO_BIG -> R.string.backup_due_too_big
                     },
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = { later = true }) { Text(stringResource(R.string.backup_due_later)) }
-                // Close to the limit, another copy does not help: the text says what does
-                if (why != BackupDue.NEAR_LIMIT) TextButton(onClick = onOpen) { Text(stringResource(R.string.backup_due_open)) }
+                TextButton(onClick = onOpen) { Text(stringResource(R.string.backup_due_open)) }
             }
         }
     }
