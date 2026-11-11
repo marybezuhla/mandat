@@ -6,7 +6,7 @@
 
 ## Особливості
 
-- 🔒 **Приватність.** Дозволу на інтернет немає, дані лише на телефоні й завжди зашифровані (SQLCipher). Вхід відбитком або PIN-кодом (за бажанням лише PIN, і тоді ключ сам не приймає відбитка), автоблокування, знімки екрана заборонені. Копії, експорт і зміна захисту підтверджуються PIN телефона. За бажанням — нейтральна назва й іконка. Резервна копія лише з паролем (Argon2id + AES-256).
+- 🔒 **Приватність.** Дозволу на інтернет немає, дані лише на телефоні й завжди зашифровані (SQLCipher). Вхід відбитком або PIN-кодом (за бажанням лише PIN, і тоді ключ сам не приймає відбитка), автоблокування, знімки екрана заборонені. Копії, експорт, вимкнення режиму поїздки, дозвіл на знімки екрана й «Стерти всі дані» підтверджуються відбитком або PIN-кодом телефона. За бажанням — нейтральна назва й іконка. Резервна копія лише з паролем (Argon2id + AES-256).
 - 🗂️ **Справи й увага.** Фокус, фон і сплячі справи, наступний крок, застряглі й без кроку, розбір давніх прострочених.
 - 👥 **Люди.** Свої категорії, позиції в справах, команда, розмова віч-на-віч, довідник контактів з імпортом .vcf і CSV.
 - 📅 **Календар і час.** Місяць, тиждень із сіткою годин, список; щільність тижня з вільними вікнами; строки, доручення й обіцянки на одній стрічці.
@@ -27,7 +27,7 @@
 
 ## Прозорість
 
-- **Дозволи:** сповіщення й перезапуск нагадувань після ввімкнення телефона; читання календаря телефона — лише якщо ви ввімкнете його показ. Збірка зупиняється, якщо з'являється дозвіл на інтернет.
+- **Дозволи:** сповіщення й перезапуск нагадувань після ввімкнення телефона; читання календаря телефона — лише якщо ви ввімкнете його показ; відбиток чи PIN телефона для входу; приховування чужих вікон поверх Мандата (лише захист, без даних). Збірка зупиняється, якщо з'являється дозвіл на інтернет.
 - **Шифрування:** не шифруються лише налаштування вигляду й безпеки (тема, «Лише PIN», знімки екрана, автоблокування, нейтральна іконка), вмикачі нагадувань і календаря телефона, позначка «Мандат щось скопіював у буфер» (без тексту), технічні позначки й файл моделі ШІ (без ваших даних) і дати, на які є нагадування (щоб сповіщення приходили без розблокування; у тексті сповіщення нічого немає). Android також пам'ятає вибрану теку автокопій. Відкритий файл експорту — лише за вашим вибором і з попередженням.
 - **Збірка:** APK збирається з цього коду в GitHub Actions окремо від тестів і підписується лише після схвалення автора. Контрольні суми залежностей і самого Gradle перевіряються; SHA-256 кожного APK опубліковано в релізі.
 - **Підпис:** справжній APK підписано сертифікатом із відбитком SHA-256 `A7:06:53:16:67:2A:C1:5B:C3:87:A6:8C:2E:A2:96:EC:8E:A2:79:42:09:13:D6:9E:C5:02:05:BB:54:8D:77:3E`. Перевірити без жодного застосунку: `apksigner verify --print-certs mandat-<версія>.apk` (з Android SDK Build Tools).
@@ -46,7 +46,7 @@ A private, offline organiser for Android: matters, people, calendar, delegations
 
 ## Features
 
-- 🔒 **Privacy.** No internet permission, data stays on the phone and is always encrypted (SQLCipher). Fingerprint or PIN to open (optionally PIN only, and then the key itself refuses a fingerprint), automatic lock, screenshots blocked. Backups, exports and changes to the protection are confirmed with the phone's PIN. Optionally a neutral name and icon. Backups only with a password (Argon2id + AES-256).
+- 🔒 **Privacy.** No internet permission, data stays on the phone and is always encrypted (SQLCipher). Fingerprint or PIN to open (optionally PIN only, and then the key itself refuses a fingerprint), automatic lock, screenshots blocked. Backups, exports, turning trip mode off, allowing screenshots and Erase all data are confirmed with the phone's fingerprint or PIN. Optionally a neutral name and icon. Backups only with a password (Argon2id + AES-256).
 - 🗂️ **Matters and attention.** Focus, background and sleeping matters, next steps, stuck ones and ones without a step, sorting out old overdue items.
 - 👥 **People.** Your own categories, stances in matters, a team, one-to-one talks, an address book with .vcf and CSV import.
 - 📅 **Calendar and time.** Month, week with an hour grid, list; week density with free windows; deadlines, delegations and promises on one strip.
@@ -67,7 +67,7 @@ AI (optional): Options → AI → Download the model (≈2.6 GB) → Choose the 
 
 ## Transparency
 
-- **Permissions:** notifications and restoring reminders after a restart; reading the phone's calendar only if you turn on showing it. The build stops if an internet permission appears.
+- **Permissions:** notifications and restoring reminders after a restart; reading the phone's calendar only if you turn on showing it; the phone's fingerprint or PIN to open; hiding other apps' windows over Mandat (protection only, no data). The build stops if an internet permission appears.
 - **Encryption:** the only things not encrypted are appearance and security settings (theme, PIN only, screenshots, automatic lock, neutral icon), the reminder and phone-calendar switches, a mark that Mandat copied something to the clipboard (without the text), technical AI marks and the model file (none of your data) and the dates that have reminders (so notifications arrive without unlocking; the notification text says nothing). Android also remembers the folder chosen for automatic backups. An open export file only by your choice and after a warning.
 - **Build:** the APK is built from this code in GitHub Actions apart from the tests and signed only after the author's approval. Checksums of the dependencies and of Gradle itself are verified; each APK's SHA-256 is published with the release.
 - **Signature:** the genuine APK is signed with a certificate whose SHA-256 fingerprint is `A7:06:53:16:67:2A:C1:5B:C3:87:A6:8C:2E:A2:96:EC:8E:A2:79:42:09:13:D6:9E:C5:02:05:BB:54:8D:77:3E`. To check it without any app: `apksigner verify --print-certs mandat-<version>.apk` (from the Android SDK Build Tools).

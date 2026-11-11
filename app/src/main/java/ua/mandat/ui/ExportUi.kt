@@ -661,10 +661,8 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
     // Free text not tied to a matter that names a hidden one stays out, as on the screens, in the AI and the Obsidian vault
     val names = if (hidden.isEmpty()) ua.mandat.data.HiddenNames.NONE else ua.mandat.data.HiddenNames(db.matters().observeAll().first().filter { it.id in hidden }.map { it.title })
     fun free(matterId: Long?, vararg text: String) = matterId != null || !names.namedAny(*text)
-    // A person's own notes and contact line naming a hidden matter are left blank
-    val people = db.people().all().filter { it.id !in onlyHidden }.map { p ->
-        if (free(null, p.notes) && free(null, p.contact)) p else p.copy(notes = if (free(null, p.notes)) p.notes else "", contact = if (free(null, p.contact)) p.contact else "")
-    }
+    // A person whose card names a hidden matter stays out whole, as on the screens and in the Obsidian vault
+    val people = db.people().all().filter { it.id !in onlyHidden && free(null, it.name, it.organization, it.jobTitle, it.contact, it.notes) }
     val titles = db.matters().observeAllTitles().first().filter { visible(it.id) }.associate { it.id to it.title }
     val nameOf = people.associate { it.id to it.name }
     fun catName(k: String): String = when {

@@ -115,8 +115,9 @@ fun DirectoryScreen(db: MandatDb, session: Session) {
                 raw.map { it to collator.getCollationKey(it.name) }.sortedBy { it.second }.map { it.first }
             }.flowOn(kotlinx.coroutines.Dispatchers.Default)
     }.collectAsStateWithLifecycle(emptyList())
-    var query by rememberSaveable { mutableStateOf("") }
-    var label by rememberSaveable { mutableStateOf<String?>(null) }
+    // Kept in memory only (not in the saved screen state, which leaves the app), like the main search
+    var query by remember { mutableStateOf("") }
+    var label by remember { mutableStateOf<String?>(null) }
     var pickedAt by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(-1) }
     val context = LocalContext.current
     val listState = rememberLazyListState()

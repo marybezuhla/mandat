@@ -85,10 +85,22 @@ jobs:
         run: |
           V="$(tr -d '[:space:]' < version.txt)"
           echo "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::version.txt must be major.minor.patch, got '$V'"; exit 1; }
-          # A push to main becomes a release: stop here, before any approval, if this version is already out.
-          if [ "${{ github.event_name }}" = push ] && [ "${{ github.ref }}" = refs/heads/main ] \
-             && gh api "repos/${{ github.repository }}/releases/tags/v$V" >/dev/null 2>&1; then
-            echo "::error::v$V is already released; raise version.txt first."; exit 1
+          # A push to main becomes a release: stop here, before any approval, unless this version is new.
+          if [ "${{ github.event_name }}" = push ] && [ "${{ github.ref }}" = refs/heads/main ]; then
+            REPO="repos/${{ github.repository }}"
+            # Only "404" means "not there": any other failure stops the build instead of passing as "new"
+            absent() {
+              out="$(gh api "$1" 2>&1 >/dev/null)" && return 1
+              echo "$out" | grep -q "HTTP 404" && return 0
+              echo "::error::Could not check $1: $out"; exit 1
+            }
+            absent "$REPO/releases/tags/v$V" || { echo "::error::v$V is already released; raise version.txt first."; exit 1; }
+            # A tag left without a release would be reused as it is, pointing at other code
+            absent "$REPO/git/ref/tags/v$V" || { echo "::error::The tag v$V already exists; raise version.txt first."; exit 1; }
+            LATEST="$(gh api "$REPO/releases/latest" --jq .tag_name 2>/dev/null || true)"
+            if [ -n "$LATEST" ] && [ "$(printf '%s\n%s\n' "$LATEST" "v$V" | sort -V | tail -1)" != "v$V" ]; then
+              echo "::error::v$V is not above the latest release ($LATEST)."; exit 1
+            fi
           fi
 
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5

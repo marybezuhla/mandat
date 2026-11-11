@@ -27,6 +27,15 @@ internal fun MandatDb.namesHidden(session: Session): (String) -> Boolean {
 }
 
 /**
+ * Names of the people in view now. Someone out of view (known only through hidden matters, or with
+ * a card that names one) is never named to the model, even in a record that itself stays in view.
+ */
+private suspend fun MandatDb.shownNames(session: Session): Map<Long, String> {
+    val hidden = session.hidden.value
+    return people().all().filterNot { hidden.person(it) }.associate { it.id to it.name }
+}
+
+/**
  * A date for the model: digits with the year and how far it is from today ("26.10.2026, 2 дні тому"),
  * so it never has to guess the year or whether the day has passed.
  */
@@ -63,7 +72,7 @@ suspend fun todayFacts(db: MandatDb, session: Session): String {
     val named = db.namesHidden(session)
     val ok = { id: Long?, text: String -> okId(id) && !(id == null && named(text)) }
     val today = Dates.today()
-    val names = db.people().all().associate { it.id to it.name }
+    val names = db.shownNames(session)
     val dl = db.deadlines().observeOpen().first().filter { ok(it.matterId, it.title) && it.day <= today + 1 }
     val dg = db.delegations().observeOpen().first().filter { ok(it.matterId, it.what) && it.due != null && it.due <= today + 1 }
     val pr = db.promises().observeOpen().first().filter { ok(it.matterId, it.what + " " + it.toWhom) }
@@ -90,7 +99,7 @@ suspend fun todayFacts(db: MandatDb, session: Session): String {
             }
         }
         if (dl.isNotEmpty()) append("Строки (сьогодні, завтра чи прострочені): ").append(dl.take(10).joinToString("; ") { it.title + " — " + factDate(it.day) }).append("\n")
-        if (dg.isNotEmpty()) append("Доручення до перевірки: ").append(dg.take(10).joinToString("; ") { it.what + (it.personId?.let { p -> " (" + names[p] + ")" } ?: "") }).append("\n")
+        if (dg.isNotEmpty()) append("Доручення до перевірки: ").append(dg.take(10).joinToString("; ") { it.what + (it.personId?.let(names::get)?.let { n -> " ($n)" } ?: "") }).append("\n")
         val duePr = pr.filter { it.due != null && it.due <= today + 1 }
         if (duePr.isNotEmpty()) append("Обіцянки зі строком: ").append(duePr.take(10).joinToString("; ") { it.what }).append("\n")
         if (focus.isNotEmpty()) append("У фокусі: ").append(focus.joinToString("; ") { it.title + (it.nextStep.takeIf { n -> n.isNotBlank() }?.let { n -> " (далі: $n)" } ?: "") }).append("\n")
@@ -123,7 +132,7 @@ suspend fun eveningFacts(db: MandatDb, session: Session): String {
 suspend fun matterFacts(db: MandatDb, session: Session, matterId: Long): String {
     if (!db.hiddenOk(session)(matterId)) return ""
     val m = db.matters().get(matterId) ?: return ""
-    val names = db.people().all().associate { it.id to it.name }
+    val names = db.shownNames(session)
     val people = db.people().observeForMatter(matterId).first()
     val dl = db.deadlines().observeForMatter(matterId).first()
     val dg = db.delegations().observeForMatter(matterId).first()
@@ -138,7 +147,7 @@ suspend fun matterFacts(db: MandatDb, session: Session, matterId: Long): String 
         append("У роботі днів: ").append((Dates.today() - Dates.dayOf(m.createdAt)).coerceAtLeast(0)).append("\n")
         if (people.isNotEmpty()) append("Люди: ").append(people.joinToString("; ") { it.name + (it.stance?.let { s -> " ($s)" } ?: "") }).append("\n")
         if (dl.isNotEmpty()) append("Строки: ").append(dl.joinToString("; ") { it.title + " " + factDate(it.day) + " " + it.status }).append("\n")
-        if (dg.isNotEmpty()) append("Доручення: ").append(dg.joinToString("; ") { it.what + (it.personId?.let { p -> " — " + names[p] } ?: "") + " " + it.status }).append("\n")
+        if (dg.isNotEmpty()) append("Доручення: ").append(dg.joinToString("; ") { it.what + (it.personId?.let(names::get)?.let { n -> " — $n" } ?: "") + " " + it.status }).append("\n")
         if (pr.isNotEmpty()) append("Обіцянки: ").append(pr.joinToString("; ") { it.what + " " + it.status }).append("\n")
         if (ev.isNotEmpty()) append("Останні події: ").append(ev.joinToString("; ") { factDate(it.day) + " " + it.title + (it.outcome.takeIf { o -> o.isNotBlank() }?.let { o -> " — $o" } ?: "") }).append("\n")
     }
@@ -229,7 +238,7 @@ suspend fun riskFacts(db: MandatDb, session: Session): String {
     val ok = db.hiddenOk(session)
     val named = db.namesHidden(session)
     val today = Dates.today()
-    val names = db.people().all().associate { it.id to it.name }
+    val names = db.shownNames(session)
     val risky = db.promises().observeAll().first().filter { ok(it.matterId) && !(it.matterId == null && named(it.what + " " + it.toWhom + " " + it.statusNote)) && isRisky(it, today) }
         .sortedWith(compareBy({ it.due == null }, { it.due })).take(10)
     if (risky.isEmpty()) return ""

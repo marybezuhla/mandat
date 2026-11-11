@@ -844,7 +844,7 @@
     <string name="autolock_never">Never</string>
     <string name="autolock_min">%1$d min</string>
     <string name="neutral_icon">Neutral name and icon</string>
-    <string name="neutral_icon_hint">On the home screen, in Share and in reminders the app is called \"Notes\" with a plain icon. You may need to add the icon to the home screen again. Phone settings still show \"Mandat\".</string>
+    <string name="neutral_icon_hint">On the home screen, in Share and in reminders the app is called \"Notes\" with a plain icon. You may need to add the icon to the home screen again. Phone settings still show \"Mandat\", and Android may show it in the header of an expanded reminder too. If that matters, turn reminders off.</string>
     <string name="pin_only_failed">Could not change it. The key stays as it was.</string>
     <string name="matter_sensitive">Sensitive</string>
     <string name="matter_sensitive_hint">Hidden from every screen while trip mode is on.</string>
