@@ -64,7 +64,7 @@
     <string name="erase_title">Erase all data</string>
     <string name="erase_hint">Removes from this phone everything you put into Mandat. Make a backup first if you may need the data again.</string>
     <string name="erase_question">Erase all data?</string>
-    <string name="erase_text">All matters, people, the calendar, texts and other records will be permanently deleted from this phone, together with the encryption key. They can be brought back only from a backup. Backup and export files stay where you saved them; appearance settings and the AI model stay too.</string>
+    <string name="erase_text">All matters, people, the calendar, texts and other records will be permanently deleted from this phone, together with the encryption key. They can be brought back only from a backup. Backup and export files stay where you saved them; appearance settings and the AI model stay too, while reminders and PIN only are switched off.</string>
     <string name="erase_confirm">Erase everything</string>
     <string name="erase_confirm_lock">Confirm: all data will be erased</string>
     <string name="start_over">Start over and restore from a backup</string>

@@ -917,8 +917,10 @@ class Session(app: Application) : AndroidViewModel(app) {
         if (erasing) return
         erasing = true
         lock(backup = false)
-        // Nothing of the erased data is reopened afterwards
+        // Nothing of the erased data is reopened afterwards, and no lens or tab of the old base is applied to the new one
         resume = null
+        lensRole.value = null
+        lastTab = null
         val closingNow = closing
         background.launch {
             closingNow?.join()

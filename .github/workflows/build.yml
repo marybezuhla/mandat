@@ -205,6 +205,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     # One release at a time: a second merge waits instead of racing the first
+    # (only one can wait: a third merge takes the waiting one's place)
     concurrency:
       group: release
       cancel-in-progress: false

@@ -266,7 +266,7 @@ class Backups(private val context: Context, private val session: Session) {
                 }
                 session.withRealDb { db ->
                     BackupData.restore(db, restore.json)
-                    noteRestoredCopy(db, restore.summary.createdAt)
+                    noteRestoredCopy(db, restore.summary.createdAt, restore.json.size)
                 }
                     ?.let { BackupNotice.Restored(restore.summary.rows) }
                     ?: BackupNotice.RestoreFailed
@@ -281,12 +281,14 @@ class Backups(private val context: Context, private val session: Session) {
     }
 
     /**
-     * The file just restored is a copy of this data, made at [createdAt]: noted as the last copy made
-     * by hand, so the first tab does not say there is none (on a new phone nothing else is known).
+     * The file just restored is a copy of this data, made at [createdAt] and holding [bytes]: noted as
+     * the last copy made by hand, so the first tab does not say there is none (on a new phone nothing
+     * else is known), and as the size the warnings go by.
      */
-    private suspend fun noteRestoredCopy(db: ua.mandat.data.MandatDb, createdAt: Long) {
+    private suspend fun noteRestoredCopy(db: ua.mandat.data.MandatDb, createdAt: Long, bytes: Int) {
         try {
             val s = db.settings()
+            s.put(ua.mandat.data.Setting(ua.mandat.backup.AutoBackup.KEY_SIZE, bytes.toString()))
             // (a time from the file is never trusted beyond now)
             val made = minOf(createdAt, System.currentTimeMillis())
             val known = s.get(ua.mandat.backup.AutoBackup.KEY_MANUAL)?.value?.toLongOrNull() ?: 0L

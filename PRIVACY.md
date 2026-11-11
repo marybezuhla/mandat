@@ -15,7 +15,7 @@
 - **Телефон, SMS, пошта, WhatsApp, Signal** — лише коли ви самі натискаєте, щоб подзвонити чи написати людині: Мандат передає номер або адресу цьому застосунку. Дзвінків і повідомлень Мандат не читає.
 - **Календар телефона** — лише якщо ви ввімкнете його показ: Мандат читає події, показує їх поруч зі своїми й ніде не зберігає. Коли ви самі додаєте подію з Мандата в календар телефона, туди передаються лише назва, час і місце.
 - **Контакти телефона** — лише один контакт, який ви самі обираєте, щоб додати його в довідник.
-- **«Подякувати»** — текст подяки за виконане доручення ви самі надсилаєте через застосунок, який оберете.
+- **«Подякувати» і звіт по округу** — текст подяки за виконане доручення чи звіт ви самі надсилаєте через застосунок, який оберете (звіт — після підтвердження відбитком або PIN-кодом телефона).
 - **«Поділитися» з інших застосунків** — текст потрапляє у «Вхідні» лише після вашого підтвердження.
 - **Hugging Face** — лише якщо ви самі відкриваєте сторінку моделі ШІ, щоб її завантажити: це робить браузер, а не Мандат.
 - **Сайти з листа авторки в «Про застосунок»** (офіційні збори на підтримку України) — лише коли ви самі відкриваєте посилання: як і будь-який сайт, вони бачать адресу, з якої ви заходите.
@@ -24,7 +24,7 @@
 - Аналітики, реклами, акаунтів і звітів про збої назовні немає.
 
 **Як усе стерти**
-- Опції → Дані та копії → «Стерти всі дані»: після підтвердження PIN-кодом чи відбитком телефона видаляються база з усіма записами, ключ шифрування, дати нагадувань і доступ до теки автокопій. Лишаються налаштування вигляду й безпеки та модель ШІ (у них немає ваших даних).
+- Опції → Дані та копії → «Стерти всі дані»: після підтвердження PIN-кодом чи відбитком телефона видаляються база з усіма записами, ключ шифрування, дати нагадувань і доступ до теки автокопій. Лишаються налаштування вигляду, знімків екрана й автоблокування та модель ШІ (у них немає ваших даних). Нагадування й «Лише PIN» вимикаються: їх можна ввімкнути знову.
 - Видалення застосунку (системне питання Android) прибирає все, що він зберігав на телефоні, разом із ключем і моделлю ШІ.
 - Ваші файли резервних копій та експорту лишаються там, куди ви їх зберегли: їх видаляєте ви.
 
@@ -47,7 +47,7 @@ Mandat has no internet permission: it sends nothing and downloads nothing by its
 - **Phone, SMS, email, WhatsApp, Signal**: only when you tap to call or write to a person yourself. Mandat hands the number or address to that app. Mandat never reads calls or messages.
 - **The phone's calendar**: only if you turn on showing it. Mandat reads the events, shows them next to its own and saves them nowhere. When you add an event from Mandat to the phone's calendar yourself, only its title, time and place are handed over.
 - **The phone's contacts**: only the one contact you pick yourself to add to the address book.
-- **Saying thanks**: the thank-you text for a finished delegation is sent by you, through the app you choose.
+- **Saying thanks and the district report**: the thank-you text for a finished delegation, or the report, is sent by you, through the app you choose (the report after you confirm with the phone's fingerprint or PIN).
 - **Share from other apps**: the text reaches the Inbox only after you confirm.
 - **Hugging Face**: only if you open the AI model's page yourself to download it. The browser does this, not Mandat.
 - **The sites in the author's letter** (official fundraisers for Ukraine): only when you open a link yourself; like any site, they see the address you come from.
@@ -56,7 +56,7 @@ Mandat has no internet permission: it sends nothing and downloads nothing by its
 - No analytics, ads, accounts or crash reports sent anywhere.
 
 **How to erase everything**
-- Options → Data and backups → Erase all data: after you confirm with the phone's PIN or fingerprint, the database with every record, the encryption key, the reminder dates and the access to the automatic backup folder are removed. Appearance and security settings and the AI model stay (they hold none of your data).
+- Options → Data and backups → Erase all data: after you confirm with the phone's PIN or fingerprint, the database with every record, the encryption key, the reminder dates and the access to the automatic backup folder are removed. Appearance, screenshot and automatic-lock settings and the AI model stay (they hold none of your data). Reminders and PIN only are switched off: you can turn them on again.
 - Uninstalling the app (Android asks to confirm) removes everything it kept on the phone, the key and the AI model included.
 - Your backup and export files stay where you saved them: you delete those yourself.
 

@@ -135,6 +135,9 @@ class MainActivity : AppCompatActivity() {
     /** The owner confirmed: forget the data (unreadable, or being erased) and set up again. */
     private fun startOver() {
         vault.reset()
+        // "PIN only" was a property of the key that is gone: the new key is an ordinary one, so the
+        // prompt must not go on pretending. It is switched on again in Options.
+        Appearance.setPinOnly(this, false)
         MandatDb.deleteFiles(this)
         // Nothing about the deleted data may stay behind, not even the days of reminders
         ua.mandat.notify.Reminders.clear(this)

@@ -581,8 +581,10 @@ private fun AidDialog(session: Session, matterId: Long, collected: Boolean, onCl
     var party by remember { mutableStateOf("") }
     var day by remember { mutableStateOf(Dates.today()) }
     val minor = parseAmount(amount) ?: 0L
-    // Something typed that is not an amount: said in the field, and not saved as 0
-    val badAmount = amount.isNotBlank() && parseAmount(amount) == null
+    // Something typed that is not an amount (nor a plain zero): marked in the field, and Save waits
+    // for it to be put right. A lock still keeps what was typed, with the amount as 0.
+    val zero = amount.isNotBlank() && amount.trim().all { it == '0' || it == '.' || it == ',' }
+    val badAmount = amount.isNotBlank() && !zero && parseAmount(amount) == null
     // Filled in but not saved yet: a lock saves it as it is
     if (minor > 0 || what.isNotBlank()) SaveOnLock(session, "aid") { db ->
         db.money().insertAid(AidRecord(matterId = matterId, day = day, collected = collected, amount = minor, currency = "UAH", uah = minor,

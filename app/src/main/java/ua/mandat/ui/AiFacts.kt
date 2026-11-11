@@ -133,7 +133,7 @@ suspend fun matterFacts(db: MandatDb, session: Session, matterId: Long): String 
     if (!db.hiddenOk(session)(matterId)) return ""
     val m = db.matters().get(matterId) ?: return ""
     val names = db.shownNames(session)
-    val people = db.people().observeForMatter(matterId).first()
+    val people = db.people().observeForMatter(matterId).first().filter { it.personId in names }
     val dl = db.deadlines().observeForMatter(matterId).first()
     val dg = db.delegations().observeForMatter(matterId).first()
     val pr = db.promises().observeForMatter(matterId).first()
@@ -214,7 +214,8 @@ suspend fun meetingFacts(db: MandatDb, session: Session, title: String, day: Lon
     val named = db.namesHidden(session)
     // An event not tied to a matter but naming a hidden one stays out while it is hidden
     if (matterId == null && named(title + " " + notes)) return ""
-    val persons = db.people().all().filter { it.id in people }
+    val shown = session.hidden.value
+    val persons = db.people().all().filter { it.id in people && !shown.person(it) }
     val open = { s: String -> TaskStatus.of(s) == TaskStatus.OPEN }
     return buildString {
         append("Подія: ").append(title).append(", ").append(factDate(day)).append(startMin?.let { " " + timeText(it) } ?: "").append("\n")
@@ -288,7 +289,7 @@ suspend fun reminderFacts(db: MandatDb, session: Session, delegationId: Long): S
     val d = db.delegations().get(delegationId) ?: return ""
     if (!db.hiddenOk(session)(d.matterId)) return ""
     if (d.matterId == null && db.namesHidden(session)(d.what + " " + d.purpose)) return ""
-    val name = d.personId?.let { db.people().get(it)?.name }
+    val name = d.personId?.let { db.people().get(it) }?.takeIf { !session.hidden.value.person(it) }?.name
     return reminderText(d.what, d.due, name, d.purpose)
 }
 

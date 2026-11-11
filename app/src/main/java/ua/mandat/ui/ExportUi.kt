@@ -590,7 +590,7 @@ private suspend fun runExport(context: Context, session: Session, plan: ExportPl
             p.packet = plan.packet; p.packetFile = true; p.matterId = plan.matterId
             p.packetContacts = plan.packetContacts; p.packetStances = plan.packetStances
         } else plan
-        files = session.withOpenDb { db -> buildFiles(context, db, session.hiddenMatters.value, wanted) }.orEmpty()
+        files = session.withOpenDb { db -> buildFiles(context, db, session.hiddenMatters.value, session.hidden.value, wanted) }.orEmpty()
         // Mandat's own file carries only what Mandat can take back in
         if (own) files = files.filter { (name, bytes) -> (name.endsWith(".vcf") || name.endsWith(".ics") || name == ua.mandat.data.Packet.FILE).also { keep -> if (!keep) bytes.fill(0) } }
         if (files.isEmpty()) { discard(); return false }
@@ -647,7 +647,7 @@ private suspend fun runExport(context: Context, session: Session, plan: ExportPl
     }
 }
 
-private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>, plan: ExportPlan): List<Pair<String, ByteArray>> {
+private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>, shown: Hidden, plan: ExportPlan): List<Pair<String, ByteArray>> {
     fun visible(matterId: Long?) = matterId == null || matterId !in hidden
     val out = ArrayList<Pair<String, ByteArray>>()
     fun add(name: String, text: String) { out += name to text.toByteArray(Charsets.UTF_8) }
@@ -661,8 +661,12 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
     // Free text not tied to a matter that names a hidden one stays out, as on the screens, in the AI and the Obsidian vault
     val names = if (hidden.isEmpty()) ua.mandat.data.HiddenNames.NONE else ua.mandat.data.HiddenNames(db.matters().observeAll().first().filter { it.id in hidden }.map { it.title })
     fun free(matterId: Long?, vararg text: String) = matterId != null || !names.namedAny(*text)
-    // A person whose card names a hidden matter stays out whole, as on the screens and in the Obsidian vault
-    val people = db.people().all().filter { it.id !in onlyHidden && free(null, it.name, it.organization, it.jobTitle, it.contact, it.notes) }
+    // People are left out by the very rule of the screens ([Hidden.person]): known only through hidden
+    // matters, or with a card that names a matter trip mode hides. For those who stay, notes and a
+    // contact line naming any hidden matter (also one the lens hides) are left blank.
+    val people = db.people().all().filter { it.id !in onlyHidden && !shown.person(it) }.map { p ->
+        if (free(null, p.notes) && free(null, p.contact)) p else p.copy(notes = if (free(null, p.notes)) p.notes else "", contact = if (free(null, p.contact)) p.contact else "")
+    }
     val titles = db.matters().observeAllTitles().first().filter { visible(it.id) }.associate { it.id to it.title }
     val nameOf = people.associate { it.id to it.name }
     fun catName(k: String): String = when {
@@ -877,7 +881,8 @@ private suspend fun matterDossier(context: Context, db: MandatDb, m: ua.mandat.d
     line(R.string.matter_goal, m.goal)
     line(R.string.matter_next_step, m.nextStep)
     if (m.description.isNotBlank()) append("\n").append(Export.md(m.description)).append("\n")
-    val linked = db.people().observeForMatter(m.id).first()
+    // Only people who go into the export at all ([nameOf] holds exactly those)
+    val linked = db.people().observeForMatter(m.id).first().filter { it.personId in nameOf }
     if (linked.isNotEmpty()) {
         append("\n## ").append(context.getString(R.string.people_in_matter)).append("\n\n")
         linked.forEach { append("- ").append(Export.md(it.name)).append(ua.mandat.data.Stance.of(it.stance)?.let { s -> " — " + context.getString(s.label()) }.orEmpty()).append("\n") }
