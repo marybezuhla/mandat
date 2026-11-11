@@ -95,8 +95,11 @@ fun personText(p: ua.mandat.data.Person): String = p.name + " " + p.organization
 /** Hidden now: known only through hidden matters, or the card names one (written before trip mode). */
 fun Hidden.person(p: ua.mandat.data.Person): Boolean = p.id in people || named(p.updatedAt, personText(p))
 
+/** The words of a community's card that could name a matter. */
+fun communityText(c: ua.mandat.data.Community): String = c.name + " " + c.head + " " + c.notes
+
 /** Hidden now: tied only to hidden things, or its card names a hidden matter. */
-fun Hidden.community(c: ua.mandat.data.Community): Boolean = c.id in communities || named(c.updatedAt, c.name + " " + c.head + " " + c.notes)
+fun Hidden.community(c: ua.mandat.data.Community): Boolean = c.id in communities || named(c.updatedAt, communityText(c))
 
 /** Leaves out people known only through hidden matters, or whose card names one. */
 fun Flow<List<ua.mandat.data.Person>>.hidingPeople(session: Session?): Flow<List<ua.mandat.data.Person>> =
@@ -115,10 +118,11 @@ fun Flow<List<ua.mandat.data.Community>>.hidingCommunities(session: Session?): F
     else combine(session.hidden) { list, h -> if (h.isEmpty) list else list.filter { !h.community(it) } }
         .flowOn(kotlinx.coroutines.Dispatchers.Default)
 
-/** Leaves out free text (not tied to a matter) that names a hidden matter. */
-fun <T> Flow<List<T>>.hidingNamed(session: Session?, matterOf: (T) -> Long?, at: ((T) -> Long)? = null, text: (T) -> String): Flow<List<T>> =
+/** Hidden now, by the one rule for this kind of record ([ua.mandat.data.HideRules]). */
+fun <T> Hidden.hides(rule: ua.mandat.data.HideRule<T>, item: T): Boolean = itemAt(rule.matterOf(item), rule.at(item), rule.text(item))
+
+/** Leaves out records tied to a hidden matter, and free text (not tied to a matter) that names one. */
+fun <T> Flow<List<T>>.hiding(session: Session?, rule: ua.mandat.data.HideRule<T>): Flow<List<T>> =
     if (session == null) this
-    else combine(session.hidden) { list, h ->
-        if (h.isEmpty) list else list.filter { !h.itemAt(matterOf(it), at?.invoke(it) ?: 0L, text(it)) }
-    }
+    else combine(session.hidden) { list, h -> if (h.isEmpty) list else list.filter { !h.hides(rule, it) } }
         .flowOn(kotlinx.coroutines.Dispatchers.Default) // matching titles in many texts, away from the screen thread

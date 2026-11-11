@@ -461,7 +461,7 @@ fun AiSplitSheet(db: ua.mandat.data.MandatDb, session: Session, onClose: () -> U
 fun InboxSortSheet(db: ua.mandat.data.MandatDb, session: Session, onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
-    val inbox by remember(db) { db.inbox().observeAll().hidingNamed(session, { null }, { it.createdAt }) { it.text } }.collectAsStateWithLifecycle(emptyList())
+    val inbox by remember(db) { db.inbox().observeAll().hiding(session, ua.mandat.data.HideRules.INBOX) }.collectAsStateWithLifecycle(emptyList())
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     val picks = remember { mutableStateListOf<Pick>() }
@@ -528,9 +528,9 @@ suspend fun briefFacts(db: ua.mandat.data.MandatDb, session: Session, personId: 
     val named = db.namesHidden(session)
     fun free(id: Long?, text: String) = ok(id) && !(id == null && named(text))
     val matters = db.people().observeMattersOf(personId).first().filter { ok(it.matterId) }
-    val promises = db.promises().observeForPerson(personId).first().filter { free(it.matterId, it.what) && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.OPEN }
-    val asked = db.delegations().observeForPerson(personId).first().filter { free(it.matterId, it.what) && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.OPEN }
-    val events = db.events().observeForPerson(personId).first().filter { free(it.matterId, it.title + " " + it.outcome) }.sortedByDescending { it.day }.take(5)
+    val promises = db.promises().observeForPerson(personId).first().filter { free(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.OPEN }
+    val asked = db.delegations().observeForPerson(personId).first().filter { free(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.OPEN }
+    val events = db.events().observeForPerson(personId).first().filter { free(it.matterId, ua.mandat.data.HideRules.EVENT.text(it)) }.sortedByDescending { it.day }.take(5)
     return buildString {
         append("Людина: ").append(p.name).append(". ").append(listOf(p.jobTitle, p.organization).filter { it.isNotBlank() }.joinToString(", ")).append("\n")
         if (p.notes.isNotBlank() && !named(p.notes)) append("Нотатки: ").append(p.notes.take(800)).append("\n")

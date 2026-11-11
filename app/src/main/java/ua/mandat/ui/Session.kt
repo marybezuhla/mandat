@@ -218,8 +218,8 @@ class Session(app: Application) : AndroidViewModel(app) {
             withContext(Dispatchers.Main) {
                 if (startedAt != generation || state !is LockState.Open) return@withContext
                 when (found) {
-                    is ua.mandat.data.InfoItem -> if (!isHidden(found.matterId) && !hidden.value.itemAt(found.matterId, found.updatedAt, found.title, found.source, found.notes, found.result)) infoDraft = InfoDraft(found, isNew = false)
-                    is ua.mandat.data.Alliance -> if (!isHidden(found.matterId) && !hidden.value.itemAt(found.matterId, found.updatedAt, found.withWhom, found.about, found.gives, found.gets, found.notes)) allianceDraft = AllianceDraft(found, isNew = false)
+                    is ua.mandat.data.InfoItem -> if (!isHidden(found.matterId) && !hidden.value.hides(ua.mandat.data.HideRules.INFO, found)) infoDraft = InfoDraft(found, isNew = false)
+                    is ua.mandat.data.Alliance -> if (!isHidden(found.matterId) && !hidden.value.hides(ua.mandat.data.HideRules.ALLIANCE, found)) allianceDraft = AllianceDraft(found, isNew = false)
                 }
             }
         }
@@ -238,7 +238,7 @@ class Session(app: Application) : AndroidViewModel(app) {
             val found = withOpenDb { db -> db.events().get(id)?.let { it to db.events().peopleOf(id).toSet() } }
             withContext(Dispatchers.Main) {
                 if (found != null && startedAt == generation && state is LockState.Open && !isHidden(found.first.matterId) &&
-                    !found.first.let { e -> hidden.value.itemAt(e.matterId, e.updatedAt, e.title, e.place, e.notes, e.outcome) }) eventDraft = EventDraft(found.first, isNew = false, found.second)
+                    !hidden.value.hides(ua.mandat.data.HideRules.EVENT, found.first)) eventDraft = EventDraft(found.first, isNew = false, found.second)
             }
         }
     }
@@ -450,11 +450,11 @@ class Session(app: Application) : AndroidViewModel(app) {
             else ua.mandat.data.HiddenNames(db.matters().observeAllTitles().first().filter { it.id in sensitive }.map { it.title })
         val h = Hidden(sensitive, emptySet(), emptySet(), emptySet(), names)
         val days = reminderDays(
-            db.deadlines().open().filterNot { h.item(it.matterId, it.title, it.basis) },
-            db.delegations().open().filterNot { h.item(it.matterId, it.what, it.purpose, it.doneMeans) },
-            db.promises().open().filterNot { h.item(it.matterId, it.what, it.toWhom, it.source, it.statusNote) },
+            db.deadlines().open().filterNot { h.hides(ua.mandat.data.HideRules.DEADLINE, it) },
+            db.delegations().open().filterNot { h.hides(ua.mandat.data.HideRules.DELEGATION, it) },
+            db.promises().open().filterNot { h.hides(ua.mandat.data.HideRules.PROMISE, it) },
             today,
-            db.events().withReminder(today).filterNot { h.item(it.matterId, it.title, it.place, it.notes, it.outcome) },
+            db.events().withReminder(today).filterNot { h.hides(ua.mandat.data.HideRules.EVENT, it) },
         )
         Reminders.storeDays(getApplication(), days)
     }
@@ -520,9 +520,9 @@ class Session(app: Application) : AndroidViewModel(app) {
                 if (startedAt != generation || state !is LockState.Open) return@withContext
                 when (item) {
                     // Not tied to a hidden matter, and not naming one either (any link leads to the same check)
-                    is ua.mandat.data.Delegation -> if (!isHidden(item.matterId) && !hidden.value.itemAt(item.matterId, item.createdAt, item.what, item.purpose, item.doneMeans)) delegationDraft = DelegationDraft(item, isNew = false)
-                    is ua.mandat.data.Promise -> if (!isHidden(item.matterId) && !hidden.value.itemAt(item.matterId, item.createdAt, item.what, item.toWhom, item.source, item.statusNote)) promiseDraft = PromiseDraft(item, isNew = false)
-                    is ua.mandat.data.Deadline -> if (!isHidden(item.matterId) && !hidden.value.itemAt(item.matterId, item.createdAt, item.title, item.basis)) deadlineDraft = DeadlineDraft(item, isNew = false)
+                    is ua.mandat.data.Delegation -> if (!isHidden(item.matterId) && !hidden.value.hides(ua.mandat.data.HideRules.DELEGATION, item)) delegationDraft = DelegationDraft(item, isNew = false)
+                    is ua.mandat.data.Promise -> if (!isHidden(item.matterId) && !hidden.value.hides(ua.mandat.data.HideRules.PROMISE, item)) promiseDraft = PromiseDraft(item, isNew = false)
+                    is ua.mandat.data.Deadline -> if (!isHidden(item.matterId) && !hidden.value.hides(ua.mandat.data.HideRules.DEADLINE, item)) deadlineDraft = DeadlineDraft(item, isNew = false)
                 }
             }
         }
@@ -870,7 +870,7 @@ class Session(app: Application) : AndroidViewModel(app) {
     // Compared only with what is shown now: a count of "already there" must not give away a hidden entry
     private suspend fun shownPeople(db: MandatDb) = hidden.value.let { h -> db.people().all().filterNot { h.person(it) } }
     private suspend fun shownContacts(db: MandatDb) = hidden.value.let { h ->
-        db.contacts().all().filterNot { h.named(it.createdAt, it.name + " " + it.organization + " " + it.jobTitle + " " + it.notes + " " + it.label) }
+        db.contacts().all().filterNot { h.hides(ua.mandat.data.HideRules.CONTACT, it) }
     }
 
     /** A save failed: one short notice says so (its content stays in the editor when it can). */

@@ -84,20 +84,20 @@ fun RetroScreen(db: MandatDb, session: Session) {
     BackHandler { session.showRetro = false }
     val matters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val history by remember(db) { db.history().observeAll().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
-    val deadlines by remember(db) { db.deadlines().observeAll().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.title + " " + it.basis } }.collectAsStateWithLifecycle(emptyList())
-    val events by remember(db) { db.events().observeAll().hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.title + " " + it.notes + " " + it.place + " " + it.outcome } }.collectAsStateWithLifecycle(emptyList())
+    val deadlines by remember(db) { db.deadlines().observeAll().hiding(session, ua.mandat.data.HideRules.DEADLINE) }.collectAsStateWithLifecycle(emptyList())
+    val events by remember(db) { db.events().observeAll().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
     val eventLinks by remember(db) { db.events().observeLinks() }.collectAsStateWithLifecycle(emptyList())
     val entries by remember(db) { db.time().observeAll().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
-    val promises by remember(db) { db.promises().observeAll().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.toWhom + " " + it.source + " " + it.statusNote } }.collectAsStateWithLifecycle(emptyList())
-    val delegations by remember(db) { db.delegations().observeAll().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.purpose + " " + it.doneMeans } }.collectAsStateWithLifecycle(emptyList())
-    val aid by remember(db) { db.money().observeAid().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.party } }.collectAsStateWithLifecycle(emptyList())
+    val promises by remember(db) { db.promises().observeAll().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
+    val delegations by remember(db) { db.delegations().observeAll().hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
+    val aid by remember(db) { db.money().observeAid().hiding(session, ua.mandat.data.HideRules.AID) }.collectAsStateWithLifecycle(emptyList())
     val roles by remember(db) { db.roles().observeAll() }.collectAsStateWithLifecycle(emptyList())
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
     val links by remember(db) { db.people().observeLinks().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
     val cadence by remember(db) { db.settings().observe(SETTING_CADENCE_START) }.collectAsStateWithLifecycle(null)
     // Diary entries tied to something hidden, or naming it, stay out while it is hidden
     val reviews by remember(db) { db.reviews().observeAll().hidingReviews(session) }.collectAsStateWithLifecycle(emptyList())
-    val infoItems by remember(db) { db.info().observeAll().hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.title + " " + it.notes + " " + it.source + " " + it.result } }.collectAsStateWithLifecycle(emptyList())
+    val infoItems by remember(db) { db.info().observeAll().hiding(session, ua.mandat.data.HideRules.INFO) }.collectAsStateWithLifecycle(emptyList())
     val hidden by session.hidden.collectAsStateWithLifecycle()
     var range by rememberSaveable { mutableStateOf(RetroSpan.HALF) }
     val today = Dates.today()
@@ -302,9 +302,9 @@ fun RetroScreen(db: MandatDb, session: Session) {
                         // Free text naming a hidden matter is left out while it is hidden
                         val hiddenTitles = hidden.names
                         val texts = matters.filter { Dates.dayOf(it.updatedAt) in span || Dates.dayOf(it.createdAt) in span }.map { it.title + " " + it.goal } +
-                            events.filter { it.day in span && !(it.matterId == null && namesAny(it.title + " " + it.outcome, hiddenTitles)) }.map { it.title + " " + it.outcome } +
+                            events.filter { it.day in span && !(it.matterId == null && namesAny(ua.mandat.data.HideRules.EVENT.text(it), hiddenTitles)) }.map { it.title + " " + it.outcome } +
                             reviews.filter { it.day in span }.map { it.progress }.filter { p -> !namesAny(p, hiddenTitles) } +
-                            infoItems.filter { it.day in span && !(it.matterId == null && namesAny(it.title, hiddenTitles)) }.map { it.title }
+                            infoItems.filter { it.day in span && !(it.matterId == null && namesAny(ua.mandat.data.HideRules.INFO.text(it), hiddenTitles)) }.map { it.title }
                         ua.mandat.data.Words.top(texts, 30)
                     }
                 }
