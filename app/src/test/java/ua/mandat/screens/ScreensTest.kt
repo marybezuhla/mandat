@@ -141,4 +141,17 @@ class ScreensTest {
     @Test fun community() = shot("22-community") { ua.mandat.ui.CommunityScreen(db, session, 1L) }
     @Test fun weekGrid() = shot("23-week") { ua.mandat.ui.CalendarScreenForTest(db, session, 1) }
     @Test fun next() = shot("07-smart-next") { SmartListScreen(db, session, SmartList.NEXT) }
+
+    // The choice of mode and roles at the first start, as an official and as a citizen see it
+    @Test fun rolesOfficial() = inMode(ua.mandat.data.Mode.OFFICIAL) { shot("26-roles-official") { ua.mandat.ui.RolesSetup(session) } }
+    @Test fun rolesCitizen() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("26-roles-citizen") { ua.mandat.ui.RolesSetup(session) } }
+    @Config(qualifiers = "+night")
+    @Test fun rolesCitizenDark() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("26-roles-citizen-dark") { ua.mandat.ui.RolesSetup(session) } }
+    @Test fun mattersCitizen() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("27-matters-citizen") { MattersList(db, onOpen = {}, session = session) } }
+
+    /** The mode is one for the whole app, so it is put back for the other pictures. */
+    private fun inMode(mode: ua.mandat.data.Mode, draw: () -> Unit) {
+        ua.mandat.ui.AppMode.mode = mode
+        try { draw() } finally { ua.mandat.ui.AppMode.mode = ua.mandat.data.Mode.RADA }
+    }
 }

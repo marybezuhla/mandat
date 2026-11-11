@@ -32,6 +32,8 @@ object AutoBackup {
     const val KEY_MANUAL = PREFIX + "manual"
     const val KEY_LAST_FAIL = PREFIX + "last_fail"
     private const val KEY_FAIL_REASON = PREFIX + "fail_reason"
+    /** How many bytes the data took at the last attempt to make a copy (this phone only), to warn before [BackupCrypto.MAX_PLAIN_BYTES] is reached. */
+    const val KEY_SIZE = PREFIX + "size"
     private const val KEY_FILES = PREFIX + "files"
     private const val KEY_PENDING = PREFIX + "pending"
     private const val KEY_TO_DELETE = PREFIX + "to_delete"
@@ -78,7 +80,7 @@ object AutoBackup {
         val (salt, key) = BackupCrypto.newAutoKey(password)
         try {
             val s = db.settings()
-            s.deletePrefix(PREFIX)
+            forget(s)
             s.put(Setting(KEY_FOLDER, folder.toString()))
             s.put(Setting(KEY_SALT, salt.hex()))
             s.put(Setting(KEY_KEY, key.hex()))
@@ -87,10 +89,17 @@ object AutoBackup {
         }
     }
 
+    /** Forgets the automatic copies; when a copy was last made by hand and how large the data was stay known. */
+    private suspend fun forget(s: ua.mandat.data.SettingDao) {
+        val kept = listOf(KEY_MANUAL, KEY_SIZE).mapNotNull { s.get(it) }
+        s.deletePrefix(PREFIX)
+        kept.forEach { s.put(it) }
+    }
+
     /** Turns automatic backups off: forgets the key, the folder and the list (files already made stay). */
     suspend fun disable(context: Context, db: MandatDb) {
         val folder = db.settings().get(KEY_FOLDER)?.value?.let(Uri::parse)
-        db.settings().deletePrefix(PREFIX)
+        forget(db.settings())
         if (folder != null) {
             try {
                 val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
@@ -117,7 +126,8 @@ object AutoBackup {
         val key = s.get(KEY_KEY)?.value?.unhex() ?: return null
         val json = BackupData.dump(db)
         try {
-            if (json.size > BackupCrypto.MAX_FILE_BYTES - 64) {
+            s.put(Setting(KEY_SIZE, json.size.toString()))
+            if (json.size > BackupCrypto.MAX_PLAIN_BYTES) {
                 fail(db, REASON_TOO_BIG, now)
                 return null
             }

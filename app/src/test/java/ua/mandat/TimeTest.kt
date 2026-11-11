@@ -38,6 +38,14 @@ class TimeTest {
         assertEquals((10L..23L).toList(), reminderDays(listOf(deadline(5)), emptyList(), emptyList(), today = 10))
     }
 
+    @Test fun aPassedAnnouncementIsNotOverdue() {
+        // The "days before" day has passed, the deadline itself has not: one reminder on its day, not one every day
+        assertEquals(listOf(30L), reminderDays(listOf(deadline(30, before = 7)), emptyList(), emptyList(), today = 25))
+        // An event of several days that has begun: nothing more to announce
+        val trip = ua.mandat.data.Event(title = "т", day = 9, endDay = 11, kind = "MEETING", remind = true, createdAt = 0, updatedAt = 0)
+        assertEquals(emptyList<Long>(), reminderDays(emptyList(), emptyList(), emptyList(), today = 10, events = listOf(trip)))
+    }
+
     @Test fun searchIgnoresCaseAlsoForCyrillic() {
         val rows = listOf(SearchRow("person", 1, "Вигадана Особа", "", "Вигадана Особа Установа", null))
         assertEquals(1, search(rows, "вигадана").size)

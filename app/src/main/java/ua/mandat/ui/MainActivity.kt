@@ -122,9 +122,22 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    /** The owner confirmed: forget the unreadable data and set up again (then restore a backup). */
+    /**
+     * "Erase all data" in Options, already confirmed with the phone's lock: Mandat closes, and then
+     * everything is removed exactly as when starting over. Appearance settings and the AI model stay.
+     */
+    fun eraseAll() {
+        // What Mandat copied leaves the clipboard too
+        AiClipboard.clearIfOurs(this)
+        session.lockThenErase(::startOver)
+    }
+
+    /** The owner confirmed: forget the data (unreadable, or being erased) and set up again. */
     private fun startOver() {
         vault.reset()
+        // "PIN only" was a property of the key that is gone: the new key is an ordinary one, so the
+        // prompt must not go on pretending. It is switched on again in Options.
+        Appearance.setPinOnly(this, false)
         MandatDb.deleteFiles(this)
         // Nothing about the deleted data may stay behind, not even the days of reminders
         ua.mandat.notify.Reminders.clear(this)
@@ -199,7 +212,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun unlock() {
-        if (session.prompting) return
+        if (session.prompting || session.erasing) return
         session.lastError = false
         val firstRun = !vault.isSetUp()
         if (firstRun && MandatDb.exists(this)) {

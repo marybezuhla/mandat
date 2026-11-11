@@ -51,7 +51,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -115,8 +114,9 @@ fun DirectoryScreen(db: MandatDb, session: Session) {
                 raw.map { it to collator.getCollationKey(it.name) }.sortedBy { it.second }.map { it.first }
             }.flowOn(kotlinx.coroutines.Dispatchers.Default)
     }.collectAsStateWithLifecycle(emptyList())
-    var query by rememberSaveable { mutableStateOf("") }
-    var label by rememberSaveable { mutableStateOf<String?>(null) }
+    // Kept in memory only (not in the saved screen state, which leaves the app), like the main search
+    var query by remember { mutableStateOf("") }
+    var label by remember { mutableStateOf<String?>(null) }
     var pickedAt by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(-1) }
     val context = LocalContext.current
     val listState = rememberLazyListState()
@@ -332,7 +332,7 @@ fun VcfPreviewScreen(session: Session, job: VcfImport) {
     BackHandler { session.vcfImport = null }
     val all = job.plan.fresh
     var skip by remember(job) { mutableStateOf(setOf<Int>()) }
-    var label by rememberSaveable { mutableStateOf("") }
+    var label by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
     val q = query.trim().lowercase()
     val indexed = all.withIndex().filter { (_, c) -> q.length < 2 || c.sortKey.contains(q) || c.organization.lowercase().contains(q) || c.phones.contains(q) }

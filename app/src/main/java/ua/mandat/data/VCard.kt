@@ -24,7 +24,8 @@ object VCard {
         var tooMany = false
 
         fun handle(line: String) {
-            val p = parse(line) ?: return
+            // Some apps start the file with a byte-order mark: without this the first card would never open
+            val p = parse(line.removePrefix("\uFEFF")) ?: return
             when {
                 p.name == "BEGIN" && p.value.equals("VCARD", true) -> card = Card()
                 p.name == "END" && p.value.equals("VCARD", true) -> {

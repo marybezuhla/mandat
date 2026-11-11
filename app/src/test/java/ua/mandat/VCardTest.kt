@@ -14,6 +14,11 @@ import ua.mandat.data.sortKeyOf
 class VCardTest {
     private fun read(text: String) = VCard.read(text.reader().buffered(), now = 1L)
 
+    @Test fun aByteOrderMarkDoesNotCostTheFirstContact() {
+        val r = read("\uFEFFBEGIN:VCARD\r\nFN:Перша Особа\r\nEND:VCARD\r\nBEGIN:VCARD\r\nFN:Друга Особа\r\nEND:VCARD\r\n")
+        assertEquals(listOf("Перша Особа", "Друга Особа"), r.contacts.map { it.name })
+    }
+
     @Test fun readsVersion3WithFolding() {
         val r = read(
             "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Тестова Особа\r\nN:Особа;Тестова;;;\r\nTEL;TYPE=CELL:+380 00 000 00 01\r\n" +

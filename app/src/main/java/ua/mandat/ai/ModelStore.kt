@@ -43,6 +43,9 @@ class ModelStore(private val context: Context) {
 
     data class ImportResult(val originalDeleted: Boolean?)
 
+    /** The picked file was refused; [message] is Mandat's own text for the owner, never a system one. */
+    class Refused(message: String) : Exception(message)
+
     /**
      * Copies a model the user picked with the system file picker.
      * When [deleteOriginal] is set, tries to remove the picked file afterwards
@@ -53,11 +56,11 @@ class ModelStore(private val context: Context) {
             val cr = context.contentResolver
             val total = cr.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
             // A file of any other size cannot be the published model: refused before copying gigabytes
-            if (total > 0 && total != E2B_SIZE) error(context.getString(ua.mandat.R.string.ai_wrong_file, E2B_FILE))
+            if (total > 0 && total != E2B_SIZE) throw Refused(context.getString(ua.mandat.R.string.ai_wrong_file, E2B_FILE))
             val tmp = File(dir, "import.tmp")
             tmp.delete() // a leftover from a failed copy must not block the space check
             // Also when the size is not told: room for the published model is needed either way
-            require(dir.usableSpace > (if (total > 0) total else E2B_SIZE) + 200 * MB) { context.getString(ua.mandat.R.string.ai_no_space) }
+            if (dir.usableSpace <= (if (total > 0) total else E2B_SIZE) + 200 * MB) throw Refused(context.getString(ua.mandat.R.string.ai_no_space))
             // Only the exact published file is accepted: it is checked by its SHA-256 while copying.
             val sha = java.security.MessageDigest.getInstance("SHA-256")
             try {
@@ -74,7 +77,7 @@ class ModelStore(private val context: Context) {
                         sha.update(buf, 0, n)
                         copied += n
                         // A source that did not tell the size still stops at the model's size, never fills the phone
-                        if (copied > E2B_SIZE) error(context.getString(ua.mandat.R.string.ai_wrong_file, E2B_FILE))
+                        if (copied > E2B_SIZE) throw Refused(context.getString(ua.mandat.R.string.ai_wrong_file, E2B_FILE))
                         if (total > 0) onProgress(copied.toFloat() / total)
                     }
                 }
@@ -86,7 +89,7 @@ class ModelStore(private val context: Context) {
             val hex = sha.digest().joinToString("") { "%02x".format(it) }
             if (tmp.length() <= MIN_SIZE || hex != E2B_SHA256) {
                 tmp.delete()
-                error(context.getString(ua.mandat.R.string.ai_wrong_file, E2B_FILE))
+                throw Refused(context.getString(ua.mandat.R.string.ai_wrong_file, E2B_FILE))
             }
             dir.listFiles { f -> f.name.endsWith(".litertlm") }?.forEach { it.delete() }
             val target = File(dir, "model.litertlm")

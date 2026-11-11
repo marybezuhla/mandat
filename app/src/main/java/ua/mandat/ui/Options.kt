@@ -92,6 +92,8 @@ fun Options(session: Session, onBack: () -> Unit) {
     // Automatic backups: the folder is chosen first, then the password
     var autoFolder by remember { mutableStateOf<android.net.Uri?>(null) }
     var confirmAutoOff by remember { mutableStateOf(false) }
+    // Erasing everything: asked in words first, then confirmed with the phone's lock
+    var confirmErase by remember { mutableStateOf(false) }
     var cloudFolder by remember { mutableStateOf<android.net.Uri?>(null) }
     LaunchedEffect(Unit) { backups.refreshAuto() }
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -120,6 +122,8 @@ fun Options(session: Session, onBack: () -> Unit) {
             session.pickingFile = false
         }
     }
+    val activity = androidx.compose.ui.platform.LocalContext.current.findActivity() as? MainActivity
+    val askErase = rememberConfirmed(session, "erase", stringResource(R.string.erase_confirm_lock)) { activity?.eraseAll() }
     val askAuto = rememberConfirmed(session, "auto", guardTitle) {
         session.pickingFile = true
         pickedAt = session.generationNow()
@@ -228,6 +232,11 @@ fun Options(session: Session, onBack: () -> Unit) {
                 androidx.compose.material3.OutlinedButton(onClick = { session.showExport = true; onBack() }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.export_title))
                 }
+                Section(stringResource(R.string.erase_title))
+                Text(stringResource(R.string.erase_hint), style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = { confirmErase = true }, enabled = !backups.busy) {
+                    Text(stringResource(R.string.erase_title), color = MaterialTheme.colorScheme.error)
+                }
             }
 
             openDb?.let { db ->
@@ -307,6 +316,18 @@ fun Options(session: Session, onBack: () -> Unit) {
             text = { Text(stringResource(R.string.auto_may_sync)) },
             confirmButton = { TextButton(onClick = { cloudFolder = null; autoFolder = folder }) { Text(stringResource(R.string.auto_use_anyway)) } },
             dismissButton = { TextButton(onClick = { cloudFolder = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+
+    if (confirmErase) {
+        AlertDialog(
+            onDismissRequest = { confirmErase = false },
+            title = { Text(stringResource(R.string.erase_question)) },
+            text = { Text(stringResource(R.string.erase_text)) },
+            confirmButton = {
+                TextButton(onClick = { confirmErase = false; askErase() }) { Text(stringResource(R.string.erase_confirm), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmErase = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 

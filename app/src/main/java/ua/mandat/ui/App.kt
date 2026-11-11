@@ -106,7 +106,8 @@ fun App(session: Session, onUnlock: () -> Unit, onStartOver: () -> Unit) {
             LockState.NeedsScreenLock -> Message(stringResource(R.string.no_screen_lock))
             LockState.KeyLost -> KeyLost(onStartOver)
             LockState.FirstRun -> Welcome(onUnlock)
-            LockState.Locked -> Locked(session.lastError, onUnlock)
+            // While everything is being erased there is nothing to unlock
+            LockState.Locked -> if (session.erasing) Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() } else Locked(session.lastError, onUnlock)
             LockState.Opening -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
             is LockState.Open -> PrivateKeyboard { Main(state.db, session) }
         }
@@ -118,7 +119,8 @@ fun App(session: Session, onUnlock: () -> Unit, onStartOver: () -> Unit) {
 @Composable
 private fun Centered(content: @Composable () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(32.dp),
+        // Scrolls when the text does not fit (the largest font on a small phone), so the button is always reachable
+        modifier = Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) { content() }
@@ -232,9 +234,9 @@ private fun Main(db: MandatDb, session: Session) {
 
     val rolesAskedFlow = remember(db) { db.settings().observe(SETTING_ROLES_ASKED).map { it != null } }
     val rolesAsked by rolesAskedFlow.collectAsStateWithLifecycle(initialValue = null)
-    // The chosen mode (parliament or local council) follows the setting
+    // The chosen mode follows the setting
     val modeSetting by remember(db) { db.settings().observe(ua.mandat.data.SETTING_MODE) }.collectAsStateWithLifecycle(null)
-    androidx.compose.runtime.LaunchedEffect(modeSetting) { AppMode.council = modeSetting?.value == ua.mandat.data.MODE_COUNCIL }
+    androidx.compose.runtime.LaunchedEffect(modeSetting) { AppMode.mode = ua.mandat.data.Mode.of(modeSetting?.value) }
     // Trip mode follows its setting and the marks on matters, while Mandat is open
     androidx.compose.runtime.LaunchedEffect(db) {
         val lensHidden = session.lensRole.flatMapLatest { r ->

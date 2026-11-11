@@ -194,21 +194,25 @@ fun reminderDays(
     deadlines: List<Deadline>, delegations: List<Delegation>, promises: List<Promise>, today: Long,
     events: List<Event> = emptyList(),
 ): List<Long> {
-    val days = mutableSetOf<Long>()
+    // Days that only announce something: once past, they are simply over
+    val heads = mutableSetOf<Long>()
+    // Days on which something open is due: once past, that thing is overdue
+    val due = mutableSetOf<Long>()
     // Events marked for a reminder: their first day only
-    events.filter { it.remind }.mapTo(days) { it.day }
+    events.filter { it.remind }.mapTo(heads) { it.day }
     for (d in deadlines) {
         if (TaskStatus.of(d.status) != TaskStatus.OPEN) continue
-        days += d.day
-        if (d.remindBefore > 0) days += d.day - d.remindBefore
+        due += d.day
+        if (d.remindBefore > 0) heads += d.day - d.remindBefore
     }
-    delegations.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }.mapNotNullTo(days) { it.due }
+    delegations.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }.mapNotNullTo(due) { it.due }
     // A check-in day is a reminder too (only the day is kept, never what is due)
-    delegations.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }.mapNotNullTo(days) { it.checkIn }
-    promises.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }.mapNotNullTo(days) { it.due }
-    // Something already overdue: remind every day (of the stored window) until it is closed
-    val future = days.filter { it >= today }
-    val overdue = days.any { it < today }
+    delegations.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }.mapNotNullTo(due) { it.checkIn }
+    promises.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }.mapNotNullTo(due) { it.due }
+    // Something already overdue: remind every day (of the stored window) until it is closed.
+    // An event that has begun, or a "days before" day that has passed, is not overdue.
+    val future = (heads + due).filter { it >= today }
+    val overdue = due.any { it < today }
     val daily = if (overdue) (today until today + 14).toList() else emptyList()
     return (future + daily).distinct().sorted()
 }

@@ -441,10 +441,10 @@ class Session(app: Application) : AndroidViewModel(app) {
         val h = Hidden(sensitive, emptySet(), emptySet(), emptySet(), names)
         val days = reminderDays(
             db.deadlines().open().filterNot { h.item(it.matterId, it.title, it.basis) },
-            db.delegations().open().filterNot { h.item(it.matterId, it.what, it.purpose) },
-            db.promises().open().filterNot { h.item(it.matterId, it.what, it.toWhom) },
+            db.delegations().open().filterNot { h.item(it.matterId, it.what, it.purpose, it.doneMeans) },
+            db.promises().open().filterNot { h.item(it.matterId, it.what, it.toWhom, it.source, it.statusNote) },
             today,
-            db.events().withReminder(today).filterNot { h.item(it.matterId, it.title, it.notes) },
+            db.events().withReminder(today).filterNot { h.item(it.matterId, it.title, it.place, it.notes, it.outcome) },
         )
         Reminders.storeDays(getApplication(), days)
     }
@@ -697,8 +697,11 @@ class Session(app: Application) : AndroidViewModel(app) {
             val note = try {
                 val r = ai.models.import(uri, deleteOriginal) { p -> modelImport = p }
                 when (r.originalDeleted) { true -> app.getString(R.string.ai_original_deleted); false -> app.getString(R.string.ai_original_kept); null -> null }
+            } catch (e: ua.mandat.ai.ModelStore.Refused) {
+                e.message
             } catch (e: Throwable) {
-                app.getString(R.string.ai_failed, e.message ?: "")
+                // Whatever the system said stays out of sight: only Mandat's own words reach the screen
+                app.getString(R.string.ai_failed)
             }
             withContext(Dispatchers.Main) {
                 modelImport = null
@@ -899,8 +902,39 @@ class Session(app: Application) : AndroidViewModel(app) {
     /** Runs [block] with the owner's database (for backups). */
     suspend fun <T> withRealDb(block: suspend (MandatDb) -> T): T? = withOpenDb(block)
 
-    /** Closes the database and wipes the key until the next unlock. True if it was open or opening. */
-    fun lock(): Boolean {
+    /** The background step of the last lock (saving what was being typed, closing the database). */
+    private var closing: Job? = null
+
+    /** True from the confirmed "Erase all data" until it is done: nothing can be opened meanwhile. */
+    var erasing by mutableStateOf(false)
+        private set
+
+    /**
+     * For "Erase all data": locks, waits until the database is really closed (its files must not be
+     * deleted under an open database), then runs [erase] on the main thread.
+     */
+    fun lockThenErase(erase: () -> Unit) {
+        if (erasing) return
+        erasing = true
+        lock(backup = false)
+        // Nothing of the erased data is reopened afterwards, and no lens or tab of the old base is applied to the new one
+        resume = null
+        lensRole.value = null
+        lastTab = null
+        val closingNow = closing
+        background.launch {
+            closingNow?.join()
+            withContext(Dispatchers.Main) {
+                try { erase() } finally { erasing = false }
+            }
+        }
+    }
+
+    /**
+     * Closes the database and wipes the key until the next unlock. True if it was open or opening.
+     * [backup]: an automatic copy may be made on the way out (not when everything is being erased).
+     */
+    fun lock(backup: Boolean = true): Boolean {
         generation++
         idleJob?.cancel()
         // A step confirmed just before the lock never runs after it without a new confirmation
@@ -992,7 +1026,7 @@ class Session(app: Application) : AndroidViewModel(app) {
             key = null
             // Saves started just before (a sheet's "Save", then leaving the app) are written first
             val pendingWrites = synchronized(inFlight) { inFlight.toList() }
-            background.launch {
+            closing = background.launch {
                 var prepared: ua.mandat.backup.AutoBackup.Prepared? = null
                 var autoWrite: kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result>? = null
                 pendingWrites.forEach { runCatching { it.join() } }
@@ -1034,7 +1068,7 @@ class Session(app: Application) : AndroidViewModel(app) {
                             }
                         }
                         // Automatic backup, if turned on and due: only encrypted here, written after closing
-                        prepared = try {
+                        prepared = if (!backup) null else try {
                             ua.mandat.backup.AutoBackup.prepareIfDue(current.db)
                         } catch (e: Throwable) {
                             null

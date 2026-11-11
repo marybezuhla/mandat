@@ -3,6 +3,8 @@ package ua.mandat.ui
 import androidx.compose.foundation.layout.widthIn
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -215,7 +217,8 @@ fun QuickChip(text: String, on: Boolean, modifier: Modifier = Modifier, onClick:
         color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
         modifier = modifier.clip(RoundedCornerShape(20.dp))
             .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 10.dp),
+            // The chosen one is told apart by colour on the screen and by "selected" for a screen reader
+            .clickable(onClick = onClick).semantics { selected = on }.padding(horizontal = 14.dp, vertical = 10.dp),
     )
 }
 
