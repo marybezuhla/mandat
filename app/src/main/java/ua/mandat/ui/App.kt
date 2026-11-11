@@ -232,9 +232,9 @@ private fun Main(db: MandatDb, session: Session) {
 
     val rolesAskedFlow = remember(db) { db.settings().observe(SETTING_ROLES_ASKED).map { it != null } }
     val rolesAsked by rolesAskedFlow.collectAsStateWithLifecycle(initialValue = null)
-    // The chosen mode (parliament or local council) follows the setting
+    // The chosen mode follows the setting
     val modeSetting by remember(db) { db.settings().observe(ua.mandat.data.SETTING_MODE) }.collectAsStateWithLifecycle(null)
-    androidx.compose.runtime.LaunchedEffect(modeSetting) { AppMode.council = modeSetting?.value == ua.mandat.data.MODE_COUNCIL }
+    androidx.compose.runtime.LaunchedEffect(modeSetting) { AppMode.mode = ua.mandat.data.Mode.of(modeSetting?.value) }
     // Trip mode follows its setting and the marks on matters, while Mandat is open
     androidx.compose.runtime.LaunchedEffect(db) {
         val lensHidden = session.lensRole.flatMapLatest { r ->

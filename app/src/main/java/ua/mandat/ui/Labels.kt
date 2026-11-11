@@ -6,28 +6,54 @@ import ua.mandat.R
 import ua.mandat.data.Attention
 import ua.mandat.data.MatterStatus
 import ua.mandat.data.MatterType
+import ua.mandat.data.Mode
 
 /**
- * National parliament or a local council (chosen at the start, changed in Options). Read while
- * drawing, so every name follows a change at once.
+ * The owner's mode (chosen at the start, changed in Options). Read while drawing, so every name
+ * follows a change at once.
  */
 object AppMode {
-    var council by androidx.compose.runtime.mutableStateOf(false)
+    var mode by androidx.compose.runtime.mutableStateOf(Mode.RADA)
+}
+
+fun Mode.label(): Int = when (this) {
+    Mode.RADA -> R.string.mode_rada
+    Mode.COUNCIL -> R.string.mode_council
+    Mode.OFFICIAL -> R.string.mode_official
+    Mode.CITIZEN -> R.string.mode_citizen
 }
 
 /** Types that do not fit the chosen mode are not offered for new matters (old ones keep theirs). */
 fun matterTypesForMode(): List<MatterType> =
-    if (AppMode.council) MatterType.entries.filter { it != MatterType.INTERNATIONAL } else MatterType.entries
+    if (AppMode.mode == Mode.COUNCIL) MatterType.entries.filter { it != MatterType.INTERNATIONAL } else MatterType.entries
 
+/** The stored type is the same in every mode; only the name shown follows the mode. */
 fun MatterType.label(): Int = when (this) {
     MatterType.CAMPAIGN -> R.string.type_CAMPAIGN
-    MatterType.BILL -> if (AppMode.council) R.string.type_BILL_council else R.string.type_BILL
-    MatterType.INVESTIGATION -> if (AppMode.council) R.string.type_INVESTIGATION_council else R.string.type_INVESTIGATION
+    MatterType.BILL -> when (AppMode.mode) {
+        Mode.RADA -> R.string.type_BILL
+        Mode.COUNCIL -> R.string.type_BILL_council
+        Mode.OFFICIAL -> R.string.type_BILL_official
+        Mode.CITIZEN -> R.string.type_BILL_citizen
+    }
+    MatterType.INVESTIGATION -> when (AppMode.mode) {
+        Mode.RADA -> R.string.type_INVESTIGATION
+        Mode.COUNCIL -> R.string.type_INVESTIGATION_council
+        Mode.OFFICIAL -> R.string.type_INVESTIGATION_official
+        Mode.CITIZEN -> R.string.type_INVESTIGATION_citizen
+    }
     MatterType.COURT -> R.string.type_COURT
-    MatterType.DISTRICT -> R.string.type_DISTRICT
+    MatterType.DISTRICT -> when (AppMode.mode) {
+        Mode.RADA, Mode.COUNCIL -> R.string.type_DISTRICT
+        Mode.OFFICIAL, Mode.CITIZEN -> R.string.type_DISTRICT_community
+    }
     MatterType.INTERNATIONAL -> R.string.type_INTERNATIONAL
     MatterType.WORKING_GROUP -> R.string.type_WORKING_GROUP
-    MatterType.INQUIRY -> R.string.type_INQUIRY
+    MatterType.INQUIRY -> when (AppMode.mode) {
+        Mode.RADA, Mode.COUNCIL -> R.string.type_INQUIRY
+        Mode.OFFICIAL -> R.string.type_INQUIRY_official
+        Mode.CITIZEN -> R.string.type_INQUIRY_citizen
+    }
     MatterType.PUBLIC_COMMS -> R.string.type_PUBLIC_COMMS
     MatterType.AID -> R.string.type_AID
     MatterType.OTHER -> R.string.type_OTHER
@@ -52,14 +78,47 @@ fun MatterStatus.label(): Int = when (this) {
 }
 
 /**
- * A body of the Rada (or a line of work) and the positions one can hold in it. A role is built
+ * A body (or a line of work) and the positions one can hold in it. A role is built
  * as "position — body", optionally with a name or topic. Only generic names are in the code;
  * the owner's actual choices live in the encrypted database.
  */
 data class RoleBody(val name: Int, val positions: List<Int>)
 
 /** The bodies of the chosen mode. */
-fun roleBodies(): List<RoleBody> = if (AppMode.council) COUNCIL_BODIES else ROLE_BODIES
+fun roleBodies(): List<RoleBody> = when (AppMode.mode) {
+    Mode.RADA -> ROLE_BODIES
+    Mode.COUNCIL -> COUNCIL_BODIES
+    Mode.OFFICIAL -> OFFICIAL_BODIES
+    Mode.CITIZEN -> CITIZEN_BODIES
+}
+
+/** Posts in an office: the same in a ministry, an administration, a local body or an institution. */
+private val OFFICE_POSITIONS = listOf(
+    R.string.pos_head, R.string.pos_deputy_head, R.string.office_pos_unit_head, R.string.office_pos_specialist, R.string.office_pos_adviser,
+)
+
+/** An official: generic names only. */
+val OFFICIAL_BODIES = listOf(
+    RoleBody(R.string.office_body_ministry, OFFICE_POSITIONS),
+    RoleBody(R.string.office_body_administration, OFFICE_POSITIONS),
+    RoleBody(R.string.office_body_local, OFFICE_POSITIONS),
+    RoleBody(R.string.office_body_institution, OFFICE_POSITIONS),
+    RoleBody(R.string.office_body_commission, listOf(R.string.pos_chair, R.string.pos_deputy, R.string.pos_secretary, R.string.pos_member)),
+    RoleBody(R.string.mode_body_working_group, listOf(R.string.pos_head, R.string.pos_member)),
+    RoleBody(R.string.body_other_body, listOf(R.string.pos_representative, R.string.pos_member)),
+)
+
+/** A citizen: organisations and groups people join by their own will, and their own affairs. */
+val CITIZEN_BODIES = listOf(
+    RoleBody(R.string.civic_body_ngo, listOf(R.string.pos_head, R.string.pos_deputy_head, R.string.civic_pos_board, R.string.pos_member, R.string.civic_pos_volunteer)),
+    RoleBody(R.string.civic_body_condo, listOf(R.string.pos_chair, R.string.civic_pos_board, R.string.pos_member)),
+    RoleBody(R.string.civic_body_initiative, listOf(R.string.civic_pos_coordinator, R.string.civic_pos_participant)),
+    RoleBody(R.string.civic_body_public_council, listOf(R.string.pos_chair, R.string.pos_deputy, R.string.pos_secretary, R.string.pos_member)),
+    RoleBody(R.string.civic_body_volunteer, listOf(R.string.civic_pos_coordinator, R.string.civic_pos_volunteer)),
+    RoleBody(R.string.mode_body_working_group, listOf(R.string.pos_head, R.string.pos_member)),
+    RoleBody(R.string.civic_body_community, listOf()),
+    RoleBody(R.string.civic_body_personal, listOf()),
+)
 
 /** A local council: generic names only. */
 val COUNCIL_BODIES = listOf(

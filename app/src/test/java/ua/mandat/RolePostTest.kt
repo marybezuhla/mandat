@@ -2,6 +2,7 @@ package ua.mandat
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import ua.mandat.data.Mode
 import ua.mandat.data.RolePost
 
 class RolePostTest {
@@ -14,5 +15,25 @@ class RolePostTest {
         assertEquals(null, RolePost.guess("Секретаріат ради"))
         assertEquals(null, RolePost.guess("Headquarters"))
         assertEquals(null, RolePost.guess("Фракція «Приклад»"))
+    }
+
+    @Test fun postsOfOfficialsAndCitizensAreGuessedToo() {
+        assertEquals(RolePost.LEAD, RolePost.guess("Керівник підрозділу — Міністерство чи відомство"))
+        assertEquals(RolePost.DEPUTY, RolePost.guess("Заступник керівника — Установа чи комунальне підприємство"))
+        assertEquals(RolePost.MEMBER, RolePost.guess("Член правління — Громадська організація чи фонд «Приклад»"))
+        assertEquals(RolePost.LEAD, RolePost.guess("Head of unit — Ministry or agency"))
+        assertEquals(RolePost.MEMBER, RolePost.guess("Member of the board — NGO or charitable foundation"))
+        // No leading word in the name: left for the owner to say
+        assertEquals(null, RolePost.guess("Фахівець — Обласна чи районна адміністрація"))
+        assertEquals(null, RolePost.guess("Координатор — Ініціативна група"))
+    }
+
+    @Test fun modeIsReadByNameAndFallsBackToTheParliament() {
+        assertEquals(Mode.COUNCIL, Mode.of("COUNCIL"))
+        assertEquals(Mode.OFFICIAL, Mode.of("OFFICIAL"))
+        assertEquals(Mode.CITIZEN, Mode.of("CITIZEN"))
+        // Nothing chosen yet, or a value from a newer Mandat
+        assertEquals(Mode.RADA, Mode.of(null))
+        assertEquals(Mode.RADA, Mode.of("SOMETHING_NEWER"))
     }
 }

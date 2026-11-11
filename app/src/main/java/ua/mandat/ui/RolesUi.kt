@@ -50,8 +50,8 @@ import ua.mandat.data.Setting
 @Composable
 fun RoleBuilder(session: Session? = null, onAdd: (String) -> Unit) {
     val context = LocalContext.current
-    var body by remember(AppMode.council) { mutableStateOf(roleBodies().first()) }
-    var position by remember(AppMode.council) { mutableStateOf(roleBodies().first().positions.firstOrNull()) }
+    var body by remember(AppMode.mode) { mutableStateOf(roleBodies().first()) }
+    var position by remember(AppMode.mode) { mutableStateOf(roleBodies().first().positions.firstOrNull()) }
     var name by remember { mutableStateOf("") }
     // A name typed for a new role is kept in the Inbox if Mandat locks before it is added
     if (session != null && name.isNotBlank()) SaveOnLock(session, "role-name") { db -> persistInboxDraft(db, name) }
@@ -248,16 +248,16 @@ OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true
     }
 }
 
-/** National parliament or a local council: changes the bodies, positions and some names. */
+/** The owner's mode: changes the bodies, positions and some names. */
 @Composable
 fun ModePicker(session: Session) {
     Text(stringResource(R.string.mode_title), style = MaterialTheme.typography.titleMedium)
     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf(false to R.string.mode_rada, true to R.string.mode_council).forEach { (council, label) ->
-            QuickChip(stringResource(label), AppMode.council == council) {
-                    AppMode.council = council
-                    session.write { it.settings().put(Setting(ua.mandat.data.SETTING_MODE, if (council) ua.mandat.data.MODE_COUNCIL else ua.mandat.data.MODE_RADA)) }
-                }
+        ua.mandat.data.Mode.entries.forEach { mode ->
+            QuickChip(stringResource(mode.label()), AppMode.mode == mode) {
+                AppMode.mode = mode
+                session.write { it.settings().put(Setting(ua.mandat.data.SETTING_MODE, mode.name)) }
+            }
         }
     }
     Text(stringResource(R.string.mode_hint), style = MaterialTheme.typography.labelSmall, color = Muted)

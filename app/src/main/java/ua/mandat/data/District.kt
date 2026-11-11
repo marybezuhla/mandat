@@ -101,10 +101,21 @@ fun cleanCommunity(c: Community): Community? {
     )
 }
 
-/** The owner's choice: national parliament or a local council. Decides the bodies, positions and some names. */
+/**
+ * Who the owner is: a member of the national parliament or of a local council, an official, or a
+ * citizen. Decides the bodies and positions offered for roles and some names; everything else is
+ * the same, and no stored data depends on it. Kept by name under [SETTING_MODE]; a missing or
+ * unknown value means the parliament, as it was before there was a choice.
+ */
+enum class Mode {
+    RADA, COUNCIL, OFFICIAL, CITIZEN;
+
+    companion object {
+        fun of(key: String?) = entries.firstOrNull { it.name == key } ?: RADA
+    }
+}
+
 const val SETTING_MODE = "mode"
-const val MODE_RADA = "RADA"
-const val MODE_COUNCIL = "COUNCIL"
 
 /** The district section is shown (for those elected in a district). */
 const val SETTING_DISTRICT = "district_on"
