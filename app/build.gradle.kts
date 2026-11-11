@@ -7,7 +7,15 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-val ciVersionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1
+// The version people see (major.minor.patch), set by hand before each release in version.txt.
+val appVersion = rootProject.file("version.txt").readText().trim()
+// versionCode comes from the same file, so anyone can rebuild the same APK from source:
+// 0.2.0 -> 200. Releases up to 0.1.191 used the CI run number as versionCode, and Android
+// refuses an update with a lower one, so nothing below 200 is accepted here.
+val appVersionCode = appVersion.split(".").map { it.toInt() }.let { (a, b, c) ->
+    require(b < 100 && c < 100) { "version.txt: minor and patch must be below 100" }
+    (a * 10000 + b * 100 + c).also { require(it >= 200) { "version.txt: must be 0.2.0 or above" } }
+}
 
 android {
     namespace = "ua.mandat"
@@ -17,8 +25,8 @@ android {
         applicationId = "ua.mandat"
         minSdk = 31
         targetSdk = 36
-        versionCode = ciVersionCode
-        versionName = "0.1.$ciVersionCode"
+        versionCode = appVersionCode
+        versionName = appVersion
     }
 
     buildTypes {
