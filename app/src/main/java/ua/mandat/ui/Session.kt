@@ -902,8 +902,37 @@ class Session(app: Application) : AndroidViewModel(app) {
     /** Runs [block] with the owner's database (for backups). */
     suspend fun <T> withRealDb(block: suspend (MandatDb) -> T): T? = withOpenDb(block)
 
-    /** Closes the database and wipes the key until the next unlock. True if it was open or opening. */
-    fun lock(): Boolean {
+    /** The background step of the last lock (saving what was being typed, closing the database). */
+    private var closing: Job? = null
+
+    /** True from the confirmed "Erase all data" until it is done: nothing can be opened meanwhile. */
+    var erasing by mutableStateOf(false)
+        private set
+
+    /**
+     * For "Erase all data": locks, waits until the database is really closed (its files must not be
+     * deleted under an open database), then runs [erase] on the main thread.
+     */
+    fun lockThenErase(erase: () -> Unit) {
+        if (erasing) return
+        erasing = true
+        lock(backup = false)
+        // Nothing of the erased data is reopened afterwards
+        resume = null
+        val closingNow = closing
+        background.launch {
+            closingNow?.join()
+            withContext(Dispatchers.Main) {
+                try { erase() } finally { erasing = false }
+            }
+        }
+    }
+
+    /**
+     * Closes the database and wipes the key until the next unlock. True if it was open or opening.
+     * [backup]: an automatic copy may be made on the way out (not when everything is being erased).
+     */
+    fun lock(backup: Boolean = true): Boolean {
         generation++
         idleJob?.cancel()
         // A step confirmed just before the lock never runs after it without a new confirmation
@@ -995,7 +1024,7 @@ class Session(app: Application) : AndroidViewModel(app) {
             key = null
             // Saves started just before (a sheet's "Save", then leaving the app) are written first
             val pendingWrites = synchronized(inFlight) { inFlight.toList() }
-            background.launch {
+            closing = background.launch {
                 var prepared: ua.mandat.backup.AutoBackup.Prepared? = null
                 var autoWrite: kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result>? = null
                 pendingWrites.forEach { runCatching { it.join() } }
@@ -1037,7 +1066,7 @@ class Session(app: Application) : AndroidViewModel(app) {
                             }
                         }
                         // Automatic backup, if turned on and due: only encrypted here, written after closing
-                        prepared = try {
+                        prepared = if (!backup) null else try {
                             ua.mandat.backup.AutoBackup.prepareIfDue(current.db)
                         } catch (e: Throwable) {
                             null

@@ -22,7 +22,8 @@
 - Аналітики, реклами, акаунтів і звітів про збої назовні немає.
 
 **Як усе стерти**
-- Видалення застосунку (системне питання Android) прибирає все, що він зберігав на телефоні, разом із ключем і моделлю ШІ. Окремої кнопки «стерти все» в Опціях поки немає.
+- Опції → Дані та копії → «Стерти всі дані»: після підтвердження PIN-кодом чи відбитком телефона видаляються база з усіма записами, ключ шифрування, дати нагадувань і доступ до теки автокопій. Лишаються налаштування вигляду й безпеки та модель ШІ (у них немає ваших даних).
+- Видалення застосунку (системне питання Android) прибирає все, що він зберігав на телефоні, разом із ключем і моделлю ШІ.
 - Ваші файли резервних копій та експорту лишаються там, куди ви їх зберегли: їх видаляєте ви.
 
 **Межі.** Мандат не призначено для відомостей з грифом. Режим поїздки не захищає від того, хто змусить відкрити Мандат і підтвердити вимкнення режиму.
@@ -51,7 +52,8 @@ Mandat has no internet permission: it sends nothing and downloads nothing by its
 - No analytics, ads, accounts or crash reports sent anywhere.
 
 **How to erase everything**
-- Uninstalling the app (Android asks to confirm) removes everything it kept on the phone, the key and the AI model included. There is no separate "erase everything" button in Options yet.
+- Options → Data and backups → Erase all data: after you confirm with the phone's PIN or fingerprint, the database with every record, the encryption key, the reminder dates and the access to the automatic backup folder are removed. Appearance and security settings and the AI model stay (they hold none of your data).
+- Uninstalling the app (Android asks to confirm) removes everything it kept on the phone, the key and the AI model included.
 - Your backup and export files stay where you saved them: you delete those yourself.
 
 **Limits.** Mandat is not for classified information. Trip mode does not protect against someone who forces you to open Mandat and confirm turning it off.

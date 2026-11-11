@@ -61,6 +61,12 @@
     <string name="security_text">Mandat opens with your fingerprint or the phone PIN, locks when you leave it, blocks screenshots by default and has no internet access. You can change the phone PIN or password, but never turn the screen lock off completely: Android then destroys the key, and the data on this phone can no longer be opened, even if the lock is turned on again. Make a fresh backup before changing the screen lock.</string>
     <string name="about_title">About</string>
     <string name="about_text">Version %1$s. Not for classified information. Open source (GPL-3.0-or-later). Written with AI assistance (Claude, Anthropic), directed and tested by the author.</string>
+    <string name="erase_title">Erase all data</string>
+    <string name="erase_hint">Removes from this phone everything you put into Mandat. Make a backup first if you may need the data again.</string>
+    <string name="erase_question">Erase all data?</string>
+    <string name="erase_text">All matters, people, the calendar, texts and other records will be permanently deleted from this phone, together with the encryption key. They can be brought back only from a backup. Backup and export files stay where you saved them; appearance settings and the AI model stay too.</string>
+    <string name="erase_confirm">Erase everything</string>
+    <string name="erase_confirm_lock">Confirm: all data will be erased</string>
     <string name="start_over">Start over and restore from a backup</string>
     <string name="start_over_title">Start over?</string>
     <string name="start_over_text">The data on this phone cannot be opened any more. Starting over deletes it from this phone for good. Then restore your data from a backup: Options → Backup → Restore from a backup.</string>

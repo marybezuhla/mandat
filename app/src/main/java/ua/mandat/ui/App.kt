@@ -106,7 +106,8 @@ fun App(session: Session, onUnlock: () -> Unit, onStartOver: () -> Unit) {
             LockState.NeedsScreenLock -> Message(stringResource(R.string.no_screen_lock))
             LockState.KeyLost -> KeyLost(onStartOver)
             LockState.FirstRun -> Welcome(onUnlock)
-            LockState.Locked -> Locked(session.lastError, onUnlock)
+            // While everything is being erased there is nothing to unlock
+            LockState.Locked -> if (session.erasing) Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() } else Locked(session.lastError, onUnlock)
             LockState.Opening -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
             is LockState.Open -> PrivateKeyboard { Main(state.db, session) }
         }
