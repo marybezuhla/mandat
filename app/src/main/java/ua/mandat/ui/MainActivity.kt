@@ -226,7 +226,7 @@ class MainActivity : AppCompatActivity() {
             session.moveTo(LockState.KeyLost)
             return
         } catch (e: Exception) {
-            session.lastError = true
+            session.openFailed()
             return
         }
 
@@ -279,7 +279,7 @@ class MainActivity : AppCompatActivity() {
                     if (session.pendingSetup) vault.finishSetup(confirmed) else vault.finishUnlock(confirmed)
                 session.open(secret, session.promptGeneration)
             } catch (e: Exception) {
-                session.lastError = true
+                session.openFailed()
             }
         }
 

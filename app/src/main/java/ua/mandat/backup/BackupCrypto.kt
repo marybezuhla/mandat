@@ -186,17 +186,25 @@ object BackupCrypto {
 
     /**
      * Refuses passwords that are obviously weak: too short, too few different characters,
-     * only digits, or built from common words and keyboard rows ("password1234", "qwertyuiop12").
+     * only digits, or with fewer than 8 characters left once digits, common words and keyboard
+     * rows are taken out ("password1234", "qwertyuiop12").
      * A self-made password needs [MIN_PASSWORD_LENGTH] characters; the suggested one is always fine.
      */
-    fun isTooSimple(password: String): Boolean {
-        if (password.length < MIN_PASSWORD_LENGTH) return true
-        if (password.toSet().size < 6) return true
-        if (password.all { it.isDigit() } && password.length < 24) return true
+    fun isTooSimple(password: String): Boolean = weakness(password) != null
+
+    /** Why a password is refused, so the owner is told which rule to meet. */
+    enum class Weakness { SHORT, FEW_DIFFERENT, ONLY_DIGITS, COMMON }
+
+    /** The first rule [password] does not meet, or null when it is acceptable. */
+    fun weakness(password: String): Weakness? {
+        if (password.length < MIN_PASSWORD_LENGTH) return Weakness.SHORT
+        if (password.toSet().size < 6) return Weakness.FEW_DIFFERENT
+        // (digits alone never pass the last rule, whatever their number: said in its own words)
+        if (password.all { it.isDigit() }) return Weakness.ONLY_DIGITS
         val lower = password.lowercase()
         val withoutCommon = COMMON_PARTS.fold(lower) { acc, part -> acc.replace(part, "") }
         // What is left after removing common parts and digits must still be substantial
-        return withoutCommon.filterNot { it.isDigit() }.length < 8
+        return if (withoutCommon.filterNot { it.isDigit() }.length < 8) Weakness.COMMON else null
     }
 
     private val COMMON_PARTS = listOf(

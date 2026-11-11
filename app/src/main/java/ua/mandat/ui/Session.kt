@@ -55,6 +55,16 @@ class Session(app: Application) : AndroidViewModel(app) {
 
     var lastError by mutableStateOf(false)
 
+    /** How many times in a row Mandat would not open after the phone's lock was passed (in this run of the app): the lock screen then says what to try. */
+    var openFailures by mutableStateOf(0)
+        private set
+
+    /** Opening failed for a reason other than the phone's prompt being refused or closed. */
+    fun openFailed() {
+        lastError = true
+        openFailures++
+    }
+
     /** The matter open in the editor, if any (memory only; survives turning the phone). */
     var draft by mutableStateOf<MatterDraft?>(null)
 
@@ -813,7 +823,7 @@ class Session(app: Application) : AndroidViewModel(app) {
                     db == null -> {
                         passphrase.fill(0)
                         if (startedAt == generation) {
-                            lastError = true
+                            openFailed()
                             state = LockState.Locked
                         }
                     }
@@ -825,6 +835,7 @@ class Session(app: Application) : AndroidViewModel(app) {
                         // Kept only while open: the database may open extra connections with it
                         key = passphrase
                         lastError = false
+                        openFailures = 0
                         setHidden(hidden.first, hidden.second)
                         state = LockState.Open(db)
                         // Back in the foreground: Mandat's own copy left on the clipboard is taken off

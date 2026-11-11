@@ -75,6 +75,14 @@ class BackupCryptoTest {
         assertFalse(BackupCrypto.isTooSimple(password))
     }
 
+    @Test fun aRefusedPasswordSaysWhichRuleItBreaks() {
+        assertEquals(BackupCrypto.Weakness.SHORT, BackupCrypto.weakness("short"))
+        assertEquals(BackupCrypto.Weakness.FEW_DIFFERENT, BackupCrypto.weakness("abababababababab"))
+        assertEquals(BackupCrypto.Weakness.ONLY_DIGITS, BackupCrypto.weakness("1234567890123456"))
+        assertEquals(BackupCrypto.Weakness.COMMON, BackupCrypto.weakness("password12345678"))
+        assertEquals(null, BackupCrypto.weakness("кінь-батарея-скоба-правильно"))
+    }
+
     @Test fun obviouslyWeakPasswordsAreRefused() {
         assertTrue(BackupCrypto.isTooSimple("aaaaaaaaaaaa"))
         assertTrue(BackupCrypto.isTooSimple("123456789012"))

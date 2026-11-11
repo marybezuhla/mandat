@@ -207,21 +207,26 @@ fun DelegationRow(d: Delegation, personName: String?, matterTitle: String?, sess
 fun PromiseRow(p: Promise, personName: String?, matterTitle: String?, session: Session, extra: String? = null) {
     val whom = personName ?: p.toWhom.ifBlank { null }
     val publicLabel = stringResource(R.string.chip_public)
+    fun toggle() {
+        val next = if (TaskStatus.of(p.status) == TaskStatus.OPEN) TaskStatus.DONE else TaskStatus.OPEN
+        session.write {
+            // Back to open or kept: an old "why it failed" note no longer applies
+            it.promises().update(
+                p.copy(status = next.name, statusNote = "", closedAt = if (next == TaskStatus.OPEN) null else System.currentTimeMillis()),
+            )
+        }
+    }
+    // The tick on a closed promise with a "why" note would wipe the note: asked first
+    var reopening by remember { mutableStateOf(false) }
+    if (reopening) ConfirmDialog(null, stringResource(R.string.promise_reopen_question), stringResource(R.string.promise_reopen),
+        onConfirm = { reopening = false; toggle() }, onCancel = { reopening = false })
     TaskRow(
         what = p.what,
         kind = TaskKind.PROMISE,
         chips = listOfNotNull(if (p.level != ua.mandat.data.Publicity.PERSONAL) stringResource(p.level.label()) else null, whom, matterTitle),
         due = p.due,
         status = p.status,
-        onToggleDone = {
-            val next = if (TaskStatus.of(p.status) == TaskStatus.OPEN) TaskStatus.DONE else TaskStatus.OPEN
-            session.write {
-                // Back to open or kept: an old "why it failed" note no longer applies
-                it.promises().update(
-                    p.copy(status = next.name, statusNote = "", closedAt = if (next == TaskStatus.OPEN) null else System.currentTimeMillis()),
-                )
-            }
-        },
+        onToggleDone = { if (TaskStatus.of(p.status) != TaskStatus.OPEN && p.statusNote.isNotBlank()) reopening = true else toggle() },
         onOpen = { session.promiseDraft = PromiseDraft(p, isNew = false) },
         extra = extra,
         links = buildMap {
