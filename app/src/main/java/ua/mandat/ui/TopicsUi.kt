@@ -201,7 +201,12 @@ private fun TopicDialog(topic: Topic, isNew: Boolean, onDismiss: () -> Unit, onD
                 OutlinedTextField(value = keys, onValueChange = { keys = it },
                     label = { Text(stringResource(R.string.topic_keys)) },
                     supportingText = { Text(stringResource(R.string.topic_keys_hint)) }, modifier = Modifier.fillMaxWidth())
-                if (onDelete != null) TextButton(onClick = onDelete) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
+                if (onDelete != null) {
+                    // The records stay; the topic's name and key words are gone for good, so it is asked first
+                    var asking by remember { mutableStateOf(false) }
+                    TextButton(onClick = { asking = true }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
+                    if (asking) ConfirmDelete(onConfirm = { asking = false; onDelete() }, onCancel = { asking = false })
+                }
         }
     }
 }

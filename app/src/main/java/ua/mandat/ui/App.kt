@@ -103,11 +103,14 @@ fun App(session: Session, onUnlock: () -> Unit, onStartOver: () -> Unit) {
             },
         ) {
         when (val state = session.state) {
-            LockState.NeedsScreenLock -> Message(stringResource(R.string.no_screen_lock))
+            // With data already on the phone, the plain "set a screen lock" would hide what has happened
+            LockState.NeedsScreenLock -> Message(
+                stringResource(if (MandatDb.exists(androidx.compose.ui.platform.LocalContext.current)) R.string.no_screen_lock_data else R.string.no_screen_lock),
+            )
             LockState.KeyLost -> KeyLost(onStartOver)
             LockState.FirstRun -> Welcome(onUnlock)
             // While everything is being erased there is nothing to unlock
-            LockState.Locked -> if (session.erasing) Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() } else Locked(session.lastError, onUnlock)
+            LockState.Locked -> if (session.erasing) Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() } else Locked(session.lastError, session.openFailures >= STUCK_AFTER, onUnlock)
             LockState.Opening -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
             is LockState.Open -> PrivateKeyboard { Main(state.db, session) }
         }
@@ -143,18 +146,25 @@ private fun Message(text: String) = Centered {
 }
 
 @Composable
-private fun KeyLost(onStartOver: () -> Unit) {
+private fun KeyLost(onStartOver: () -> Unit) = Centered {
+    Text(stringResource(R.string.key_lost), style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+    Spacer(Modifier.height(32.dp))
+    StartOver(R.string.start_over_text, onStartOver)
+}
+
+/** After this many failed openings in a row the lock screen says what to try. */
+private const val STUCK_AFTER = 3
+
+/** "Start over and restore from a backup": asked once more in a dialog, with [warning] saying what is lost. */
+@Composable
+private fun StartOver(warning: Int, onStartOver: () -> Unit) {
     var asking by remember { mutableStateOf(false) }
-    Centered {
-        Text(stringResource(R.string.key_lost), style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(32.dp))
-        TextButton(onClick = { asking = true }) { Text(stringResource(R.string.start_over)) }
-    }
+    TextButton(onClick = { asking = true }) { Text(stringResource(R.string.start_over)) }
     if (asking) {
         AlertDialog(
             onDismissRequest = { asking = false },
             title = { Text(stringResource(R.string.start_over_title)) },
-            text = { Text(stringResource(R.string.start_over_text)) },
+            text = { Text(stringResource(warning)) },
             confirmButton = {
                 TextButton(onClick = {
                     asking = false
@@ -181,7 +191,7 @@ private fun Welcome(onStart: () -> Unit) = Centered {
 }
 
 @Composable
-private fun Locked(failed: Boolean, onUnlock: () -> Unit) = Centered {
+private fun Locked(failed: Boolean, stuck: Boolean, onUnlock: () -> Unit) = Centered {
     Icon(Sym.lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
     Spacer(Modifier.height(16.dp))
     Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
@@ -191,6 +201,13 @@ private fun Locked(failed: Boolean, onUnlock: () -> Unit) = Centered {
     if (failed) {
         Spacer(Modifier.height(16.dp))
         Text(stringResource(R.string.unlock_failed), color = MaterialTheme.colorScheme.error)
+    }
+    // Mandat would not open several times running: instead of "try again" for ever, what to try is said.
+    // No button erases anything here: the data may be intact (full storage, a fault an update fixes),
+    // and the last resort, removing the app, has Android's own question.
+    if (stuck) {
+        Spacer(Modifier.height(16.dp))
+        Text(stringResource(R.string.unlock_stuck), style = MaterialTheme.typography.bodyMedium)
     }
     Notice()
 }
@@ -658,6 +675,12 @@ internal fun Today(db: MandatDb, session: Session, onOpen: (Matter) -> Unit, onT
 
         SectionCard(Sym.inbox, stringResource(R.string.inbox), count = items.size.takeIf { it > 0 }) {
             if (items.isEmpty()) EmptyHint(Sym.inbox, stringResource(R.string.inbox_empty))
+            // A note cannot be brought back, so one tap does not delete it
+            var deleting by remember { mutableStateOf<InboxItem?>(null) }
+            deleting?.let { item ->
+                ConfirmDialog(null, "«" + item.text.take(120) + "»\n\n" + stringResource(R.string.delete_question), stringResource(R.string.delete), danger = true,
+                    onConfirm = { deleting = null; session.write { it.inbox().delete(item.id) } }, onCancel = { deleting = null })
+            }
             items.forEachIndexed { i, item ->
                 if (i > 0) RowDivider()
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -666,7 +689,7 @@ internal fun Today(db: MandatDb, session: Session, onOpen: (Matter) -> Unit, onT
                     IconButton(onClick = { onToMatter(item) }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.to_matter), tint = Muted)
                     }
-                    IconButton(onClick = { session.write { it.inbox().delete(item.id) } }) {
+                    IconButton(onClick = { deleting = item }) {
                         Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.delete), tint = Muted)
                     }
                 }

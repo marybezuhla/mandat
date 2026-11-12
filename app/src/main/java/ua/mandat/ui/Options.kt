@@ -53,6 +53,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.semantics
@@ -464,6 +465,15 @@ private fun appVersion(): String {
 
 private val passwordKeyboard = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false)
 
+/** A long password typed blind is easy to get wrong: the owner may look at it (nobody else sees the screen by default). */
+@Composable
+private fun ShowPassword(show: Boolean, onChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onChange(!show) }) {
+        androidx.compose.material3.Checkbox(checked = show, onCheckedChange = onChange)
+        Text(stringResource(R.string.password_show), style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
 @Composable
 private fun NewPasswordDialog(words: List<String>, onDone: (String?) -> Unit) {
     var first by remember { mutableStateOf("") }
@@ -471,13 +481,16 @@ private fun NewPasswordDialog(words: List<String>, onDone: (String?) -> Unit) {
     var tried by remember { mutableStateOf(false) }
     // Shown in clear text only when Mandat suggested it, so it can be written down
     var suggested by remember { mutableStateOf(false) }
-    val tooShort = BackupCrypto.isTooSimple(first)
+    val weakness = BackupCrypto.weakness(first)
+    val tooShort = weakness != null
     val mismatch = first != second
+    var show by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = { onDone(null) },
         title = { Text(stringResource(R.string.backup_password_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.widthIn(max = 480.dp)) {
+            // Scrolls, so that with the keyboard up on a small screen the second field and the error stay reachable
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.widthIn(max = 480.dp).verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.backup_password_hint), style = MaterialTheme.typography.bodyMedium)
                 TextButton(onClick = {
                     first = BackupCrypto.suggestPassword(words)
@@ -497,7 +510,7 @@ private fun NewPasswordDialog(words: List<String>, onDone: (String?) -> Unit) {
                     },
                     label = { Text(stringResource(R.string.password)) },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = passwordKeyboard,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -509,12 +522,23 @@ private fun NewPasswordDialog(words: List<String>, onDone: (String?) -> Unit) {
                     },
                     label = { Text(stringResource(R.string.password_repeat)) },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = passwordKeyboard,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (tried && tooShort) Text(stringResource(R.string.password_too_short), color = MaterialTheme.colorScheme.error)
+                if (tried && weakness != null) Text(
+                    stringResource(
+                        when (weakness) {
+                            BackupCrypto.Weakness.SHORT -> R.string.password_too_short
+                            BackupCrypto.Weakness.FEW_DIFFERENT -> R.string.password_few_different
+                            BackupCrypto.Weakness.ONLY_DIGITS -> R.string.password_only_digits
+                            BackupCrypto.Weakness.COMMON -> R.string.password_common
+                        },
+                    ),
+                    color = MaterialTheme.colorScheme.error,
+                )
                 if (tried && !tooShort && mismatch) Text(stringResource(R.string.password_mismatch), color = MaterialTheme.colorScheme.error)
+                ShowPassword(show) { show = it }
             }
         },
         confirmButton = {
@@ -530,20 +554,24 @@ private fun NewPasswordDialog(words: List<String>, onDone: (String?) -> Unit) {
 @Composable
 private fun PasswordDialog(title: String, onDone: (String?) -> Unit) {
     var password by remember { mutableStateOf("") }
+    var show by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = { onDone(null) },
         title = { Text(title) },
         text = {
-            NoAutofill()
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text(stringResource(R.string.password)) },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = passwordKeyboard,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column {
+                NoAutofill()
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text(stringResource(R.string.password)) },
+                    singleLine = true,
+                    visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = passwordKeyboard,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                ShowPassword(show) { show = it }
+            }
         },
         confirmButton = {
             TextButton(onClick = { if (password.isNotEmpty()) onDone(password) }) {

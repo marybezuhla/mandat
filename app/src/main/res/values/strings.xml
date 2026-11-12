@@ -11,7 +11,13 @@
     <string name="first_run_text">Everything you add stays on this phone and is always encrypted. Mandat has no internet access. It opens with your fingerprint or the phone PIN.\n\nImportant: if you remove the phone\'s screen lock, the data can no longer be opened. Keep an encrypted backup (Options → Data and backups).</string>
     <string name="first_run_start">Start</string>
     <string name="no_screen_lock">Set a screen lock (PIN or password) on the phone first. Mandat uses it to protect your data.</string>
-    <string name="key_lost">The encryption key is no longer available (for example, the screen lock was removed or the app data was partly lost). Mandat will not delete anything by itself. Your data can be restored from an encrypted backup.</string>
+    <string name="key_lost">The encryption key is no longer available (for example, the screen lock was removed or the app data was partly lost). Mandat will not delete anything by itself. Your data can be restored only from an encrypted backup; without one it cannot be brought back.</string>
+    <string name="no_screen_lock_data">The phone\'s screen lock is off. When the lock is removed, Android destroys the encryption key, so the data on this phone most likely cannot be opened any more, even if the lock is turned on again. Set a screen lock (PIN or password): Mandat will check the key and, if it is gone, offer to restore the data from a backup. Backup files stay where you saved them.</string>
+    <string name="unlock_stuck">Mandat could not open several times in a row. The data itself may be intact. Try in turn: restart the phone; free some of the phone\'s storage; update Mandat to the latest version. If nothing helped and you have a backup and its password, uninstall Mandat, install it again and restore the data from the backup. Uninstalling erases everything on this phone: changes made after the backup will be lost.</string>
+    <string name="promise_reopen">Reopen</string>
+    <string name="promise_reopen_question">Reopen this promise? Its \"Why\" note will be erased.</string>
+    <string name="unlink_person">Remove from the matter</string>
+    <string name="unlink_person_question">Remove this person from the matter? Their stance and role in this matter will be gone; the person stays.</string>
     <string name="unlock_failed">Could not unlock. Try again.</string>
 
     <string name="tab_today">Today</string>
@@ -40,7 +46,11 @@
     <string name="backup_password_hint">At least 16 characters. A few random words work best. Keep the password separately from the file: without it nobody can open the backup, not even you.</string>
     <string name="password">Password</string>
     <string name="password_repeat">Repeat password</string>
-    <string name="password_too_short">At least 16 characters, and not too simple.</string>
+    <string name="password_too_short">The password is too short: at least 16 characters are needed.</string>
+    <string name="password_few_different">The password has too few different characters: at least 6 different ones are needed.</string>
+    <string name="password_only_digits">A password of digits alone is too simple: add letters or words.</string>
+    <string name="password_common">The password has too few letters and other characters once digits, common words and keyboard rows are left out (at least 8 are needed). Add a few words or use the suggested password.</string>
+    <string name="password_show">Show the password</string>
     <string name="password_mismatch">The passwords do not match.</string>
     <string name="continue_">Continue</string>
     <string name="restore_password_title">Password of this backup</string>

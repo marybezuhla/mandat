@@ -564,6 +564,12 @@ private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: M
     val promises by promisesFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val nameOf = people.associate { it.id to it.name }
     var adding by remember { mutableStateOf(false) }
+    // Taking a person out of the matter drops their stance and role here: asked first
+    var unlinking by remember { mutableStateOf<Long?>(null) }
+    unlinking?.let { personId ->
+        ConfirmDialog(null, stringResource(R.string.unlink_person_question), stringResource(R.string.unlink_person), danger = true,
+            onConfirm = { unlinking = null; session.write { it.people().unlink(matterId, personId) } }, onCancel = { unlinking = null })
+    }
     var stanceFor by remember { mutableStateOf<ua.mandat.data.MatterPersonRow?>(null) }
 
     LinkSection(stringResource(R.string.people_in_matter))
@@ -579,8 +585,8 @@ private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: M
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary,
                 )
             }
-            IconButton(onClick = { session.write { it.people().unlink(matterId, row.personId) } }) {
-                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.delete))
+            IconButton(onClick = { unlinking = row.personId }) {
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.unlink_person))
             }
         }
     }
