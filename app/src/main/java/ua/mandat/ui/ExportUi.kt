@@ -997,9 +997,14 @@ private fun openMandatExport(file: ByteArray, password: String, stop: () -> Bool
         if (file.size < crypto.MIN_FILE_BYTES) return Opened.Problem(R.string.import_mandat_not)
         // The key is made once (a few seconds) and serves both kinds of file: they begin with the same salt
         val k = stream.keyFor(file.copyOf(stream.SALT_BYTES), chars).also { key = it }
-        try {
+        // (an export is one piece and never larger than this)
+        val tooBig = file.size > crypto.MAX_FILE_BYTES
+        val onePiece = if (tooBig) null else try {
             crypto.decryptWithKey(file, k.ikm)
         } catch (e: ua.mandat.backup.BackupCrypto.WrongPasswordOrDamaged) {
+            null
+        }
+        if (onePiece == null) {
             // A backup (written in parts since 0.3.0) opened here by mistake is named as such
             val backup = try {
                 stream.reader(java.io.ByteArrayInputStream(file, stream.SALT_BYTES, file.size - stream.SALT_BYTES), k).close()
@@ -1007,8 +1012,9 @@ private fun openMandatExport(file: ByteArray, password: String, stop: () -> Bool
             } catch (e2: Exception) {
                 false
             }
-            return if (backup) Opened.Problem(R.string.import_mandat_is_backup) else damaged
+            return if (backup) Opened.Problem(R.string.import_mandat_is_backup) else if (tooBig) Opened.Problem(R.string.import_mandat_not) else damaged
         }
+        onePiece
     } catch (e: ua.mandat.backup.BackupCrypto.NotABackup) {
         return Opened.Problem(R.string.import_mandat_not)
     } catch (e: Exception) {

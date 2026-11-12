@@ -251,9 +251,15 @@ object AutoBackup {
                 Checked(uri)
             } catch (e: BackupCrypto.WrongPasswordOrDamaged) {
                 // A copy made by a version before 0.3.0 just before the update is one piece, and still a good copy
-                if (opensAsOnePiece(context, uri, key)) return Checked(uri)
-                deleteQuietly(context, uri)
-                Checked(null)
+                when (opensAsOnePiece(context, uri, key)) {
+                    true -> Checked(uri)
+                    false -> {
+                        deleteQuietly(context, uri)
+                        Checked(null)
+                    }
+                    // Could not be read just now: left for next time, never deleted for that
+                    null -> Checked(null, unknown = true)
+                }
             } catch (e: BackupCrypto.NotABackup) {
                 deleteQuietly(context, uri)
                 Checked(null)
@@ -377,15 +383,22 @@ object AutoBackup {
         return null
     }
 
-    /** True when the file at [uri] is a whole one-piece copy made with [key] (the layout before 0.3.0). */
-    private fun opensAsOnePiece(context: Context, uri: Uri, key: BackupStream.Key): Boolean =
+    /**
+     * True when the file at [uri] is a whole one-piece copy made with [key] (the layout before
+     * 0.3.0), false when it is not one, null when that could not be found out now.
+     */
+    private fun opensAsOnePiece(context: Context, uri: Uri, key: BackupStream.Key): Boolean? =
         try {
             val bytes = java.io.ByteArrayOutputStream()
             context.contentResolver.openInputStream(uri)!!.use { BackupFile.copy(it, bytes, BackupCrypto.MAX_FILE_BYTES) }
             BackupCrypto.decryptWithKey(bytes.toByteArray(), key.ikm).fill(0)
             true
-        } catch (e: Throwable) {
+        } catch (e: BackupCrypto.WrongPasswordOrDamaged) {
             false
+        } catch (e: BackupCrypto.NotABackup) {
+            false
+        } catch (e: Throwable) {
+            null
         }
 
     private fun deleteQuietly(context: Context, uri: Uri) {

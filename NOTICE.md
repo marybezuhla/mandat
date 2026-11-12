@@ -10,7 +10,7 @@
   licences ask to show, is in the app: Options → About → Libraries and licences):
   - SQLCipher for Android (Zetetic LLC): database encryption. BSD-style licence
     (`app/src/main/assets/licenses/sqlcipher.txt`, from zetetic.net/sqlcipher/license). It carries
-    SQLite (public domain) and OpenSSL (Apache License 2.0) inside.
+    SQLite and LibTomCrypt 1.18.2 (both in the public domain) inside, as Zetetic's release notes say.
   - Bouncy Castle: Argon2id for backup passwords. MIT-style licence (its text is inside the library
     and is shown in the app).
   - Tink (Google): streaming encryption of backups. Apache License 2.0. It carries Protocol Buffers
