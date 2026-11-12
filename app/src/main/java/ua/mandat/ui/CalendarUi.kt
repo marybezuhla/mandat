@@ -97,10 +97,10 @@ fun TimeTab(db: MandatDb, session: Session) {
 
 fun EventKind.label(): Int = when (this) {
     EventKind.MEETING -> R.string.event_meeting
-    EventKind.SESSION -> R.string.event_session
-    EventKind.COMMITTEE -> R.string.event_committee
+    EventKind.SESSION -> forMode(R.string.event_session, R.string.event_session_plain)
+    EventKind.COMMITTEE -> forMode(R.string.event_committee, R.string.event_committee_plain)
     EventKind.TRIP -> R.string.event_trip
-    EventKind.RECEPTION -> R.string.event_reception
+    EventKind.RECEPTION -> if (AppMode.mode == ua.mandat.data.Mode.CITIZEN) R.string.event_reception_citizen else R.string.event_reception
     EventKind.CALL -> R.string.event_call
     EventKind.MEDIA -> R.string.event_media
     EventKind.OTHER -> R.string.event_other

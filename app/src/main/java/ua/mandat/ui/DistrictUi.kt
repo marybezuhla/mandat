@@ -127,7 +127,7 @@ fun DistrictEntry(db: MandatDb, session: Session) {
     val count by remember(db) { db.communities().observeAll().hidingCommunities(session).map { it.size } }.collectAsStateWithLifecycle(0)
     if (on?.value != "1" && count == 0) return
     OutlinedButton(onClick = { session.showDistrict = true }, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.district_open, count))
+        Text(stringResource(forMode(R.string.district_open, R.string.district_open_plain), count))
     }
 }
 
@@ -157,7 +157,7 @@ fun DistrictScreen(db: MandatDb, session: Session) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.district_title)) },
+                title = { Text(stringResource(forMode(R.string.district_title, R.string.district_title_plain))) },
                 navigationIcon = {
                     IconButton(onClick = { session.showDistrict = false }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
@@ -183,7 +183,7 @@ fun DistrictScreen(db: MandatDb, session: Session) {
                     ))
                 }
             }
-            if (communities.isEmpty()) item(key = "empty") { EmptyHint(Sym.home, stringResource(R.string.district_empty)) }
+            if (communities.isEmpty()) item(key = "empty") { EmptyHint(Sym.home, stringResource(forMode(R.string.district_empty, R.string.district_empty_plain))) }
             if (coming.isNotEmpty()) item(key = "coming") {
                 SectionCard(Sym.calendar, stringResource(R.string.district_coming), count = coming.size, canvas = Tone.plan) {
                     Paged(coming, page = 5) { e -> EventRow(e, emptyList(), null, null, session) }

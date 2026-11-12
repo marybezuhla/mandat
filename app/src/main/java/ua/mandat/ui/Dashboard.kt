@@ -204,7 +204,7 @@ private fun Period.label() = when (this) {
     Period.WEEK -> R.string.dash_week
     Period.MONTH -> R.string.dash_month
     Period.YEAR -> R.string.dash_year
-    Period.CADENCE -> R.string.dash_cadence
+    Period.CADENCE -> forMode(R.string.dash_cadence, R.string.period_since_start)
     Period.ALL -> R.string.dash_all
 }
 
@@ -220,7 +220,7 @@ private fun spanText(period: Period, span: Span, cadenceStart: Long?): String {
         Period.MONTH -> from.format(DateTimeFormatter.ofPattern("LLLL yyyy"))
         Period.YEAR -> from.year.toString()
         Period.CADENCE ->
-            if (cadenceStart == null) stringResource(R.string.dash_cadence_unset)
+            if (cadenceStart == null) stringResource(forMode(R.string.dash_cadence_unset, R.string.dash_cadence_unset_plain))
             else stringResource(R.string.dash_since, Dates.format(span.from))
         Period.ALL -> stringResource(R.string.dash_since, Dates.format(span.from))
     }

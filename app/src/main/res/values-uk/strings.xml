@@ -136,7 +136,7 @@
     <string name="focus_empty">У фокусі нічого немає. Оберіть до п\'яти справ, якими живете цього тижня.</string>
     <string name="to_matter">Зробити справою</string>
     <string name="roles_title">Ваші ролі</string>
-    <string name="roles_text">Ролі — це ваші «капелюхи»: посади й напрями роботи. Справи групуються за ними, тож жодна роль не випадає. Оберіть орган і посаду (за бажанням додайте назву чи тему) і натисніть «Додати цю роль»; повторіть для кожної. Змінити ролі можна будь-коли в Опціях.</string>
+    <string name="roles_text">Ролі — це ваші «капелюхи»: посади й напрями роботи. Справи групуються за ними, тож жодна роль не випадає. Оберіть орган чи організацію й посаду (за бажанням додайте назву чи тему) і натисніть «Додати цю роль»; повторіть для кожної. Змінити ролі можна будь-коли в Опціях.</string>
     <string name="roles_done">Готово</string>
     <string name="roles_skip">Пізніше</string>
     <string name="roles_manage">Ролі</string>
@@ -176,7 +176,7 @@
     <string name="body_district">Одномандатний виборчий округ</string>
     <string name="body_region">Регіон (депутат за списком)</string>
     <string name="body_other_body">Представництво в іншому органі</string>
-    <string name="role_body">Орган</string>
+    <string name="role_body">Орган чи організація</string>
     <string name="role_position">Посада</string>
     <string name="role_name_hint">Назва чи тема (необов\'язково)</string>
     <string name="role_add_button">Додати цю роль</string>
@@ -817,6 +817,30 @@
     <string name="mode_hint">Змінює органи, посади й деякі назви; решта однакова. Можна змінити в «Опціях».</string>
     <string name="type_BILL_council">Проєкт рішення</string>
     <string name="type_INVESTIGATION_council">Контрольна перевірка</string>
+    <string name="opt_work_plain">Робота: ролі й громади</string>
+    <string name="opt_work_hint_plain">Режим, громади, ваші ролі й посади.</string>
+    <string name="district_title_plain">Громади</string>
+    <string name="district_open_plain">Громади: %1$d</string>
+    <string name="district_empty_plain">Додайте громади, з якими працюєте, щоб бачити картину кожної.</string>
+    <string name="district_switch_plain">Розділ «Громади»</string>
+    <string name="district_switch_hint_plain">Громади, з якими ви працюєте: зустрічі, виїзди, звіт по громадах. Відкривається з вкладки «Справи».</string>
+    <string name="period_since_start">Від початку</string>
+    <string name="dash_cadence_unset_plain">Вкажіть день, від якого рахувати</string>
+    <string name="event_session_plain">Засідання</string>
+    <string name="event_committee_plain">Комісія чи збори</string>
+    <string name="event_reception_citizen">Прийом у посадовця</string>
+    <string name="cat_COLLEAGUE_plain">Колега</string>
+    <string name="cat_VOTER_plain">Мешканець</string>
+    <string name="team_ASSISTANT_plain">Помічник (штатний)</string>
+    <string name="team_SECRETARIAT_plain">Секретаріат чи канцелярія</string>
+    <string name="in_activity_plain">Кошти на діяльність</string>
+    <string name="votes_needed_hint_plain">Наприклад, більшість у комісії, правлінні чи на зборах. Рахуються люди з позицією в цій справі.</string>
+    <string name="report_make_plain">Скласти звіт →</string>
+    <string name="report_make_title_plain">Звіт про роботу</string>
+    <string name="tpl_citizen_appeal_title" formatted="false">Звернення громадянина</string>
+    <string name="tpl_citizen_appeal_body" formatted="false"># Звернення\n\n[Кому: посада, назва органу]\n\nВід: [прізвище, ім\'я, по батькові]\n[Місце проживання]\n[Телефон чи електронна адреса для відповіді]\n\nШановн[ий/а] [ім\'я по батькові]!\n\n[Суть питання: що сталося, де й коли.]\n\n[Що вже зроблено: куди зверталися, які відповіді отримали.]\n\nПрошу:\n- [прохання 1];\n- [прохання 2].\n\nВідповідь прошу надіслати [на поштову чи електронну адресу] у строк, встановлений Законом України «Про звернення громадян».\n\nПідстава: [стаття закону — перевірте чинну редакцію Закону України «Про звернення громадян»].\n\nДодатки: [перелік або «немає»].\n\n[Дата]\n[Підпис]</string>
+    <string name="tpl_info_request_title" formatted="false">Запит на публічну інформацію</string>
+    <string name="tpl_info_request_body" formatted="false"># Запит на інформацію\n\n[Кому: назва розпорядника інформації]\n\nЗапитувач: [ім\'я чи назва]\n[Поштова або електронна адреса для відповіді]\n[Телефон, якщо є]\n\nНа підставі Закону України «Про доступ до публічної інформації» прошу надати:\n- [загальний опис інформації або вид, назва, реквізити чи зміст документа];\n- [ще одне питання].\n\nВідповідь прошу надати [на електронну адресу чи поштою] у строк, встановлений цим Законом [перевірте чинну редакцію].\n\n[Дата]\n[Підпис — для письмового запиту]</string>
     <string name="mode_official">Посадовець</string>
     <string name="mode_citizen">Громадянин</string>
     <string name="type_BILL_official">Проєкт акта / рішення</string>

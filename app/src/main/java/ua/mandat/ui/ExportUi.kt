@@ -115,9 +115,12 @@ class ExportPlan {
 }
 
 /** Periods offered for an export. */
-enum class ExportPeriod(val label: Int) {
+enum class ExportPeriod(private val text: Int) {
     ALL(R.string.period_all), TODAY(R.string.period_today), WEEK(R.string.period_week), MONTH(R.string.period_month),
-    QUARTER(R.string.period_quarter), YEAR(R.string.period_year), CADENCE(R.string.period_cadence), CUSTOM(R.string.period_custom),
+    QUARTER(R.string.period_quarter), YEAR(R.string.period_year), CADENCE(R.string.period_cadence), CUSTOM(R.string.period_custom);
+
+    /** "Term of office" only for elected work. */
+    val label: Int get() = if (this == CADENCE) forMode(text, R.string.period_since_start) else text
 }
 
 private val TABLES = listOf("matters", "delegations", "promises", "deadlines", "events", "money", "people")

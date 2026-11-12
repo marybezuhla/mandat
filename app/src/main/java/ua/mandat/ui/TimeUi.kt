@@ -412,7 +412,7 @@ fun kindLabel(kind: String): Int = when (kind) {
     "message" -> R.string.message_box
     "alliance" -> R.string.alliances_title
     "money" -> R.string.budget_title
-    "community" -> R.string.district_title
+    "community" -> forMode(R.string.district_title, R.string.district_title_plain)
     else -> R.string.tab_review
 }
 

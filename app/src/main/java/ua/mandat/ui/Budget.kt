@@ -86,7 +86,7 @@ fun hryvnias(minor: Long) = formatAmount(minor) + " ₴"
 @Composable
 fun categoryName(key: String): String = when (key) {
     IncomeCategory.SALARY.name -> stringResource(R.string.in_salary)
-    IncomeCategory.ACTIVITY_FUNDS.name -> stringResource(R.string.in_activity)
+    IncomeCategory.ACTIVITY_FUNDS.name -> stringResource(forMode(R.string.in_activity, R.string.in_activity_plain))
     IncomeCategory.REFUNDS.name -> stringResource(R.string.in_refunds)
     IncomeCategory.ROYALTIES.name -> stringResource(R.string.in_royalties)
     IncomeCategory.PRACTICE.name -> stringResource(R.string.in_practice)

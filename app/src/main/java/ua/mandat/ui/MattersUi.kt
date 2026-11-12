@@ -816,7 +816,7 @@ private fun VoteCounter(linked: List<ua.mandat.data.MatterPersonRow>, draft: Mat
         ) {
             SheetGroup {
 
-                    Text(stringResource(R.string.votes_needed_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
+                    Text(stringResource(forMode(R.string.votes_needed_hint, R.string.votes_needed_hint_plain)), style = MaterialTheme.typography.labelSmall, color = Muted)
                     OutlinedTextField(text, { v -> text = v.filter { it.isDigit() }.take(5) }, singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth())

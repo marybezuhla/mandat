@@ -71,7 +71,12 @@ private fun spanStart(r: RetroSpan, today: Long, cadence: Long?): Long = when (r
     RetroSpan.CADENCE -> cadence ?: LocalDate.ofEpochDay(today).withDayOfMonth(1).minusMonths(11).toEpochDay()
 }
 
-private enum class RetroSpan(val label: Int) { QUARTER(R.string.retro_quarter), HALF(R.string.retro_half), YEAR(R.string.retro_year), CADENCE(R.string.retro_cadence) }
+private enum class RetroSpan(private val text: Int) {
+    QUARTER(R.string.retro_quarter), HALF(R.string.retro_half), YEAR(R.string.retro_year), CADENCE(R.string.retro_cadence);
+
+    /** "Term of office" only for elected work. */
+    val label: Int get() = if (this == CADENCE) forMode(text, R.string.period_since_start) else text
+}
 
 /**
  * Looking back: directions (time by role, month by month), past priorities (what was in focus
@@ -150,7 +155,7 @@ fun RetroScreen(db: MandatDb, session: Session) {
                     if (d != null && d.focus.any { it.approximate }) Text(stringResource(R.string.retro_approx), style = MaterialTheme.typography.labelSmall, color = Muted)
                     // A report for voters, for a period chosen in its own sheet, drafted as a text to edit and export
                     if (d != null) {
-                        QuickChip(stringResource(R.string.report_make), false, Modifier.padding(top = 8.dp)) { reportFrom = span.from; reportTo = span.to; reporting = true }
+                        QuickChip(stringResource(forMode(R.string.report_make, R.string.report_make_plain)), false, Modifier.padding(top = 8.dp)) { reportFrom = span.from; reportTo = span.to; reporting = true }
                     }
                     if (reporting) {
                         val rs = Span(minOf(reportFrom, reportTo), maxOf(reportFrom, reportTo))
@@ -162,7 +167,7 @@ fun RetroScreen(db: MandatDb, session: Session) {
                             visits = stringResource(R.string.report_visits), collected = stringResource(R.string.report_collected),
                             note = stringResource(R.string.report_note), currency = stringResource(R.string.currency_uah),
                         )
-                        EditSheet(title = stringResource(R.string.report_make_title), onDismiss = { reporting = false }, onSave = {
+                        EditSheet(title = stringResource(forMode(R.string.report_make_title, R.string.report_make_title_plain)), onDismiss = { reporting = false }, onSave = {
                             val byMatter = history.groupBy { it.matterId }
                             val finished = matters.filter { m -> Retro.finishedOn(m, byMatter[m.id].orEmpty())?.let { it in rs } == true }.map { it.id }.toSet()
                             val body = voterReport(heads, rs, matters, finished, promises, events, aid)

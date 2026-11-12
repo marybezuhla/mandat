@@ -241,7 +241,7 @@ fun Options(session: Session, onBack: () -> Unit) {
             }
 
             openDb?.let { db ->
-                OptionGroup(stringResource(R.string.opt_work), stringResource(R.string.opt_work_hint), Sym.badge) {
+                OptionGroup(stringResource(forMode(R.string.opt_work, R.string.opt_work_plain)), stringResource(forMode(R.string.opt_work_hint, R.string.opt_work_hint_plain)), Sym.badge) {
                     ModePicker(session)
                     DistrictSwitch(db, session)
                     RolesManager(db, session)
@@ -748,8 +748,8 @@ private fun DistrictSwitch(db: ua.mandat.data.MandatDb, session: Session) {
     val on by remember(db) { db.settings().observe(ua.mandat.data.SETTING_DISTRICT) }.collectAsStateWithLifecycle(null)
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
         Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.district_switch), style = MaterialTheme.typography.bodyLarge)
-            Text(stringResource(R.string.district_switch_hint), style = MaterialTheme.typography.labelMedium, color = Muted)
+            Text(stringResource(forMode(R.string.district_switch, R.string.district_switch_plain)), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(forMode(R.string.district_switch_hint, R.string.district_switch_hint_plain)), style = MaterialTheme.typography.labelMedium, color = Muted)
         }
         androidx.compose.material3.Switch(checked = on?.value == "1", onCheckedChange = { v ->
             session.write { it.settings().put(ua.mandat.data.Setting(ua.mandat.data.SETTING_DISTRICT, if (v) "1" else "0")) }
