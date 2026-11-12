@@ -104,6 +104,9 @@ dependencies {
     // Argon2id for backup passwords (Bouncy Castle, a widely audited crypto library)
     implementation("org.bouncycastle:bcprov-jdk18on:1.79")
 
+    // Backups written and read in parts: AES-256-GCM-HKDF streaming encryption (Tink, Google's audited crypto library)
+    implementation("com.google.crypto.tink:tink-android:1.20.0")
+
     // Password-protected export: standard ZIP with AES-256, opened by 7-Zip and similar apps
     implementation("net.lingala.zip4j:zip4j:2.11.5")
 

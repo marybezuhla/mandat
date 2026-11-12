@@ -626,7 +626,7 @@ class Session(app: Application) : AndroidViewModel(app) {
     /** The automatic copy being written (or written last), shared by closing and "copy now". */
     @Volatile private var autoJob: kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result>? = null
 
-    /** Writes prepared encrypted bytes to the folder, without the database. */
+    /** Sends a prepared encrypted copy to the folder, without the database. */
     fun startAutoWrite(p: ua.mandat.backup.AutoBackup.Prepared, lazy: Boolean = false): kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result> =
         background.async(start = if (lazy) kotlinx.coroutines.CoroutineStart.LAZY else kotlinx.coroutines.CoroutineStart.DEFAULT) {
             ua.mandat.backup.AutoBackup.writePrepared(getApplication(), p)
@@ -647,7 +647,7 @@ class Session(app: Application) : AndroidViewModel(app) {
         val job = autoJob
         val result = if (job == null) null else withTimeoutOrNull(AUTO_WAIT_MS) { job.await() }
         if (job != null && result == null) {
-            info.key?.fill(0)
+            info.key?.wipe()
             // Still being written: try again next time, unless the folder has not answered for a day
             if (System.currentTimeMillis() - info.createdAt > AUTO_STUCK_MS) {
                 writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
@@ -1078,9 +1078,9 @@ class Session(app: Application) : AndroidViewModel(app) {
                                 // Not saved; nothing about the content is logged
                             }
                         }
-                        // Automatic backup, if turned on and due: only encrypted here, written after closing
+                        // Automatic backup, if turned on and due: only encrypted here (into Mandat's own storage), sent to the folder after closing
                         prepared = if (!backup) null else try {
-                            ua.mandat.backup.AutoBackup.prepareIfDue(current.db)
+                            ua.mandat.backup.AutoBackup.prepareIfDue(getApplication(), current.db)
                         } catch (e: Throwable) {
                             null
                         }

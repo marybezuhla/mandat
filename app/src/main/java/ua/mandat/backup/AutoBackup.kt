@@ -17,8 +17,9 @@ import ua.mandat.data.Setting
  * (never in plain preferences, never in a backup file). The password itself is never stored.
  *
  * Three steps, so that a slow or stuck folder can never keep the database open:
- * 1. [prepareIfDue] with the database open: encrypt everything, note the file as pending;
- * 2. [writePrepared] after the database is closed: write the encrypted bytes, read them back;
+ * 1. [prepareIfDue] with the database open: write everything, encrypted, to a file inside Mandat's
+ *    own storage, note the copy as pending;
+ * 2. [writePrepared] after the database is closed: send that file to the folder, read it back;
  * 3. [reconcile] at the next unlock: record the result and remove Mandat's own old copies.
  * Only files Mandat created and recorded itself are ever deleted.
  */
@@ -32,8 +33,6 @@ object AutoBackup {
     const val KEY_MANUAL = PREFIX + "manual"
     const val KEY_LAST_FAIL = PREFIX + "last_fail"
     private const val KEY_FAIL_REASON = PREFIX + "fail_reason"
-    /** How many bytes the data took at the last attempt to make a copy (this phone only), to warn before [BackupCrypto.MAX_PLAIN_BYTES] is reached. */
-    const val KEY_SIZE = PREFIX + "size"
     private const val KEY_FILES = PREFIX + "files"
     private const val KEY_PENDING = PREFIX + "pending"
     private const val KEY_TO_DELETE = PREFIX + "to_delete"
@@ -45,6 +44,8 @@ object AutoBackup {
     const val KEEP_WEEKS = 4
     private const val INTERVAL_MS = 24L * 60 * 60 * 1000
     private const val FILE_PREFIX = "archive-"
+    /** The kind of [BackupFile.temp] file an automatic copy waits in. */
+    private const val TEMP_KIND = "auto"
 
     const val REASON_TOO_BIG = "too_big"
     private const val REASON_WRITE = "write"
@@ -54,8 +55,8 @@ object AutoBackup {
         val enabled get() = folder != null
     }
 
-    /** Encrypted bytes waiting to be written, and the name they will have. */
-    class Prepared(val folder: Uri, val name: String, val createdAt: Long, val bytes: ByteArray)
+    /** An encrypted copy waiting (in [file], inside Mandat's own storage) to be sent to the folder, and the name it will have. */
+    class Prepared(val folder: Uri, val name: String, val createdAt: Long, val file: java.io.File)
 
     /** What happened to a [Prepared] copy (kept in memory until the next unlock). */
     data class Result(val name: String, val uri: Uri?, val ok: Boolean)
@@ -89,11 +90,11 @@ object AutoBackup {
         }
     }
 
-    /** Forgets the automatic copies; when a copy was last made by hand and how large the data was stay known. */
+    /** Forgets the automatic copies; when a copy was last made by hand stays known. */
     private suspend fun forget(s: ua.mandat.data.SettingDao) {
-        val kept = listOf(KEY_MANUAL, KEY_SIZE).mapNotNull { s.get(it) }
+        val kept = s.get(KEY_MANUAL)
         s.deletePrefix(PREFIX)
-        kept.forEach { s.put(it) }
+        kept?.let { s.put(it) }
     }
 
     /** Turns automatic backups off: forgets the key, the folder and the list (files already made stay). */
@@ -111,10 +112,11 @@ object AutoBackup {
     }
 
     /**
-     * Step 1, with the database open: if a copy is due (or [force]), encrypts everything and notes
-     * the coming file as pending. No file access here, so nothing can hang while the database is open.
+     * Step 1, with the database open: if a copy is due (or [force]), writes everything, encrypted,
+     * to a file inside Mandat's own storage and notes the coming copy as pending. The folder is
+     * not touched here, so nothing can hang while the database is open.
      */
-    suspend fun prepareIfDue(db: MandatDb, force: Boolean = false): Prepared? {
+    suspend fun prepareIfDue(context: Context, db: MandatDb, force: Boolean = false): Prepared? {
         val s = db.settings()
         val folder = s.get(KEY_FOLDER)?.value?.let(Uri::parse) ?: return null
         // The previous copy has not been recorded yet: it will be at the next unlock
@@ -122,29 +124,53 @@ object AutoBackup {
         val now = System.currentTimeMillis()
         val last = s.get(KEY_LAST_OK)?.value?.toLongOrNull() ?: 0L
         if (!force && now - last in 0 until INTERVAL_MS) return null
-        val salt = s.get(KEY_SALT)?.value?.unhex() ?: return null
-        val key = s.get(KEY_KEY)?.value?.unhex() ?: return null
-        val json = BackupData.dump(db)
+        val key = storedKey(s) ?: return null
+        val file = try {
+            BackupFile.temp(context, TEMP_KIND)
+        } catch (e: Exception) {
+            // The phone's storage is full, say. Said on the first tab, so that copies never stop silently
+            key.wipe()
+            fail(db, REASON_WRITE, now)
+            return null
+        }
+        var kept = false
         try {
-            s.put(Setting(KEY_SIZE, json.size.toString()))
-            if (json.size > BackupCrypto.MAX_PLAIN_BYTES) {
+            try {
+                BackupFile.write(db, key, file)
+            } catch (e: BackupStream.TooBig) {
                 fail(db, REASON_TOO_BIG, now)
                 return null
+            } catch (e: Exception) {
+                fail(db, REASON_WRITE, now)
+                return null
             }
-            val bytes = BackupCrypto.encryptWithKey(json, key, salt)
             // A neutral random name: it tells neither the app, nor that it is automatic, nor when Mandat was closed
             val name = FILE_PREFIX + java.util.UUID.randomUUID().toString().replace("-", "").take(10) + ".bin"
             s.put(Setting(KEY_PENDING, "$name\t$now"))
-            return Prepared(folder, name, now, bytes)
+            kept = true
+            return Prepared(folder, name, now, file)
         } finally {
-            json.fill(0)
+            key.wipe()
+            if (!kept) file.delete()
+        }
+    }
+
+    /** The key made from the password when automatic copies were turned on. */
+    private suspend fun storedKey(s: ua.mandat.data.SettingDao): BackupStream.Key? {
+        val salt = s.get(KEY_SALT)?.value?.unhex() ?: return null
+        val key = s.get(KEY_KEY)?.value?.unhex() ?: return null
+        return try {
+            BackupStream.storedKey(salt, key)
+        } catch (e: IllegalArgumentException) {
+            null
+        } finally {
             key.fill(0)
         }
     }
 
     /**
-     * Step 2, without the database: writes the encrypted bytes and reads them back to compare.
-     * Anything that goes wrong (including running out of memory) removes the file again.
+     * Step 2, without the database: sends the encrypted copy to the folder and reads it back to
+     * compare. Anything that goes wrong removes the file in the folder again.
      */
     fun writePrepared(context: Context, p: Prepared): Result {
         var uri: Uri? = null
@@ -152,29 +178,39 @@ object AutoBackup {
             val parent = DocumentsContract.buildDocumentUriUsingTree(p.folder, DocumentsContract.getTreeDocumentId(p.folder))
             uri = DocumentsContract.createDocument(context.contentResolver, parent, "application/octet-stream", p.name)
                 ?: return Result(p.name, null, false)
-            context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(p.bytes) }
-            val back = read(context, uri)
-            if (!back.contentEquals(p.bytes)) throw IllegalStateException()
+            val sent = context.contentResolver.openOutputStream(uri, "wt")!!.use { out -> p.file.inputStream().use { BackupFile.copy(it, out) } }
+            // What actually landed in the folder, not what we meant to write
+            val back = context.contentResolver.openInputStream(uri)!!.use { BackupFile.copy(it, null) }
+            if (!back.contentEquals(sent)) throw IllegalStateException()
             return Result(p.name, uri, true)
         } catch (e: Throwable) {
             uri?.let { deleteQuietly(context, it) }
             return Result(p.name, uri, false)
         } finally {
-            p.bytes.fill(0)
+            p.file.delete()
         }
     }
 
-    /** True if the copy at [uri] opens with [password] (checked once, when backups are turned on). */
-    fun opensWith(context: Context, uri: Uri, password: String): Boolean =
-        try {
-            BackupCrypto.decrypt(read(context, uri), password).fill(0)
+    /** True if the copy at [uri] opens with [password] and is whole (checked once, when backups are turned on). */
+    fun opensWith(context: Context, uri: Uri, password: String): Boolean {
+        val chars = password.toCharArray()
+        var key: BackupStream.Key? = null
+        return try {
+            context.contentResolver.openInputStream(uri)!!.use { input ->
+                val k = BackupStream.keyFor(BackupStream.readSalt(input), chars).also { key = it }
+                BackupStream.reader(input, k).use { BackupLines.read(it, null) }
+            }
             true
         } catch (e: Throwable) {
             false
+        } finally {
+            chars.fill(' ')
+            key?.wipe()
         }
+    }
 
     /** A copy noted as pending, read under the lock; the key is only for checking an unknown result. */
-    class PendingInfo(val name: String, val createdAt: Long, val folder: Uri, val key: ByteArray?)
+    class PendingInfo(val name: String, val createdAt: Long, val folder: Uri, val key: BackupStream.Key?)
 
     /** Step 3a, under the lock: what is pending, if anything. No file access. */
     suspend fun pendingInfo(db: MandatDb): PendingInfo? {
@@ -189,7 +225,7 @@ object AutoBackup {
             name = pending.substringBefore('\t'),
             createdAt = pending.substringAfter('\t').toLongOrNull() ?: System.currentTimeMillis(),
             folder = folder,
-            key = s.get(KEY_KEY)?.value?.unhex(),
+            key = storedKey(s),
         )
     }
 
@@ -211,7 +247,7 @@ object AutoBackup {
             } ?: return Checked(null)
             val key = info.key ?: return Checked(null, unknown = true)
             return try {
-                BackupCrypto.decryptWithKey(read(context, uri), key).fill(0)
+                context.contentResolver.openInputStream(uri)!!.use { BackupFile.read(it, key) }
                 Checked(uri)
             } catch (e: BackupCrypto.WrongPasswordOrDamaged) {
                 deleteQuietly(context, uri)
@@ -219,11 +255,15 @@ object AutoBackup {
             } catch (e: BackupCrypto.NotABackup) {
                 deleteQuietly(context, uri)
                 Checked(null)
+            } catch (e: BackupData.Incompatible) {
+                // Opens, but the writing stopped halfway
+                deleteQuietly(context, uri)
+                Checked(null)
             } catch (e: Throwable) {
                 Checked(null, unknown = true)
             }
         } finally {
-            info.key?.fill(0)
+            info.key?.wipe()
         }
     }
 
@@ -333,24 +373,6 @@ object AutoBackup {
             }
         }
         return null
-    }
-
-    /** Reads a file, refusing anything larger than a backup can be. */
-    private fun read(context: Context, uri: Uri): ByteArray {
-        val limit = BackupCrypto.MAX_FILE_BYTES
-        context.contentResolver.openInputStream(uri)!!.use { input ->
-            val out = java.io.ByteArrayOutputStream()
-            val buffer = ByteArray(64 * 1024)
-            var total = 0L
-            while (true) {
-                val n = input.read(buffer)
-                if (n < 0) break
-                total += n
-                if (total > limit) throw BackupCrypto.NotABackup()
-                out.write(buffer, 0, n)
-            }
-            return out.toByteArray()
-        }
     }
 
     private fun deleteQuietly(context: Context, uri: Uri) {
