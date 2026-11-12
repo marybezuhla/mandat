@@ -48,30 +48,30 @@ internal suspend fun obsidianVault(
         visible(m.id) && (span == null || msIn(m.createdAt) || msIn(m.updatedAt) || m.id in movedIds)
     }
     val events = db.events().observeAll().first().filter { e ->
-        visible(e.matterId) && free(e.matterId, e.title, e.notes, e.outcome, e.place) && when {
+        visible(e.matterId) && free(e.matterId, ua.mandat.data.HideRules.EVENT.text(e)) && when {
             span != null -> e.day <= span.to && e.lastDay >= span.from
             full -> true
             else -> e.lastDay >= today - 365 && e.day <= today + 365
         }
     }
     fun taskIn(created: Long, closed: Long?, due: Long?) = span == null || msIn(created) || msIn(closed) || (due != null && inSpan(due))
-    val delegations = db.delegations().observeAll().first().filter { visible(it.matterId) && free(it.matterId, it.what, it.purpose, it.doneMeans) && taskIn(it.createdAt, it.closedAt, it.due) }
-    val promises = db.promises().observeAll().first().filter { visible(it.matterId) && free(it.matterId, it.what, it.toWhom, it.statusNote, it.source) && taskIn(it.createdAt, it.closedAt, it.due) }
-    val deadlines = db.deadlines().observeAll().first().filter { visible(it.matterId) && free(it.matterId, it.title, it.basis) && taskIn(it.createdAt, it.closedAt, it.day) }
+    val delegations = db.delegations().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && taskIn(it.createdAt, it.closedAt, it.due) }
+    val promises = db.promises().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) && taskIn(it.createdAt, it.closedAt, it.due) }
+    val deadlines = db.deadlines().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.DEADLINE.text(it)) && taskIn(it.createdAt, it.closedAt, it.day) }
     val eventPeople = db.events().observeLinks().first().groupBy({ it.eventId }, { it.personId })
     val links = db.people().observeLinks().first().filter { visible(it.matterId) }
-    val info = if (full) db.info().observeAll().first().filter { visible(it.matterId) && free(it.matterId, it.title, it.source, it.notes, it.result) && (inSpan(it.day) || msIn(it.updatedAt)) } else emptyList()
-    val alliances = if (full) db.info().observeAlliances().first().filter { visible(it.matterId) && free(it.matterId, it.withWhom, it.about, it.notes, it.gives, it.gets) && (span == null || msIn(it.createdAt) || msIn(it.updatedAt)) } else emptyList()
-    val messages = if (full) db.info().observeMessages().first().filter { visible(it.matterId) && free(it.matterId, it.text, it.proof) && (span == null || msIn(it.createdAt) || msIn(it.updatedAt)) } else emptyList()
-    val money = if (full) db.money().observeAll().first().filter { visible(it.matterId) && free(it.matterId, it.note, it.toWhom, it.category) && inSpan(it.day) } else emptyList()
-    val texts = if (full) db.texts().observeAll().first().filter { visible(it.matterId) && free(it.matterId, it.title, it.body) && (span == null || msIn(it.createdAt) || msIn(it.updatedAt)) } else emptyList()
-    val inbox = if (full) db.inbox().observeAll().first().filter { free(null, it.text) && (span == null || msIn(it.createdAt)) } else emptyList()
+    val info = if (full) db.info().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.INFO.text(it)) && (inSpan(it.day) || msIn(it.updatedAt)) } else emptyList()
+    val alliances = if (full) db.info().observeAlliances().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.ALLIANCE.text(it)) && (span == null || msIn(it.createdAt) || msIn(it.updatedAt)) } else emptyList()
+    val messages = if (full) db.info().observeMessages().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.MESSAGE.text(it)) && (span == null || msIn(it.createdAt) || msIn(it.updatedAt)) } else emptyList()
+    val money = if (full) db.money().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.MONEY.text(it)) && inSpan(it.day) } else emptyList()
+    val texts = if (full) db.texts().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.TEXT.text(it)) && (span == null || msIn(it.createdAt) || msIn(it.updatedAt)) } else emptyList()
+    val inbox = if (full) db.inbox().observeAll().first().filter { free(null, ua.mandat.data.HideRules.INBOX.text(it)) && (span == null || msIn(it.createdAt)) } else emptyList()
     val communityLinks = if (full) db.communities().observeLinks().first() else emptyList()
     // A community tied to a hidden matter keeps only its visible links
     val commLinksVisible = communityLinks.filter { it.kind != ua.mandat.data.LinkKind.MATTER || it.refId !in hidden }
 
     // People: everyone (no period, or asked for), or only those tied to what goes in
-    val allVisiblePeople = db.people().all().filter { it.id !in onlyHidden && free(null, it.name, it.organization, it.jobTitle, it.contact, it.notes) }
+    val allVisiblePeople = db.people().all().filter { it.id !in onlyHidden && free(null, personText(it)) }
     val matterIds = matters.map { it.id }.toSet()
     val tied = buildSet {
         links.filter { it.matterId in matterIds }.forEach { add(it.personId) }
@@ -81,19 +81,14 @@ internal suspend fun obsidianVault(
         alliances.mapNotNull { it.personId }.forEach { add(it) }
     }
     val people = if (allPeople || span == null) allVisiblePeople else allVisiblePeople.filter { it.id in tied }
-    val contacts = if (full && allPeople) db.contacts().all().filter { free(null, it.name, it.organization, it.jobTitle, it.notes, it.label) } else emptyList()
-    // A community whose every link leads to something hidden stays out too (its name could tell where)
-    val eventMatter = db.events().observeAll().first().associate { it.id to it.matterId }
-    val promiseMatter = db.promises().observeAll().first().associate { it.id to it.matterId }
-    fun linkHidden(l: ua.mandat.data.CommunityLink) = when (l.kind) {
-        ua.mandat.data.LinkKind.MATTER -> l.refId in hidden
-        ua.mandat.data.LinkKind.EVENT -> eventMatter[l.refId]?.let { it in hidden } ?: false
-        ua.mandat.data.LinkKind.PROMISE -> promiseMatter[l.refId]?.let { it in hidden } ?: false
-        ua.mandat.data.LinkKind.PERSON -> l.refId in onlyHidden
-        else -> false
-    }
-    val hiddenOnlyCommunities = communityLinks.groupBy { it.communityId }.filterValues { ls -> ls.isNotEmpty() && ls.all(::linkHidden) }.keys
-    val communities = if (full) db.communities().observeAll().first().filter { it.id !in hiddenOnlyCommunities && free(null, it.name, it.notes, it.head) }.let { cs ->
+    val contacts = if (full && allPeople) db.contacts().all().filter { free(null, ua.mandat.data.HideRules.CONTACT.text(it)) } else emptyList()
+    // A community whose every link leads to something hidden stays out too (its name could tell where):
+    // the same rule as on the screens
+    val hiddenOnlyCommunities = ua.mandat.data.Hiding.communities(
+        hidden, onlyHidden, communityLinks,
+        db.events().observeAll().first().associate { it.id to it.matterId }, db.promises().observeAll().first().associate { it.id to it.matterId },
+    )
+    val communities = if (full) db.communities().observeAll().first().filter { it.id !in hiddenOnlyCommunities && free(null, communityText(it)) }.let { cs ->
         if (span == null) cs else cs.filter { c ->
             msIn(c.updatedAt) || commLinksVisible.any { l -> l.communityId == c.id && when (l.kind) {
                 ua.mandat.data.LinkKind.MATTER -> l.refId in matterIds
@@ -186,10 +181,10 @@ internal suspend fun obsidianVault(
                 if (e.outcome.isNotBlank()) append("## ").append(s(R.string.event_outcome)).append("\n").append(e.outcome).append("\n")
             })
     }
-    // Diary days, without those linked to what is hidden
-    val hiddenReviews = db.reviews().observeLinks().first()
-        .filter { (it.kind == "matter" && it.refId in hidden) || (it.kind == "person" && it.refId in onlyHidden) }.map { it.reviewId }.toSet()
-    db.reviews().observeAll().first().filter { it.id !in hiddenReviews && it.progress.isNotBlank() && free(null, it.progress) && inSpan(it.day) }.forEach { r ->
+    // Diary days, without those linked to what is hidden or naming it: the same rule as on the screens
+    val reviews = db.reviews().observeAll().first()
+    val hiddenReviews = ua.mandat.data.Hiding.reviews(hidden, onlyHidden, hiddenNames, reviews, db.reviews().observeLinks().first())
+    reviews.filter { it.id !in hiddenReviews && it.progress.isNotBlank() && inSpan(it.day) }.forEach { r ->
         note(fDiary, Export.day(r.day), "diary", "date: ${Export.day(r.day)}\n", r.progress + "\n")
     }
 

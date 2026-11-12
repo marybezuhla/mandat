@@ -115,9 +115,12 @@ class ExportPlan {
 }
 
 /** Periods offered for an export. */
-enum class ExportPeriod(val label: Int) {
+enum class ExportPeriod(private val text: Int) {
     ALL(R.string.period_all), TODAY(R.string.period_today), WEEK(R.string.period_week), MONTH(R.string.period_month),
-    QUARTER(R.string.period_quarter), YEAR(R.string.period_year), CADENCE(R.string.period_cadence), CUSTOM(R.string.period_custom),
+    QUARTER(R.string.period_quarter), YEAR(R.string.period_year), CADENCE(R.string.period_cadence), CUSTOM(R.string.period_custom);
+
+    /** "Term of office" only for elected work. */
+    val label: Int get() = if (this == CADENCE) forMode(text, R.string.period_since_start) else text
 }
 
 private val TABLES = listOf("matters", "delegations", "promises", "deadlines", "events", "money", "people")
@@ -139,7 +142,7 @@ fun ExportScreen(db: MandatDb, session: Session) {
         ?.takeIf { t -> t.matterId == null || t.matterId !in session.hiddenMatters.value }?.title }) } }
         .collectAsStateWithLifecycle(null)
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
-    val contacts by remember(db) { db.contacts().observeAll().hidingNamed(session, { null }, { it.createdAt }) { it.name + " " + it.organization + " " + it.jobTitle + " " + it.notes + " " + it.label } }.collectAsStateWithLifecycle(emptyList())
+    val contacts by remember(db) { db.contacts().observeAll().hiding(session, ua.mandat.data.HideRules.CONTACT) }.collectAsStateWithLifecycle(emptyList())
     val titles by remember(db) { db.matters().observeAllTitles().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val trip by session.tripOn.collectAsStateWithLifecycle()
     // 0 a ZIP with a password (other apps open it), 1 Mandat's own encrypted file, 2 an open file
@@ -267,7 +270,7 @@ fun ExportScreen(db: MandatDb, session: Session) {
             // One period for everything chosen below; each kind of record is taken by its own dates
             SectionCard(Sym.calendar, stringResource(R.string.export_period)) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // "Cadence" only once its start date is set (in the district settings), never silently a year
+                    // "Term" or "since the start" only once its first day is set (on the dashboard), never silently a year
                     ExportPeriod.entries.filter { it != ExportPeriod.CADENCE || cadenceSet?.value?.toLongOrNull() != null }
                         .forEach { p -> QuickChip(stringResource(p.label), plan.period == p) { plan.period = p } }
                 }
@@ -680,7 +683,7 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
         add("people.vcf", Export.vcard(chosen.map { Export.personToV(it, it.allCategories.map(::catName)) }))
     }
     if (plan.book) {
-        val chosen = db.contacts().all().filter { (plan.bookGroup == null || it.label == plan.bookGroup) && free(null, it.name, it.organization, it.jobTitle, it.notes, it.label) }
+        val chosen = db.contacts().all().filter { (plan.bookGroup == null || it.label == plan.bookGroup) && free(null, ua.mandat.data.HideRules.CONTACT.text(it)) }
         add("address-book.vcf", Export.vcard(chosen.map(Export::contactToV)))
     }
     val today = Dates.today()
@@ -690,7 +693,7 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
     fun msIn(ms: Long?) = ms != null && inSpan(Dates.dayOf(ms))
     fun taskIn(created: Long, closed: Long?, due: Long?) = span == null || msIn(created) || msIn(closed) || (due != null && inSpan(due))
     val movedIds = if (span == null) emptySet() else db.history().observeAll().first().filter { it.day in span }.map { it.matterId }.toSet()
-    val events = db.events().observeAll().first().filter { visible(it.matterId) && free(it.matterId, it.title, it.notes, it.outcome, it.place) && (span == null || (it.day <= span.to && it.lastDay >= span.from)) }
+    val events = db.events().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.EVENT.text(it)) && (span == null || (it.day <= span.to && it.lastDay >= span.from)) }
     if (plan.calendar) {
         val chosen = if (span != null) events else events.filter { e ->
             when (plan.calendarSpan) { 1 -> e.lastDay >= today; 2 -> e.day >= today - 365; else -> true }
@@ -712,14 +715,14 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
     }
     if ("delegations" in plan.tables) add("delegations.csv", Export.csv(
         listOf("what", "to_whom", "matter", "due", "status", "purpose", "done_means", "created", "closed"),
-        db.delegations().observeAll().first().filter { visible(it.matterId) && free(it.matterId, it.what, it.purpose, it.doneMeans) && taskIn(it.createdAt, it.closedAt, it.due) }.map { d ->
+        db.delegations().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && taskIn(it.createdAt, it.closedAt, it.due) }.map { d ->
             listOf(d.what, d.personId?.let(nameOf::get).orEmpty(), d.matterId?.let(titles::get).orEmpty(), Export.day(d.due),
                 context.getString(TaskStatus.of(d.status).delegationLabel()), d.purpose, d.doneMeans, Export.moment(d.createdAt), Export.moment(d.closedAt))
         },
     ))
     if ("promises" in plan.tables) add("promises.csv", Export.csv(
         listOf("what", "to_whom", "publicity", "origin", "risk", "matter", "due", "status", "promised", "closed", "source", "note"),
-        db.promises().observeAll().first().filter { visible(it.matterId) && free(it.matterId, it.what, it.toWhom, it.source, it.statusNote) && taskIn(it.createdAt, it.closedAt, it.due) }.map { p ->
+        db.promises().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) && taskIn(it.createdAt, it.closedAt, it.due) }.map { p ->
             listOf(p.what, if (p.personId != null) nameOf[p.personId].orEmpty() else p.toWhom, context.getString(p.level.label()),
                 ua.mandat.data.PromiseOrigin.of(p.origin)?.let { context.getString(it.label()) }.orEmpty(), p.risk?.toString().orEmpty(),
                 p.matterId?.let(titles::get).orEmpty(), Export.day(p.due), context.getString(TaskStatus.of(p.status).promiseLabel()),
@@ -728,7 +731,7 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
     ))
     if ("deadlines" in plan.tables) add("deadlines.csv", Export.csv(
         listOf("title", "day", "kind", "basis", "matter", "status"),
-        db.deadlines().observeAll().first().filter { visible(it.matterId) && free(it.matterId, it.title, it.basis) && taskIn(it.createdAt, it.closedAt, it.day) }.map { d ->
+        db.deadlines().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.DEADLINE.text(it)) && taskIn(it.createdAt, it.closedAt, it.day) }.map { d ->
             listOf(d.title, Export.day(d.day), context.getString(if (ua.mandat.data.DeadlineKind.of(d.kind) == ua.mandat.data.DeadlineKind.HARD) R.string.deadline_hard else R.string.deadline_soft),
                 d.basis, d.matterId?.let(titles::get).orEmpty(), context.getString(TaskStatus.of(d.status).delegationLabel()))
         },
@@ -742,7 +745,7 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
     ))
     if ("money" in plan.tables) add("budget.csv", Export.csv(
         listOf("day", "kind", "category", "amount", "currency", "uah", "note", "charity", "to_whom", "awaiting_refund", "refunded"),
-        db.money().observeAll().first().filter { visible(it.matterId) && free(it.matterId, it.note, it.toWhom, it.category) && inSpan(it.day) }.map { m ->
+        db.money().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.MONEY.text(it)) && inSpan(it.day) }.map { m ->
             listOf(Export.day(m.day), m.kind, m.category, Export.money(m.amount), m.currency, Export.money(m.uah), m.note, m.charityKind.orEmpty(), m.toWhom,
                 if (m.awaitingRefund) "1" else "0", if (m.refunded) "1" else "0")
         },
@@ -753,9 +756,10 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
             ua.mandat.data.TeamRole.of(p.teamRole)?.let { context.getString(it.label()) }.orEmpty(), p.notes) },
     ))
     if (plan.diary) {
-        val hiddenReviews = db.reviews().observeLinks().first()
-            .filter { (it.kind == "matter" && it.refId in hidden) || (it.kind == "person" && it.refId in onlyHidden) }.map { it.reviewId }.toSet()
-        val reviews = db.reviews().observeAll().first().filter { it.id !in hiddenReviews && free(null, it.progress) && inSpan(it.day) }.sortedBy { it.day }
+        // Days linked to what is hidden, or naming it, stay out: the same rule as on the screens
+        val allReviews = db.reviews().observeAll().first()
+        val hiddenReviews = ua.mandat.data.Hiding.reviews(hidden, onlyHidden, names, allReviews, db.reviews().observeLinks().first())
+        val reviews = allReviews.filter { it.id !in hiddenReviews && inSpan(it.day) }.sortedBy { it.day }
         addDoc("diary", buildString {
             append("# ").append(context.getString(R.string.diary_title)).append("\n\n")
             reviews.filter { it.progress.isNotBlank() || it.mood != null || it.energy != null }.forEach { r ->
@@ -838,7 +842,7 @@ private suspend fun briefDocument(context: Context, db: MandatDb, p: ua.mandat.d
     listOf(p.jobTitle, p.organization).filter { it.isNotBlank() }.joinToString(" · ").takeIf { it.isNotEmpty() }?.let { append(Export.md(it)).append("\n\n") }
     if (p.contact.isNotBlank()) append(Export.md(p.contact)).append("\n\n")
     if (p.notes.isNotBlank()) append(Export.md(p.notes)).append("\n\n")
-    val events = db.events().observeForPerson(p.id).first().filter { ok(it.matterId, it.title, it.outcome) }
+    val events = db.events().observeForPerson(p.id).first().filter { ok(it.matterId, ua.mandat.data.HideRules.EVENT.text(it)) }
     events.filter { it.lastDay >= today }.minByOrNull { it.day }?.let { e ->
         append("## ").append(context.getString(R.string.brief_next)).append("\n\n- ").append(Export.day(e.day)).append(" — ").append(Export.md(e.title)).append("\n\n")
     }
@@ -858,13 +862,13 @@ private suspend fun briefDocument(context: Context, db: MandatDb, p: ua.mandat.d
             .append(next[m.matterId]?.takeIf { it.isNotBlank() }?.let { " → " + Export.md(it) }.orEmpty()).append("\n") }
         append("\n")
     }
-    val promises = db.promises().observeForPerson(p.id).first().filter { ok(it.matterId, it.what) && TaskStatus.of(it.status) == TaskStatus.OPEN }
+    val promises = db.promises().observeForPerson(p.id).first().filter { ok(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) && TaskStatus.of(it.status) == TaskStatus.OPEN }
     if (promises.isNotEmpty()) {
         append("## ").append(context.getString(R.string.agenda_promises)).append("\n\n")
         promises.forEach { x -> append("- ").append(Export.md(x.what)).append(x.due?.let { " (" + Export.day(it) + ")" }.orEmpty()).append("\n") }
         append("\n")
     }
-    val asked = db.delegations().observeForPerson(p.id).first().filter { ok(it.matterId, it.what) && TaskStatus.of(it.status) == TaskStatus.OPEN }
+    val asked = db.delegations().observeForPerson(p.id).first().filter { ok(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && TaskStatus.of(it.status) == TaskStatus.OPEN }
     if (asked.isNotEmpty()) {
         append("## ").append(context.getString(R.string.brief_asked)).append("\n\n")
         asked.forEach { d -> append("- ").append(Export.md(d.what)).append(d.due?.let { " (" + Export.day(it) + ")" }.orEmpty())
@@ -953,7 +957,7 @@ private suspend fun importEvents(s: Session, items: List<ua.mandat.data.IcsReade
         val now = System.currentTimeMillis()
         // Compared only with what is shown now: a skipped event must never tell that a hidden one exists
         val h = s.hidden.value
-        val existing = db.events().observeAll().first().filterNot { h.item(it.matterId, it.title, it.notes) }.map { Triple(it.title, it.day, it.startMin) }.toSet()
+        val existing = db.events().observeAll().first().filterNot { h.hides(ua.mandat.data.HideRules.EVENT, it) }.map { Triple(it.title, it.day, it.startMin) }.toSet()
         db.withTransaction {
             items.filter { Triple(it.title, it.day, it.startMin) !in existing }.forEach { i ->
                 ua.mandat.data.cleanEvent(ua.mandat.data.Event(title = i.title, day = i.day, endDay = i.endDay, startMin = i.startMin, endMin = i.endMin,

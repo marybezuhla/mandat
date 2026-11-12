@@ -110,6 +110,9 @@ fun cleanCommunity(c: Community): Community? {
 enum class Mode {
     RADA, COUNCIL, OFFICIAL, CITIZEN;
 
+    /** Elected work (the parliament or a local council): the wording and templates written for a deputy apply. */
+    val elected: Boolean get() = this == RADA || this == COUNCIL
+
     companion object {
         fun of(key: String?) = entries.firstOrNull { it.name == key } ?: RADA
     }

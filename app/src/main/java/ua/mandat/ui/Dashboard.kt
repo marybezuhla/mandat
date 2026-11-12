@@ -63,9 +63,9 @@ import java.time.format.DateTimeFormatter
 fun Dashboard(db: MandatDb, session: Session) {
     val roles by remember(db) { db.roles().observeAll() }.collectAsStateWithLifecycle(emptyList())
     val matters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
-    val promises by remember(db) { db.promises().observeAll().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.toWhom + " " + it.source + " " + it.statusNote } }.collectAsStateWithLifecycle(emptyList())
-    val delegations by remember(db) { db.delegations().observeAll().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.purpose + " " + it.doneMeans } }.collectAsStateWithLifecycle(emptyList())
-    val deadlines by remember(db) { db.deadlines().observeAll().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.title + " " + it.basis } }.collectAsStateWithLifecycle(emptyList())
+    val promises by remember(db) { db.promises().observeAll().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
+    val delegations by remember(db) { db.delegations().observeAll().hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
+    val deadlines by remember(db) { db.deadlines().observeAll().hiding(session, ua.mandat.data.HideRules.DEADLINE) }.collectAsStateWithLifecycle(emptyList())
     val reviews by remember(db) { db.reviews().observeAll().hidingReviews(session) }.collectAsStateWithLifecycle(emptyList())
     val cadenceSetting by remember(db) { db.settings().observe(SETTING_CADENCE_START) }.collectAsStateWithLifecycle(null)
     val cadenceStart = cadenceSetting?.value?.toLongOrNull()
@@ -204,7 +204,7 @@ private fun Period.label() = when (this) {
     Period.WEEK -> R.string.dash_week
     Period.MONTH -> R.string.dash_month
     Period.YEAR -> R.string.dash_year
-    Period.CADENCE -> R.string.dash_cadence
+    Period.CADENCE -> forMode(R.string.dash_cadence, R.string.period_since_start)
     Period.ALL -> R.string.dash_all
 }
 
@@ -220,7 +220,7 @@ private fun spanText(period: Period, span: Span, cadenceStart: Long?): String {
         Period.MONTH -> from.format(DateTimeFormatter.ofPattern("LLLL yyyy"))
         Period.YEAR -> from.year.toString()
         Period.CADENCE ->
-            if (cadenceStart == null) stringResource(R.string.dash_cadence_unset)
+            if (cadenceStart == null) stringResource(forMode(R.string.dash_cadence_unset, R.string.dash_cadence_unset_plain))
             else stringResource(R.string.dash_since, Dates.format(span.from))
         Period.ALL -> stringResource(R.string.dash_since, Dates.format(span.from))
     }

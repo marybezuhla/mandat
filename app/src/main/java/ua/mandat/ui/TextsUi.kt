@@ -78,6 +78,19 @@ val TEXT_TEMPLATES = listOf(
     TextTemplate("note", TextKind.NOTE, R.string.tpl_note_title, R.string.tpl_note_body),
 )
 
+/** What a citizen writes to the authorities, in place of a deputy's appeal and inquiry. */
+private val CITIZEN_TEMPLATES = listOf(
+    TextTemplate("citizen_appeal", TextKind.LETTER, R.string.tpl_citizen_appeal_title, R.string.tpl_citizen_appeal_body),
+    TextTemplate("info_request", TextKind.LETTER, R.string.tpl_info_request_title, R.string.tpl_info_request_body),
+)
+
+/** The ready templates of the chosen mode: a deputy's letters only where the owner is a deputy. */
+fun textTemplates(): List<TextTemplate> = when (AppMode.mode) {
+    ua.mandat.data.Mode.RADA, ua.mandat.data.Mode.COUNCIL -> TEXT_TEMPLATES
+    ua.mandat.data.Mode.OFFICIAL -> TEXT_TEMPLATES.filter { it.key != "appeal" && it.key != "inquiry" }
+    ua.mandat.data.Mode.CITIZEN -> CITIZEN_TEMPLATES + TEXT_TEMPLATES.filter { it.key in setOf("thanks", "greeting", "speech", "column") }
+}
+
 /** Fields still to fill in: anything in square brackets. */
 private val FIELD = Regex("\\[[^\\[\\]\\n]{1,200}\\]")
 
@@ -86,7 +99,7 @@ private val FIELD = Regex("\\[[^\\[\\]\\n]{1,200}\\]")
 @Composable
 fun TextsScreen(db: MandatDb, session: Session) {
     BackHandler { session.showTexts = false }
-    val texts by remember(db) { db.texts().observeAll().hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.title + " " + it.body } }.collectAsStateWithLifecycle(emptyList())
+    val texts by remember(db) { db.texts().observeAll().hiding(session, ua.mandat.data.HideRules.TEXT) }.collectAsStateWithLifecycle(emptyList())
     val titles by remember(db) { db.matters().observeAllTitles().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val titleOf = titles.associate { it.id to it.title }
     var kind by rememberSaveable { mutableStateOf<String?>(null) }
@@ -154,9 +167,9 @@ private fun TextLine(t: TextDoc, matterTitle: String?, onOpen: () -> Unit) {
 /** New text from a ready template or from one of the owner's own. */
 @Composable
 fun TemplatePicker(own: List<TextDoc>, matterId: Long? = null, onDismiss: () -> Unit, onPick: (TextDraft) -> Unit) {
-    val builtIn = TEXT_TEMPLATES.map { t -> PickItem("b:" + t.key, stringResource(t.title), stringResource(t.kind.label())) }
+    val builtIn = textTemplates().map { t -> PickItem("b:" + t.key, stringResource(t.title), stringResource(t.kind.label())) }
     val mine = own.map { PickItem("o:" + it.id, it.title, stringResource(R.string.text_kind_template)) }
-    val bodies = TEXT_TEMPLATES.associate { "b:" + it.key to Triple(stringResource(it.title), stringResource(it.body), it.kind) }
+    val bodies = textTemplates().associate { "b:" + it.key to Triple(stringResource(it.title), stringResource(it.body), it.kind) }
     PickSheet(stringResource(R.string.text_from_template), builtIn + mine, onPick = { key ->
         if (key.startsWith("b:")) bodies[key]?.let { (title, body, kind) -> onPick(newText(matterId, kind, title, body)) }
         else own.firstOrNull { "o:" + it.id == key }?.let { o -> onPick(newText(matterId, TextKind.OTHER, o.title, o.body)) }
@@ -310,7 +323,7 @@ fun TextEditor(db: MandatDb, session: Session, draft: TextDraft) {
 @Composable
 fun MatterTexts(db: MandatDb, session: Session, matterId: Long) {
     val texts by remember(db, matterId) { db.texts().observeForMatter(matterId) }.collectAsStateWithLifecycle(emptyList())
-    val own by remember(db) { db.texts().observeAll().hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.title + " " + it.body } }.collectAsStateWithLifecycle(emptyList())
+    val own by remember(db) { db.texts().observeAll().hiding(session, ua.mandat.data.HideRules.TEXT) }.collectAsStateWithLifecycle(emptyList())
     var choosing by remember { mutableStateOf(false) }
     Text(stringResource(R.string.texts_title), style = MaterialTheme.typography.labelLarge)
     texts.forEach { t -> TextLine(t, null) { session.textDraft = TextDraft(t, isNew = false) } }

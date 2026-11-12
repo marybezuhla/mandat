@@ -260,18 +260,18 @@ private fun AiPicker(db: MandatDb, session: Session, act: AiAct, onDismiss: () -
         when (act.pick) {
             AiPick.MATTER -> db.matters().observeActiveTitles().hiding(session) { it.id }.map { l -> l.map { PickItem(it.id, it.title) } }
             AiPick.PERSON -> db.people().observeAll().hidingPeople(session).map { l -> l.filter { it.name.isNotBlank() }.map { PickItem(it.id, it.name, it.organization) } }
-            AiPick.TEXT -> db.texts().observeAll().hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.title + " " + it.body }.map { l -> l.map { PickItem(it.id, it.title) } }
-            AiPick.ATTACK -> db.info().observeAll().hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.title + " " + it.notes + " " + it.source + " " + it.result }.map { l ->
+            AiPick.TEXT -> db.texts().observeAll().hiding(session, ua.mandat.data.HideRules.TEXT).map { l -> l.map { PickItem(it.id, it.title) } }
+            AiPick.ATTACK -> db.info().observeAll().hiding(session, ua.mandat.data.HideRules.INFO).map { l ->
                 l.filter { !it.closed && (it.kind == InfoKind.ATTACK.name || it.kind == InfoKind.CRITIQUE.name) }.map { PickItem(it.id, it.title, it.source) }
             }
             // Meetings from today on, for two weeks
             AiPick.EVENT -> kotlinx.coroutines.flow.combine(db.events().observeRange(Dates.today(), Dates.today() + 14).hiding(session) { it.matterId }, hiddenTitles(db, session)) { l, ht ->
-                l.filterNot { it.matterId == null && namesAny(it.title + " " + it.notes, ht) }.sortedWith(compareBy({ it.day }, { it.startMin ?: -1 })).map { PickItem(it.id, it.title, Dates.format(it.day) + (it.startMin?.let { m -> " " + timeText(m) } ?: "")) }
+                l.filterNot { it.matterId == null && namesAny(ua.mandat.data.HideRules.EVENT.text(it), ht) }.sortedWith(compareBy({ it.day }, { it.startMin ?: -1 })).map { PickItem(it.id, it.title, Dates.format(it.day) + (it.startMin?.let { m -> " " + timeText(m) } ?: "")) }
             }
             // Open delegations to someone: a reminder needs a person to write to
-            AiPick.DELEGATION -> kotlinx.coroutines.flow.combine(db.delegations().observeOpen().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.purpose + " " + it.doneMeans }, db.people().observeAll().hidingPeople(session), hiddenTitles(db, session)) { ds, ps, ht ->
+            AiPick.DELEGATION -> kotlinx.coroutines.flow.combine(db.delegations().observeOpen().hiding(session, ua.mandat.data.HideRules.DELEGATION), db.people().observeAll().hidingPeople(session), hiddenTitles(db, session)) { ds, ps, ht ->
                 val names = ps.associate { it.id to it.name }
-                ds.filter { it.personId != null && !(it.matterId == null && namesAny(it.what + " " + it.purpose, ht)) }.map { PickItem(it.id, it.what, names[it.personId].orEmpty() + (it.due?.let { d -> " · " + Dates.format(d) } ?: "")) }
+                ds.filter { it.personId != null && !(it.matterId == null && namesAny(ua.mandat.data.HideRules.DELEGATION.text(it), ht)) }.map { PickItem(it.id, it.what, names[it.personId].orEmpty() + (it.due?.let { d -> " · " + Dates.format(d) } ?: "")) }
             }
             AiPick.NONE -> kotlinx.coroutines.flow.flowOf(emptyList())
         }

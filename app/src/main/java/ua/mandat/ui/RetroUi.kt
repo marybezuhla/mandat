@@ -71,7 +71,12 @@ private fun spanStart(r: RetroSpan, today: Long, cadence: Long?): Long = when (r
     RetroSpan.CADENCE -> cadence ?: LocalDate.ofEpochDay(today).withDayOfMonth(1).minusMonths(11).toEpochDay()
 }
 
-private enum class RetroSpan(val label: Int) { QUARTER(R.string.retro_quarter), HALF(R.string.retro_half), YEAR(R.string.retro_year), CADENCE(R.string.retro_cadence) }
+private enum class RetroSpan(private val text: Int) {
+    QUARTER(R.string.retro_quarter), HALF(R.string.retro_half), YEAR(R.string.retro_year), CADENCE(R.string.retro_cadence);
+
+    /** "Term of office" only for elected work. */
+    val label: Int get() = if (this == CADENCE) forMode(text, R.string.period_since_start) else text
+}
 
 /**
  * Looking back: directions (time by role, month by month), past priorities (what was in focus
@@ -84,20 +89,20 @@ fun RetroScreen(db: MandatDb, session: Session) {
     BackHandler { session.showRetro = false }
     val matters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val history by remember(db) { db.history().observeAll().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
-    val deadlines by remember(db) { db.deadlines().observeAll().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.title + " " + it.basis } }.collectAsStateWithLifecycle(emptyList())
-    val events by remember(db) { db.events().observeAll().hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.title + " " + it.notes + " " + it.place + " " + it.outcome } }.collectAsStateWithLifecycle(emptyList())
+    val deadlines by remember(db) { db.deadlines().observeAll().hiding(session, ua.mandat.data.HideRules.DEADLINE) }.collectAsStateWithLifecycle(emptyList())
+    val events by remember(db) { db.events().observeAll().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
     val eventLinks by remember(db) { db.events().observeLinks() }.collectAsStateWithLifecycle(emptyList())
     val entries by remember(db) { db.time().observeAll().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
-    val promises by remember(db) { db.promises().observeAll().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.toWhom + " " + it.source + " " + it.statusNote } }.collectAsStateWithLifecycle(emptyList())
-    val delegations by remember(db) { db.delegations().observeAll().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.purpose + " " + it.doneMeans } }.collectAsStateWithLifecycle(emptyList())
-    val aid by remember(db) { db.money().observeAid().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.party } }.collectAsStateWithLifecycle(emptyList())
+    val promises by remember(db) { db.promises().observeAll().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
+    val delegations by remember(db) { db.delegations().observeAll().hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
+    val aid by remember(db) { db.money().observeAid().hiding(session, ua.mandat.data.HideRules.AID) }.collectAsStateWithLifecycle(emptyList())
     val roles by remember(db) { db.roles().observeAll() }.collectAsStateWithLifecycle(emptyList())
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
     val links by remember(db) { db.people().observeLinks().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
     val cadence by remember(db) { db.settings().observe(SETTING_CADENCE_START) }.collectAsStateWithLifecycle(null)
     // Diary entries tied to something hidden, or naming it, stay out while it is hidden
     val reviews by remember(db) { db.reviews().observeAll().hidingReviews(session) }.collectAsStateWithLifecycle(emptyList())
-    val infoItems by remember(db) { db.info().observeAll().hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.title + " " + it.notes + " " + it.source + " " + it.result } }.collectAsStateWithLifecycle(emptyList())
+    val infoItems by remember(db) { db.info().observeAll().hiding(session, ua.mandat.data.HideRules.INFO) }.collectAsStateWithLifecycle(emptyList())
     val hidden by session.hidden.collectAsStateWithLifecycle()
     var range by rememberSaveable { mutableStateOf(RetroSpan.HALF) }
     val today = Dates.today()
@@ -144,13 +149,15 @@ fun RetroScreen(db: MandatDb, session: Session) {
             item(key = "range") {
                 Column {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        RetroSpan.entries.forEach { r -> QuickChip(stringResource(r.label), range == r) { range = r } }
+                        // "Term" or "since the start" only once its first day is set (on the dashboard), never silently a year
+                        RetroSpan.entries.filter { it != RetroSpan.CADENCE || cadence?.value?.toLongOrNull() != null }
+                            .forEach { r -> QuickChip(stringResource(r.label), range == r) { range = r } }
                     }
                     Text("${Dates.format(span.from)} – ${Dates.format(span.to)}", style = MaterialTheme.typography.labelLarge, color = Muted, modifier = Modifier.padding(top = 6.dp))
                     if (d != null && d.focus.any { it.approximate }) Text(stringResource(R.string.retro_approx), style = MaterialTheme.typography.labelSmall, color = Muted)
                     // A report for voters, for a period chosen in its own sheet, drafted as a text to edit and export
                     if (d != null) {
-                        QuickChip(stringResource(R.string.report_make), false, Modifier.padding(top = 8.dp)) { reportFrom = span.from; reportTo = span.to; reporting = true }
+                        QuickChip(stringResource(forMode(R.string.report_make, R.string.report_make_plain)), false, Modifier.padding(top = 8.dp)) { reportFrom = span.from; reportTo = span.to; reporting = true }
                     }
                     if (reporting) {
                         val rs = Span(minOf(reportFrom, reportTo), maxOf(reportFrom, reportTo))
@@ -158,11 +165,11 @@ fun RetroScreen(db: MandatDb, session: Session) {
                             title = stringResource(R.string.report_title, Dates.format(rs.from), Dates.format(rs.to)),
                             done = stringResource(R.string.report_done), kept = stringResource(R.string.report_kept),
                             meetings = stringResource(R.string.report_meetings), aid = stringResource(R.string.report_aid),
-                            inWork = stringResource(R.string.report_in_work), receptions = stringResource(R.string.report_receptions),
+                            inWork = stringResource(R.string.report_in_work), receptions = stringResource(if (AppMode.mode == ua.mandat.data.Mode.CITIZEN) R.string.report_receptions_citizen else R.string.report_receptions),
                             visits = stringResource(R.string.report_visits), collected = stringResource(R.string.report_collected),
                             note = stringResource(R.string.report_note), currency = stringResource(R.string.currency_uah),
                         )
-                        EditSheet(title = stringResource(R.string.report_make_title), onDismiss = { reporting = false }, onSave = {
+                        EditSheet(title = stringResource(forMode(R.string.report_make_title, R.string.report_make_title_plain)), onDismiss = { reporting = false }, onSave = {
                             val byMatter = history.groupBy { it.matterId }
                             val finished = matters.filter { m -> Retro.finishedOn(m, byMatter[m.id].orEmpty())?.let { it in rs } == true }.map { it.id }.toSet()
                             val body = voterReport(heads, rs, matters, finished, promises, events, aid)
@@ -173,7 +180,7 @@ fun RetroScreen(db: MandatDb, session: Session) {
                         }, saveText = stringResource(R.string.report_compose)) {
                             SheetGroup(stringResource(R.string.report_period)) {
                                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    RetroSpan.entries.forEach { r ->
+                                    RetroSpan.entries.filter { it != RetroSpan.CADENCE || cadence?.value?.toLongOrNull() != null }.forEach { r ->
                                         val from = spanStart(r, today, cadence?.value?.toLongOrNull())
                                         QuickChip(stringResource(r.label), reportFrom == from && reportTo == today) { reportFrom = from; reportTo = today }
                                     }
@@ -302,9 +309,9 @@ fun RetroScreen(db: MandatDb, session: Session) {
                         // Free text naming a hidden matter is left out while it is hidden
                         val hiddenTitles = hidden.names
                         val texts = matters.filter { Dates.dayOf(it.updatedAt) in span || Dates.dayOf(it.createdAt) in span }.map { it.title + " " + it.goal } +
-                            events.filter { it.day in span && !(it.matterId == null && namesAny(it.title + " " + it.outcome, hiddenTitles)) }.map { it.title + " " + it.outcome } +
+                            events.filter { it.day in span && !(it.matterId == null && namesAny(ua.mandat.data.HideRules.EVENT.text(it), hiddenTitles)) }.map { it.title + " " + it.outcome } +
                             reviews.filter { it.day in span }.map { it.progress }.filter { p -> !namesAny(p, hiddenTitles) } +
-                            infoItems.filter { it.day in span && !(it.matterId == null && namesAny(it.title, hiddenTitles)) }.map { it.title }
+                            infoItems.filter { it.day in span && !(it.matterId == null && namesAny(ua.mandat.data.HideRules.INFO.text(it), hiddenTitles)) }.map { it.title }
                         ua.mandat.data.Words.top(texts, 30)
                     }
                 }

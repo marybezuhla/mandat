@@ -97,10 +97,10 @@ fun TimeTab(db: MandatDb, session: Session) {
 
 fun EventKind.label(): Int = when (this) {
     EventKind.MEETING -> R.string.event_meeting
-    EventKind.SESSION -> R.string.event_session
-    EventKind.COMMITTEE -> R.string.event_committee
+    EventKind.SESSION -> forMode(R.string.event_session, R.string.event_session_plain)
+    EventKind.COMMITTEE -> forMode(R.string.event_committee, R.string.event_committee_plain)
     EventKind.TRIP -> R.string.event_trip
-    EventKind.RECEPTION -> R.string.event_reception
+    EventKind.RECEPTION -> if (AppMode.mode == ua.mandat.data.Mode.CITIZEN) R.string.event_reception_citizen else R.string.event_reception
     EventKind.CALL -> R.string.event_call
     EventKind.MEDIA -> R.string.event_media
     EventKind.OTHER -> R.string.event_other
@@ -171,11 +171,11 @@ fun CalendarScreenForTest(db: MandatDb, session: Session, view0: Int) {
     val from = if (weekMode) weekStart(selected) else weekStart(monthFirst)
     val to = if (weekMode) from + 6 else from + 41
 
-    val events by remember(db, from, to) { db.events().observeRange(from, to).hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.title + " " + it.notes + " " + it.place + " " + it.outcome } }.collectAsStateWithLifecycle(emptyList())
+    val events by remember(db, from, to) { db.events().observeRange(from, to).hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
     val links by remember(db) { db.events().observeLinks() }.collectAsStateWithLifecycle(emptyList())
-    val deadlines by remember(db) { db.deadlines().observeOpen().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.title + " " + it.basis } }.collectAsStateWithLifecycle(emptyList())
-    val delegations by remember(db) { db.delegations().observeOpen().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.purpose + " " + it.doneMeans } }.collectAsStateWithLifecycle(emptyList())
-    val promises by remember(db) { db.promises().observeOpen().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.toWhom + " " + it.source + " " + it.statusNote } }.collectAsStateWithLifecycle(emptyList())
+    val deadlines by remember(db) { db.deadlines().observeOpen().hiding(session, ua.mandat.data.HideRules.DEADLINE) }.collectAsStateWithLifecycle(emptyList())
+    val delegations by remember(db) { db.delegations().observeOpen().hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
+    val promises by remember(db) { db.promises().observeOpen().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
     val titles by remember(db) { db.matters().observeAllTitles().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val nameOf = people.associate { it.id to it.name }
@@ -563,7 +563,7 @@ private fun TimeDialog(initialMin: Int, onPick: (Int) -> Unit, onCancel: () -> U
 @Composable
 fun PersonOrContactDialog(db: MandatDb, session: Session, exclude: Set<Long>, onPick: (Long) -> Unit, onCancel: () -> Unit) {
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
-    val contacts by remember(db) { db.contacts().observeAll().hidingNamed(session, { null }, { it.createdAt }) { it.name + " " + it.organization + " " + it.jobTitle + " " + it.notes + " " + it.label } }.collectAsStateWithLifecycle(emptyList())
+    val contacts by remember(db) { db.contacts().observeAll().hiding(session, ua.mandat.data.HideRules.CONTACT) }.collectAsStateWithLifecycle(emptyList())
     var query by remember { mutableStateOf("") }
     val q = query.trim().lowercase()
     fun hit(vararg s: String) = q.isEmpty() || s.any { it.lowercase().contains(q) }
@@ -780,7 +780,7 @@ private fun layoutLanes(blocks: List<Pair<Int, Int>>): List<Pair<Int, Int>> {
 @Composable
 fun DayStrip(db: MandatDb, session: Session) {
     val today = Dates.today()
-    val events by remember(db, today) { db.events().observeRange(today, today).hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.title + " " + it.notes + " " + it.place + " " + it.outcome } }.collectAsStateWithLifecycle(emptyList())
+    val events by remember(db, today) { db.events().observeRange(today, today).hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
     if (events.isEmpty()) return
     val nowMin = java.time.LocalTime.now().let { it.hour * 60 + it.minute }
     val sorted = events.sortedWith(compareBy({ it.startMin != null }, { it.startMin }))

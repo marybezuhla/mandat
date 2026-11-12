@@ -86,7 +86,7 @@ fun hryvnias(minor: Long) = formatAmount(minor) + " ₴"
 @Composable
 fun categoryName(key: String): String = when (key) {
     IncomeCategory.SALARY.name -> stringResource(R.string.in_salary)
-    IncomeCategory.ACTIVITY_FUNDS.name -> stringResource(R.string.in_activity)
+    IncomeCategory.ACTIVITY_FUNDS.name -> stringResource(forMode(R.string.in_activity, R.string.in_activity_plain))
     IncomeCategory.REFUNDS.name -> stringResource(R.string.in_refunds)
     IncomeCategory.ROYALTIES.name -> stringResource(R.string.in_royalties)
     IncomeCategory.PRACTICE.name -> stringResource(R.string.in_practice)
@@ -122,8 +122,8 @@ private fun categoryColor(i: Int): Color = SeriesColors[i % SeriesColors.size]
 @Composable
 fun BudgetScreen(db: MandatDb, session: Session) {
     BackHandler { session.showBudget = false }
-    val entries by remember(db) { db.money().observeAll().hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.note + " " + it.toWhom + " " + it.category } }.collectAsStateWithLifecycle(emptyList())
-    val aid by remember(db) { db.money().observeAid().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.party } }.collectAsStateWithLifecycle(emptyList())
+    val entries by remember(db) { db.money().observeAll().hiding(session, ua.mandat.data.HideRules.MONEY) }.collectAsStateWithLifecycle(emptyList())
+    val aid by remember(db) { db.money().observeAid().hiding(session, ua.mandat.data.HideRules.AID) }.collectAsStateWithLifecycle(emptyList())
     val settings by remember(db) { db.settings().observeBudget() }.collectAsStateWithLifecycle(emptyList())
     val titles by remember(db) { db.matters().observeAllTitles().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val titleOf = titles.associate { it.id to it.title }
@@ -544,7 +544,7 @@ private fun CategoriesDialog(session: Session, settings: Map<String, String>, on
  */
 @Composable
 fun AidLedger(db: MandatDb, session: Session, matterId: Long) {
-    val records by remember(db, matterId) { db.money().observeAidFor(matterId).hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.party } }.collectAsStateWithLifecycle(emptyList())
+    val records by remember(db, matterId) { db.money().observeAidFor(matterId).hiding(session, ua.mandat.data.HideRules.AID) }.collectAsStateWithLifecycle(emptyList())
     var adding by remember { mutableStateOf<Boolean?>(null) }
     val inMoney = records.filter { it.collected }.sumOf { it.uah }
     val outMoney = records.filter { !it.collected }.sumOf { it.uah }
@@ -617,7 +617,7 @@ private fun AidDialog(session: Session, matterId: Long, collected: Boolean, onCl
 /** The budget on Review: this month in two numbers and one line; tap for the whole budget. */
 @Composable
 fun BudgetCard(db: MandatDb, session: Session) {
-    val entries by remember(db) { db.money().observeAll().hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.note + " " + it.toWhom + " " + it.category } }.collectAsStateWithLifecycle(emptyList())
+    val entries by remember(db) { db.money().observeAll().hiding(session, ua.mandat.data.HideRules.MONEY) }.collectAsStateWithLifecycle(emptyList())
     val sum = summarize(entries, spanOf(Period.MONTH, Dates.today()))
     MCard(onClick = { session.showBudget = true }) {
         Row(verticalAlignment = Alignment.CenterVertically) {

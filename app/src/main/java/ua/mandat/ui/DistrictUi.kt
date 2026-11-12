@@ -127,7 +127,7 @@ fun DistrictEntry(db: MandatDb, session: Session) {
     val count by remember(db) { db.communities().observeAll().hidingCommunities(session).map { it.size } }.collectAsStateWithLifecycle(0)
     if (on?.value != "1" && count == 0) return
     OutlinedButton(onClick = { session.showDistrict = true }, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.district_open, count))
+        Text(stringResource(forMode(R.string.district_open, R.string.district_open_plain), count))
     }
 }
 
@@ -142,8 +142,8 @@ fun DistrictScreen(db: MandatDb, session: Session) {
     val communities by remember(db) { db.communities().observeAll().hidingCommunities(session) }.collectAsStateWithLifecycle(emptyList())
     val links by remember(db) { db.communities().observeLinks() }.collectAsStateWithLifecycle(emptyList())
     val matters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
-    val events by remember(db) { db.events().observeAll().hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.title + " " + it.notes + " " + it.place + " " + it.outcome } }.collectAsStateWithLifecycle(emptyList())
-    val promises by remember(db) { db.promises().observeAll().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.toWhom + " " + it.source + " " + it.statusNote } }.collectAsStateWithLifecycle(emptyList())
+    val events by remember(db) { db.events().observeAll().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
+    val promises by remember(db) { db.promises().observeAll().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
     val shownPeople by remember(db) { db.people().observeAll().hidingPeople(session).map { l -> l.mapTo(HashSet()) { it.id } } }.collectAsStateWithLifecycle(emptySet())
     val today = Dates.today()
     val all = stats(communities, links, matters, events, promises, today, shownPeople).sortedWith(compareBy({ it.lastVisit != null }, { it.lastVisit }))
@@ -157,13 +157,13 @@ fun DistrictScreen(db: MandatDb, session: Session) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.district_title)) },
+                title = { Text(stringResource(forMode(R.string.district_title, R.string.district_title_plain))) },
                 navigationIcon = {
                     IconButton(onClick = { session.showDistrict = false }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
-                actions = { HowItWorks(R.string.how_district); TextButton(onClick = { session.communityDraft = newCommunity() }) { Text("+ " + stringResource(R.string.community_new)) } },
+                actions = { HowItWorks(forMode(R.string.how_district, R.string.how_district_plain)); TextButton(onClick = { session.communityDraft = newCommunity() }) { Text("+ " + stringResource(R.string.community_new)) } },
             )
         },
     ) { padding ->
@@ -183,7 +183,7 @@ fun DistrictScreen(db: MandatDb, session: Session) {
                     ))
                 }
             }
-            if (communities.isEmpty()) item(key = "empty") { EmptyHint(Sym.home, stringResource(R.string.district_empty)) }
+            if (communities.isEmpty()) item(key = "empty") { EmptyHint(Sym.home, stringResource(forMode(R.string.district_empty, R.string.district_empty_plain))) }
             if (coming.isNotEmpty()) item(key = "coming") {
                 SectionCard(Sym.calendar, stringResource(R.string.district_coming), count = coming.size, canvas = Tone.plan) {
                     Paged(coming, page = 5) { e -> EventRow(e, emptyList(), null, null, session) }
@@ -291,8 +291,8 @@ fun CommunityScreen(db: MandatDb, session: Session, id: Long) {
     val communities by remember(db) { db.communities().observeAll().hidingCommunities(session) }.collectAsStateWithLifecycle(emptyList())
     val links by remember(db) { db.communities().observeLinks() }.collectAsStateWithLifecycle(emptyList())
     val matters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
-    val events by remember(db) { db.events().observeAll().hidingNamed(session, { it.matterId }, { it.updatedAt }) { it.title + " " + it.notes + " " + it.place + " " + it.outcome } }.collectAsStateWithLifecycle(emptyList())
-    val promises by remember(db) { db.promises().observeAll().hidingNamed(session, { it.matterId }, { it.createdAt }) { it.what + " " + it.toWhom + " " + it.source + " " + it.statusNote } }.collectAsStateWithLifecycle(emptyList())
+    val events by remember(db) { db.events().observeAll().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
+    val promises by remember(db) { db.promises().observeAll().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
     val roles by remember(db) { db.roles().observeAll() }.collectAsStateWithLifecycle(emptyList())
     val c = communities.firstOrNull { it.id == id }
@@ -369,7 +369,7 @@ fun CommunityScreen(db: MandatDb, session: Session, id: Long) {
                                 Event(title = "", day = today, kind = EventKind.RECEPTION.name, place = c.name, createdAt = 0, updatedAt = 0),
                                 isNew = true, communityId = id,
                             ).also { it.title = c.name }
-                        }) { Text("+ " + stringResource(R.string.event_reception)) }
+                        }) { Text("+ " + stringResource(ua.mandat.data.EventKind.RECEPTION.label())) }
                         TextButton(onClick = { picking = LinkKind.EVENT }) { Text(stringResource(R.string.district_link_existing)) }
                     }
                 }

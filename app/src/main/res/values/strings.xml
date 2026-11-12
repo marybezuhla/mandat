@@ -134,7 +134,7 @@
     <string name="focus_empty">Nothing in focus. Choose up to five matters you live with this week.</string>
     <string name="to_matter">Make a matter</string>
     <string name="roles_title">Your roles</string>
-    <string name="roles_text">Roles are your \"hats\": positions and lines of work. Matters are grouped by them, so no role is forgotten. Pick a body and a position (optionally a name or topic) and tap \"Add this role\"; repeat for each. You can change roles any time in Options.</string>
+    <string name="roles_text">Roles are your \"hats\": positions and lines of work. Matters are grouped by them, so no role is forgotten. Pick a body or organisation and a position (optionally a name or topic) and tap \"Add this role\"; repeat for each. You can change roles any time in Options.</string>
     <string name="roles_done">Done</string>
     <string name="roles_skip">Later</string>
     <string name="roles_manage">Roles</string>
@@ -174,7 +174,7 @@
     <string name="body_district">Single-member district</string>
     <string name="body_region">Region (list MP)</string>
     <string name="body_other_body">Representation in another body</string>
-    <string name="role_body">Body</string>
+    <string name="role_body">Body or organisation</string>
     <string name="role_position">Position</string>
     <string name="role_name_hint">Name or topic (optional)</string>
     <string name="role_add_button">Add this role</string>
@@ -812,9 +812,35 @@
     <string name="mode_title">Your mode</string>
     <string name="mode_rada">Verkhovna Rada</string>
     <string name="mode_council">Local council</string>
-    <string name="mode_hint">Changes the bodies, positions and some names; everything else is the same. Can be changed in Options.</string>
+    <string name="mode_hint">Changes the bodies, positions, text templates and some names; your records stay the same. Can be changed in Options.</string>
     <string name="type_BILL_council">Draft decision</string>
     <string name="type_INVESTIGATION_council">Control check</string>
+    <string name="opt_work_plain">Work: roles and communities</string>
+    <string name="opt_work_hint_plain">Mode, communities, your roles and posts.</string>
+    <string name="district_title_plain">Communities</string>
+    <string name="district_open_plain">Communities: %1$d</string>
+    <string name="district_empty_plain">Add the communities you work with to see how each one stands.</string>
+    <string name="district_switch_plain">Communities section</string>
+    <string name="district_switch_hint_plain">The communities you work with: receptions, visits, a report by community. Opens from the Matters tab.</string>
+    <string name="how_district_plain">Communities: receptions and visits, matters and promises for each. Those not visited longest come first.\n\nThe report by community can be sent as one text. Communities tied only to hidden things are left out of it.</string>
+    <string name="report_receptions_citizen">appointments with officials</string>
+    <string name="period_since_start">Since the start</string>
+    <string name="dash_cadence_unset_plain">Set the day to count from</string>
+    <string name="event_session_plain">Sitting</string>
+    <string name="event_committee_plain">Commission or assembly</string>
+    <string name="event_reception_citizen">Appointment with an official</string>
+    <string name="cat_COLLEAGUE_plain">Colleague</string>
+    <string name="cat_VOTER_plain">Resident</string>
+    <string name="team_ASSISTANT_plain">Assistant (staff)</string>
+    <string name="team_SECRETARIAT_plain">Secretariat or registry</string>
+    <string name="in_activity_plain">Funds for the work</string>
+    <string name="votes_needed_hint_plain">For example, a majority in a commission, on a board or at an assembly. People with a stance in this matter are counted.</string>
+    <string name="report_make_plain">Write a report →</string>
+    <string name="report_make_title_plain">Report on the work</string>
+    <string name="tpl_citizen_appeal_title" formatted="false">Citizen\'s appeal</string>
+    <string name="tpl_citizen_appeal_body" formatted="false"># Appeal\n\n[To: position, name of the body]\n\nFrom: [full name]\n[Place of residence]\n[Phone or email address for the reply]\n\nDear [name],\n\n[The matter: what happened, where and when.]\n\n[What has been done: where you applied, what replies you received.]\n\nI ask you to:\n- [request 1];\n- [request 2].\n\nPlease send the reply [to the postal or email address] within the time set by the Law of Ukraine \"On Citizens\' Appeals\".\n\nBasis: [article of the law; check the current wording of the Law of Ukraine \"On Citizens\' Appeals\"].\n\nAttachments: [list or \"none\"].\n\n[Date]\n[Signature]</string>
+    <string name="tpl_info_request_title" formatted="false">Request for public information</string>
+    <string name="tpl_info_request_body" formatted="false"># Request for information\n\n[To: name of the information holder]\n\nRequester: [name]\n[Postal or email address for the reply]\n[Phone, if any]\n\nUnder the Law of Ukraine \"On Access to Public Information\" I ask you to provide:\n- [a general description of the information, or the kind, title, details or content of the document];\n- [one more document or piece of information].\n\nPlease reply [by email or by post] within the time set by this Law [check the current wording].\n\n[Date]\n[Signature, for a written request]</string>
     <string name="mode_official">Official</string>
     <string name="mode_citizen">Citizen</string>
     <string name="type_BILL_official">Draft act / decision</string>
