@@ -176,7 +176,8 @@ fun ua.mandat.data.TeamRole.label(): Int = when (this) {
 }
 
 fun ua.mandat.data.PersonCategory.label(): Int = when (this) {
-    ua.mandat.data.PersonCategory.COLLEAGUE_MP -> forMode(R.string.cat_COLLEAGUE_MP, R.string.cat_COLLEAGUE_plain)
+    ua.mandat.data.PersonCategory.COLLEAGUE_MP -> forMode(R.string.cat_COLLEAGUE_MP, R.string.cat_COLLEAGUE_MP_plain)
+    ua.mandat.data.PersonCategory.COLLEAGUE -> R.string.cat_COLLEAGUE
     ua.mandat.data.PersonCategory.OFFICIAL -> R.string.cat_OFFICIAL
     ua.mandat.data.PersonCategory.EXPERT -> R.string.cat_EXPERT
     ua.mandat.data.PersonCategory.JOURNALIST -> R.string.cat_JOURNALIST

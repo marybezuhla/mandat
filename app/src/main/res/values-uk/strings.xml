@@ -831,7 +831,8 @@
     <string name="event_session_plain">Засідання</string>
     <string name="event_committee_plain">Комісія чи збори</string>
     <string name="event_reception_citizen">Прийом у посадовця</string>
-    <string name="cat_COLLEAGUE_plain">Колега</string>
+    <string name="cat_COLLEAGUE">Колега</string>
+    <string name="cat_COLLEAGUE_MP_plain">Депутат</string>
     <string name="cat_VOTER_plain">Мешканець</string>
     <string name="team_ASSISTANT_plain">Помічник (штатний)</string>
     <string name="team_SECRETARIAT_plain">Секретаріат чи канцелярія</string>

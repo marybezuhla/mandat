@@ -829,7 +829,8 @@
     <string name="event_session_plain">Sitting</string>
     <string name="event_committee_plain">Commission or assembly</string>
     <string name="event_reception_citizen">Appointment with an official</string>
-    <string name="cat_COLLEAGUE_plain">Colleague</string>
+    <string name="cat_COLLEAGUE">Colleague</string>
+    <string name="cat_COLLEAGUE_MP_plain">MP or councillor</string>
     <string name="cat_VOTER_plain">Resident</string>
     <string name="team_ASSISTANT_plain">Assistant (staff)</string>
     <string name="team_SECRETARIAT_plain">Secretariat or registry</string>

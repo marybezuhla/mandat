@@ -101,7 +101,7 @@ fun PeopleList(db: MandatDb, session: Session) {
     val categorySlices = buildList {
         add(Slice("TEAM", teamLabel, people.count { it.teamRole != null }, ChartColors.blue))
         // Standard categories, then the owner's own words, each with its own row
-        (PersonCategory.entries.filter { it != PersonCategory.OTHER }.map { it.name } + ownCategories(people) + PersonCategory.OTHER.name)
+        (ua.mandat.data.standardCategories(AppMode.mode.elected, people).map { it.name } + ownCategories(people) + PersonCategory.OTHER.name)
             .forEachIndexed { i, key ->
                 add(Slice(key, categoryLabel(key), people.count { it.teamRole == null && categoryKey(it) == key }, SeriesColors[(i + 1) % SeriesColors.size]))
             }

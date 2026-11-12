@@ -176,14 +176,29 @@ enum class TeamRole {
     }
 }
 
-/** Who a person is, for everyone (team or not). */
+/**
+ * Who a person is, for everyone (team or not). [COLLEAGUE_MP] is a deputy: a colleague for someone
+ * elected, simply a deputy for an official or a citizen. [COLLEAGUE] is a colleague at work who is
+ * not a deputy. The two are kept apart, so changing the mode never turns one into the other.
+ */
 enum class PersonCategory {
-    COLLEAGUE_MP, OFFICIAL, EXPERT, JOURNALIST, NGO, BUSINESS, INTERNATIONAL, VOTER, OTHER;
+    COLLEAGUE_MP, COLLEAGUE, OFFICIAL, EXPERT, JOURNALIST, NGO, BUSINESS, INTERNATIONAL, VOTER, OTHER;
 
     companion object {
         fun of(key: String?) = key?.let { k -> entries.firstOrNull { it.name == k } }
     }
 }
+
+/**
+ * The standard categories offered to choose from and shown in the breakdown ("other" apart).
+ * For elected work ([elected]) colleagues are deputies, so the plain "colleague" is offered only
+ * when someone among [people] already has it (it was given in another mode).
+ */
+fun standardCategories(elected: Boolean, people: List<Person>): List<PersonCategory> =
+    PersonCategory.entries.filter { c ->
+        c != PersonCategory.OTHER &&
+            (c != PersonCategory.COLLEAGUE || !elected || people.any { PersonCategory.COLLEAGUE.name in it.allCategories })
+    }
 
 /** Levels of freedom in a delegation (after Management 3.0 and situational leadership). */
 enum class Freedom {

@@ -54,9 +54,9 @@ fun categoryLabel(key: String?): String = when {
 fun ownCategories(people: List<Person>): List<String> =
     people.flatMap { it.allCategories }.filter { it.startsWith(OWN) }.distinct().sortedBy { it.lowercase() }
 
-/** All categories one can choose: the standard ones (except "other") and the owner's own. */
+/** All categories one can choose: the standard ones for this mode (except "other") and the owner's own. */
 fun categoryChoices(people: List<Person>): List<String> =
-    PersonCategory.entries.filter { it != PersonCategory.OTHER }.map { it.name } + ownCategories(people)
+    ua.mandat.data.standardCategories(AppMode.mode.elected, people).map { it.name } + ownCategories(people)
 
 /**
  * Category in the person card: the main one (standard or own), others the person also belongs to,
@@ -84,7 +84,7 @@ fun CategoryFields(db: MandatDb, draft: PersonDraft, session: Session? = null) {
     }
     Text(stringResource(R.string.person_category), style = MaterialTheme.typography.labelLarge)
     if (draft.category == null) {
-        suggestedCategory(draft.organization, draft.jobTitle)?.let { s ->
+        suggestCategory(draft.organization, draft.jobTitle)?.let { s ->
             TextButton(onClick = { pick(s.name) }) { Text(stringResource(R.string.category_suggest, stringResource(s.label()))) }
         }
     }
@@ -154,7 +154,7 @@ fun CategorizeScreen(db: MandatDb, session: Session) {
                         updatedAt = System.currentTimeMillis()))
                 }
             }
-            suggestedCategory(p.organization, p.jobTitle)?.let { s ->
+            suggestCategory(p.organization, p.jobTitle)?.let { s ->
                 Text(stringResource(R.string.categorize_suggested), style = MaterialTheme.typography.labelLarge)
                 QuickChip(stringResource(s.label()), true) { assign(s.name) }
                 Spacer(Modifier.height(Space.gap))
@@ -169,10 +169,3 @@ fun CategorizeScreen(db: MandatDb, session: Session) {
         }
     }
 }
-
-/**
- * The category guessed from a person's organisation and job. For an official or a citizen a deputy
- * is not a "colleague" (which is what that category is called in their modes), so that guess is not made.
- */
-private fun suggestedCategory(organization: String, jobTitle: String): ua.mandat.data.PersonCategory? =
-    suggestCategory(organization, jobTitle)?.takeIf { AppMode.mode.elected || it != ua.mandat.data.PersonCategory.COLLEAGUE_MP }
