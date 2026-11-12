@@ -474,8 +474,8 @@ private val passwordKeyboard = KeyboardOptions(keyboardType = KeyboardType.Passw
 /** A long password typed blind is easy to get wrong: the owner may look at it (nobody else sees the screen by default). */
 @Composable
 private fun ShowPassword(show: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onChange(!show) }) {
-        androidx.compose.material3.Checkbox(checked = show, onCheckedChange = onChange)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().checkRow(show, onChange)) {
+        CheckMark(show)
         Text(stringResource(R.string.password_show), style = MaterialTheme.typography.bodyMedium)
     }
 }

@@ -308,7 +308,8 @@ fun ExportScreen(db: MandatDb, session: Session) {
                     Check(stringResource(R.string.packet_check), plan.packet) { plan.packet = it }
                     if (plan.packet) Column(Modifier.padding(start = 40.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = plan.matterId != null, onCheckedChange = { if (it) pickingMatter = true else plan.matterId = null })
+                            Checkbox(checked = plan.matterId != null, onCheckedChange = { if (it) pickingMatter = true else plan.matterId = null },
+                                modifier = Modifier.named(stringResource(R.string.packet_one_matter)))
                             Text(plan.matterId?.let { id -> stringResource(R.string.packet_matter_one, titles.firstOrNull { it.id == id }?.title.orEmpty()) }
                                 ?: stringResource(R.string.packet_one_matter), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { pickingMatter = true })
                         }
@@ -330,7 +331,8 @@ fun ExportScreen(db: MandatDb, session: Session) {
                 }
                 Check(stringResource(R.string.export_diary), plan.diary) { plan.diary = it }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = plan.matterId != null, onCheckedChange = { if (it) pickingMatter = true else plan.matterId = null })
+                    Checkbox(checked = plan.matterId != null, onCheckedChange = { if (it) pickingMatter = true else plan.matterId = null },
+                        modifier = Modifier.named(stringResource(R.string.export_matter)))
                     Text(plan.matterId?.let { id -> stringResource(R.string.export_matter_one, titles.firstOrNull { it.id == id }?.title.orEmpty()) }
                         ?: stringResource(R.string.export_matter), style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.clickable { pickingMatter = true })
@@ -530,8 +532,8 @@ const val MANDAT_EXPORT_EXT = "bin"
 
 @Composable
 private fun Check(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onChange(!checked) }) {
-        Checkbox(checked = checked, onCheckedChange = onChange)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().checkRow(checked, onChange)) {
+        CheckMark(checked)
         Text(label, style = MaterialTheme.typography.bodyMedium)
     }
 }

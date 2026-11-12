@@ -205,7 +205,7 @@ fun FieldTile(label: String, value: String, modifier: Modifier = Modifier, place
                 color = if (placeholder) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
         }
         if (onClear != null) IconButton(onClick = onClear) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.clear_date), tint = Muted) }
-        else Text("›", style = MaterialTheme.typography.titleLarge, color = Muted, modifier = Modifier.padding(end = 10.dp))
+        else Text("›", style = MaterialTheme.typography.titleLarge, color = Muted, modifier = Modifier.padding(end = 10.dp).decorative())
     }
 }
 

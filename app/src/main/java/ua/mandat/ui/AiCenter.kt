@@ -249,7 +249,7 @@ private fun ActRow(act: AiAct, enabled: Boolean, onClick: () -> Unit) {
             Text("$AI_MARK " + stringResource(act.title), style = MaterialTheme.typography.bodyLarge, color = if (enabled) AiViolet else Muted)
             Text(stringResource(act.hint), style = MaterialTheme.typography.labelMedium, color = Muted)
         }
-        if (enabled) Text(if (act.pick == AiPick.NONE) "›" else "…", style = MaterialTheme.typography.titleMedium, color = AiViolet)
+        if (enabled) Text(if (act.pick == AiPick.NONE) "›" else "…", style = MaterialTheme.typography.titleMedium, color = AiViolet, modifier = Modifier.decorative())
     }
 }
 

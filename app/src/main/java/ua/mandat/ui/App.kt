@@ -647,7 +647,7 @@ internal fun Today(db: MandatDb, session: Session, onOpen: (Matter) -> Unit, onT
                             Text(stringResource(R.string.old_overdue_hint), style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer)
                         }
-                        Text("→", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                        Text("→", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.decorative())
                     }
                 }
             }

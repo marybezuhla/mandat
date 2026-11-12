@@ -94,7 +94,8 @@ fun DayMainCard(
                             else -> matterById[id]?.let { m ->
                                 // A matter is ticked for today only; it stays open
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(checked = ref in main.done, onCheckedChange = { on -> save(main.copy(done = if (on) main.done + ref else main.done - ref)) })
+                                    Checkbox(checked = ref in main.done, onCheckedChange = { on -> save(main.copy(done = if (on) main.done + ref else main.done - ref)) },
+                                        modifier = Modifier.named(stringResource(R.string.mark_done_named, m.title)))
                                     Text(m.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2,
                                         textDecoration = if (ref in main.done) TextDecoration.LineThrough else null,
                                         modifier = Modifier.weight(1f).clickable { onOpenMatter(m) }.padding(vertical = 8.dp))

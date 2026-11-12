@@ -223,11 +223,11 @@ fun CalendarScreenForTest(db: MandatDb, session: Session, view0: Int) {
         item(key = "grid") {
             MCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { selected = if (weekMode) selected - 7 else sel.minusMonths(1).toEpochDay() }) { Text("‹", style = MaterialTheme.typography.titleLarge) }
+                    StepButton(back = true, onClick = { selected = if (weekMode) selected - 7 else sel.minusMonths(1).toEpochDay() })
                     val title = if (weekMode) "${Dates.short(from)} – ${Dates.short(to)}"
                     else sel.format(DateTimeFormatter.ofPattern("LLLL yyyy")).replaceFirstChar { it.uppercase() }
                     Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    IconButton(onClick = { selected = if (weekMode) selected + 7 else sel.plusMonths(1).toEpochDay() }) { Text("›", style = MaterialTheme.typography.titleLarge) }
+                    StepButton(back = false, onClick = { selected = if (weekMode) selected + 7 else sel.plusMonths(1).toEpochDay() })
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     ViewChips(view) { view = it }
@@ -655,9 +655,9 @@ private fun WeekGrid(
     val nowMin = java.time.LocalTime.now().let { it.hour * 60 + it.minute }
     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onPrev) { Text("‹", style = MaterialTheme.typography.titleLarge) }
+            StepButton(back = true, onClick = onPrev)
             Text("${Dates.short(from)} – ${Dates.short(from + 6)}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            IconButton(onClick = onNext) { Text("›", style = MaterialTheme.typography.titleLarge) }
+            StepButton(back = false, onClick = onNext)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             ViewChips(view, onView)
@@ -814,7 +814,7 @@ fun DayStrip(db: MandatDb, session: Session) {
 @Composable
 private fun NowLine(nowMin: Int) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(stringResource(R.string.now_at, timeText(nowMin)), style = MaterialTheme.typography.labelSmall, color = ChartColors.coral)
+        Text(stringResource(R.string.now_at, timeText(nowMin)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
         Spacer(Modifier.width(6.dp))
         Box(Modifier.weight(1f).height(2.dp).background(ChartColors.coral))
     }

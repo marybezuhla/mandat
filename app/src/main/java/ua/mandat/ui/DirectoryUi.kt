@@ -384,8 +384,8 @@ fun VcfPreviewScreen(session: Session, job: VcfImport) {
                 OutlinedTextField(query, { query = it }, singleLine = true, label = { Text(stringResource(R.string.search)) }, modifier = Modifier.fillMaxWidth())
             }
             items(indexed, key = { it.index }) { (i, c) ->
-                Row(Modifier.fillMaxWidth().clickable { skip = if (i in skip) skip - i else skip + i }, verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = i !in skip, onCheckedChange = { skip = if (it) skip - i else skip + i })
+                Row(Modifier.fillMaxWidth().checkRow(i !in skip) { skip = if (it) skip - i else skip + i }, verticalAlignment = Alignment.CenterVertically) {
+                    CheckMark(i !in skip)
                     Column(Modifier.weight(1f)) {
                         Text(c.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val meta = listOf(c.organization, c.phones.lineSequence().firstOrNull().orEmpty()).filter { it.isNotBlank() }.joinToString(" · ")

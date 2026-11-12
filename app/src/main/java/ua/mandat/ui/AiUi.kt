@@ -101,8 +101,8 @@ fun AiSection(session: Session) {
                 androidx.compose.material3.Button(onClick = { open(ModelStore.E2B_DOWNLOAD) }) { Text(stringResource(R.string.ai_download)) }
                 OutlinedButton(onClick = { session.pickingFile = true; picker.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.ai_import)) }
                 TextButton(onClick = { open(ModelStore.E2B_PAGE) }) { Text(stringResource(R.string.ai_open_page)) }
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { deleteOriginal = !deleteOriginal }) {
-                    Checkbox(checked = deleteOriginal, onCheckedChange = { deleteOriginal = it })
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.checkRow(deleteOriginal) { deleteOriginal = it }) {
+                    CheckMark(deleteOriginal)
                     Text(stringResource(R.string.ai_delete_original), style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -323,7 +323,7 @@ fun AiRow(session: Session, task: LocalAi.Task, facts: suspend () -> String, onU
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("$AI_MARK $name", style = MaterialTheme.typography.labelLarge, color = AiViolet, modifier = Modifier.weight(1f))
-            Text("›", style = MaterialTheme.typography.titleMedium, color = AiViolet)
+            Text("›", style = MaterialTheme.typography.titleMedium, color = AiViolet, modifier = Modifier.decorative())
         }
         AiResult(run, onUse, useText)
     }
@@ -389,8 +389,8 @@ private fun PickList(picks: List<Pick>, matcher: Matcher, source: ((Pick) -> Str
     QuickChip(stringResource(R.string.ai_tick_all), false) { picks.forEach { it.on = true } }
     picks.forEach { p ->
         val f = p.found
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { p.on = !p.on }) {
-            Checkbox(checked = p.on, onCheckedChange = { p.on = it })
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().checkRow(p.on) { p.on = it }) {
+            CheckMark(p.on)
             Column(Modifier.weight(1f)) {
                 source?.invoke(p)?.let { Text("«$it»", style = MaterialTheme.typography.labelSmall, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 Text(f.text, style = MaterialTheme.typography.bodyMedium)

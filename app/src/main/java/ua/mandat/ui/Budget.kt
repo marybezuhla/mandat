@@ -181,9 +181,9 @@ fun BudgetScreen(db: MandatDb, session: Session) {
                     Spacer(Modifier.width(6.dp))
                     QuickChip(stringResource(R.string.dash_year), year) { year = true; back = 0 }
                     Spacer(Modifier.weight(1f))
-                    IconButton(onClick = { back++ }) { Text("‹", style = MaterialTheme.typography.titleLarge) }
+                    StepButton(back = true, onClick = { back++ })
                     Text(title, style = MaterialTheme.typography.titleSmall)
-                    IconButton(onClick = { if (back > 0) back-- }, enabled = back > 0) { Text("›", style = MaterialTheme.typography.titleLarge) }
+                    StepButton(back = false, onClick = { if (back > 0) back-- }, enabled = back > 0)
                 }
             }
             item(key = "tiles") {
@@ -205,7 +205,7 @@ fun BudgetScreen(db: MandatDb, session: Session) {
                                 .clickable { awaitingOnly = !awaitingOnly }.padding(10.dp),
                         ) {
                             Text(stringResource(R.string.money_awaiting, hryvnias(sum.awaiting)), style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                            Text("→", color = MaterialTheme.colorScheme.primary)
+                            Text("→", color = MaterialTheme.colorScheme.primary, modifier = Modifier.decorative())
                         }
                     }
                 }
@@ -443,12 +443,12 @@ fun MoneyDialog(db: MandatDb, session: Session, d: MoneyDraft) {
                 OutlinedTextField(d.note, { d.note = it }, label = { Text(stringResource(R.string.money_note)) }, modifier = Modifier.fillMaxWidth())
                 MatterPicker(matters, allMatters, d.matterId) { d.matterId = it }
                 if (!income) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = d.awaitingRefund, onCheckedChange = { d.awaitingRefund = it; if (!it) d.refunded = false })
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.checkRow(d.awaitingRefund) { d.awaitingRefund = it; if (!it) d.refunded = false }) {
+                        CheckMark(d.awaitingRefund)
                         Text(stringResource(R.string.money_awaiting_mark), style = MaterialTheme.typography.bodyMedium)
                     }
-                    if (d.awaitingRefund) Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = d.refunded, onCheckedChange = { d.refunded = it })
+                    if (d.awaitingRefund) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.checkRow(d.refunded) { d.refunded = it }) {
+                        CheckMark(d.refunded)
                         Text(stringResource(R.string.money_refunded), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
@@ -626,7 +626,7 @@ fun BudgetCard(db: MandatDb, session: Session) {
                 Text("${hryvnias(sum.income)} · −${hryvnias(sum.expense)}", style = MaterialTheme.typography.titleSmall)
                 if (sum.charity > 0) Text(stringResource(R.string.money_given_personally, hryvnias(sum.charity)), style = MaterialTheme.typography.labelSmall, color = Muted)
             }
-            Text("→", color = MaterialTheme.colorScheme.primary)
+            Text("→", color = MaterialTheme.colorScheme.primary, modifier = Modifier.decorative())
         }
     }
 }
