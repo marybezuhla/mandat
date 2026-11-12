@@ -268,6 +268,10 @@ fun Options(session: Session, onBack: () -> Unit) {
 
             OptionGroup(stringResource(R.string.about_title), stringResource(R.string.opt_about_hint), Sym.info) {
                 Text(stringResource(R.string.about_text, appVersion()), style = MaterialTheme.typography.bodyMedium)
+                // The libraries inside Mandat and their licences (some ask for their text to be shown in the app)
+                var showLicenses by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+                TextButton(onClick = { showLicenses = true }) { Text(stringResource(R.string.licenses_title)) }
+                if (showLicenses) LicensesDialog(onClose = { showLicenses = false })
                 // The author's letter and how to support Ukraine, as in the author's other apps
                 val context = androidx.compose.ui.platform.LocalContext.current
                 AuthorLetter(Modifier.padding(top = 12.dp))
