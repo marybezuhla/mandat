@@ -84,7 +84,7 @@ fun CategoryFields(db: MandatDb, draft: PersonDraft, session: Session? = null) {
     }
     Text(stringResource(R.string.person_category), style = MaterialTheme.typography.labelLarge)
     if (draft.category == null) {
-        suggestCategory(draft.organization, draft.jobTitle)?.let { s ->
+        suggestedCategory(draft.organization, draft.jobTitle)?.let { s ->
             TextButton(onClick = { pick(s.name) }) { Text(stringResource(R.string.category_suggest, stringResource(s.label()))) }
         }
     }
@@ -154,7 +154,7 @@ fun CategorizeScreen(db: MandatDb, session: Session) {
                         updatedAt = System.currentTimeMillis()))
                 }
             }
-            suggestCategory(p.organization, p.jobTitle)?.let { s ->
+            suggestedCategory(p.organization, p.jobTitle)?.let { s ->
                 Text(stringResource(R.string.categorize_suggested), style = MaterialTheme.typography.labelLarge)
                 QuickChip(stringResource(s.label()), true) { assign(s.name) }
                 Spacer(Modifier.height(Space.gap))
@@ -169,3 +169,10 @@ fun CategorizeScreen(db: MandatDb, session: Session) {
         }
     }
 }
+
+/**
+ * The category guessed from a person's organisation and job. For an official or a citizen a deputy
+ * is not a "colleague" (which is what that category is called in their modes), so that guess is not made.
+ */
+private fun suggestedCategory(organization: String, jobTitle: String): ua.mandat.data.PersonCategory? =
+    suggestCategory(organization, jobTitle)?.takeIf { AppMode.mode.elected || it != ua.mandat.data.PersonCategory.COLLEAGUE_MP }

@@ -149,7 +149,9 @@ fun RetroScreen(db: MandatDb, session: Session) {
             item(key = "range") {
                 Column {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        RetroSpan.entries.forEach { r -> QuickChip(stringResource(r.label), range == r) { range = r } }
+                        // "Term" or "since the start" only once its first day is set (on the dashboard), never silently a year
+                        RetroSpan.entries.filter { it != RetroSpan.CADENCE || cadence?.value?.toLongOrNull() != null }
+                            .forEach { r -> QuickChip(stringResource(r.label), range == r) { range = r } }
                     }
                     Text("${Dates.format(span.from)} – ${Dates.format(span.to)}", style = MaterialTheme.typography.labelLarge, color = Muted, modifier = Modifier.padding(top = 6.dp))
                     if (d != null && d.focus.any { it.approximate }) Text(stringResource(R.string.retro_approx), style = MaterialTheme.typography.labelSmall, color = Muted)
@@ -163,7 +165,7 @@ fun RetroScreen(db: MandatDb, session: Session) {
                             title = stringResource(R.string.report_title, Dates.format(rs.from), Dates.format(rs.to)),
                             done = stringResource(R.string.report_done), kept = stringResource(R.string.report_kept),
                             meetings = stringResource(R.string.report_meetings), aid = stringResource(R.string.report_aid),
-                            inWork = stringResource(R.string.report_in_work), receptions = stringResource(R.string.report_receptions),
+                            inWork = stringResource(R.string.report_in_work), receptions = stringResource(if (AppMode.mode == ua.mandat.data.Mode.CITIZEN) R.string.report_receptions_citizen else R.string.report_receptions),
                             visits = stringResource(R.string.report_visits), collected = stringResource(R.string.report_collected),
                             note = stringResource(R.string.report_note), currency = stringResource(R.string.currency_uah),
                         )
@@ -178,7 +180,7 @@ fun RetroScreen(db: MandatDb, session: Session) {
                         }, saveText = stringResource(R.string.report_compose)) {
                             SheetGroup(stringResource(R.string.report_period)) {
                                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    RetroSpan.entries.forEach { r ->
+                                    RetroSpan.entries.filter { it != RetroSpan.CADENCE || cadence?.value?.toLongOrNull() != null }.forEach { r ->
                                         val from = spanStart(r, today, cadence?.value?.toLongOrNull())
                                         QuickChip(stringResource(r.label), reportFrom == from && reportTo == today) { reportFrom = from; reportTo = today }
                                     }

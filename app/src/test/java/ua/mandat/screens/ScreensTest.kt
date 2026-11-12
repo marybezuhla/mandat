@@ -148,6 +148,10 @@ class ScreensTest {
     @Config(qualifiers = "+night")
     @Test fun rolesCitizenDark() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("26-roles-citizen-dark") { ua.mandat.ui.RolesSetup(session) } }
     @Test fun mattersCitizen() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("27-matters-citizen") { MattersList(db, onOpen = {}, session = session) } }
+    // What was written for elected work has plain names for a citizen: communities, people, the dashboard's periods
+    @Test fun districtCitizen() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("28-district-citizen") { ua.mandat.ui.DistrictScreen(db, session) } }
+    @Test fun peopleCitizen() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("28-people-citizen") { PeopleList(db, session) } }
+    @Test fun dashboardOfficial() = inMode(ua.mandat.data.Mode.OFFICIAL) { shot("28-dashboard-official") { Dashboard(db, session) } }
 
     /** The mode is one for the whole app, so it is put back for the other pictures. */
     private fun inMode(mode: ua.mandat.data.Mode, draw: () -> Unit) {

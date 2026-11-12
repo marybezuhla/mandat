@@ -270,7 +270,7 @@ fun ExportScreen(db: MandatDb, session: Session) {
             // One period for everything chosen below; each kind of record is taken by its own dates
             SectionCard(Sym.calendar, stringResource(R.string.export_period)) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // "Cadence" only once its start date is set (in the district settings), never silently a year
+                    // "Term" or "since the start" only once its first day is set (on the dashboard), never silently a year
                     ExportPeriod.entries.filter { it != ExportPeriod.CADENCE || cadenceSet?.value?.toLongOrNull() != null }
                         .forEach { p -> QuickChip(stringResource(p.label), plan.period == p) { plan.period = p } }
                 }

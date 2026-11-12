@@ -739,7 +739,7 @@ private fun AddDialog(db: MandatDb, session: Session) {
             ua.mandat.data.NoteKind.DEADLINE -> session.deadlineDraft = newDeadline(hint.matterId).also { d -> d.title = clean; hint.due?.let { d.day = it } }
             ua.mandat.data.NoteKind.MATTER -> {
                 val m = matterFromNote(clean, System.currentTimeMillis())
-                session.draft = MatterDraft(EditRequest(m.copy(type = (hint.matterType ?: ua.mandat.data.MatterType.OTHER).name), isNew = true))
+                session.draft = MatterDraft(EditRequest(m.copy(type = (hint.matterType?.takeIf { it in matterTypesForMode() } ?: ua.mandat.data.MatterType.OTHER).name), isNew = true))
             }
             ua.mandat.data.NoteKind.NOTE -> {}
         }
@@ -810,7 +810,7 @@ private fun AddDialog(db: MandatDb, session: Session) {
                         hint.personId?.let { id -> people.firstOrNull { it.id == id }?.name },
                         hint.due?.let { Dates.format(it) },
                         hint.matterId?.let { id -> matters.firstOrNull { it.id == id }?.title },
-                        hint.matterType?.let { stringResource(it.label()) },
+                        hint.matterType?.takeIf { it in matterTypesForMode() }?.let { stringResource(it.label()) },
                     )
                     Column(
                         Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))

@@ -88,7 +88,7 @@ private val CITIZEN_TEMPLATES = listOf(
 fun textTemplates(): List<TextTemplate> = when (AppMode.mode) {
     ua.mandat.data.Mode.RADA, ua.mandat.data.Mode.COUNCIL -> TEXT_TEMPLATES
     ua.mandat.data.Mode.OFFICIAL -> TEXT_TEMPLATES.filter { it.key != "appeal" && it.key != "inquiry" }
-    ua.mandat.data.Mode.CITIZEN -> CITIZEN_TEMPLATES + TEXT_TEMPLATES.filter { it.key in setOf("cover", "thanks", "greeting", "speech", "column") }
+    ua.mandat.data.Mode.CITIZEN -> CITIZEN_TEMPLATES + TEXT_TEMPLATES.filter { it.key in setOf("thanks", "greeting", "speech", "column") }
 }
 
 /** Fields still to fill in: anything in square brackets. */

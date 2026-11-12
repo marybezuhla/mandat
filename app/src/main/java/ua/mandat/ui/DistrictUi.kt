@@ -163,7 +163,7 @@ fun DistrictScreen(db: MandatDb, session: Session) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
-                actions = { HowItWorks(R.string.how_district); TextButton(onClick = { session.communityDraft = newCommunity() }) { Text("+ " + stringResource(R.string.community_new)) } },
+                actions = { HowItWorks(forMode(R.string.how_district, R.string.how_district_plain)); TextButton(onClick = { session.communityDraft = newCommunity() }) { Text("+ " + stringResource(R.string.community_new)) } },
             )
         },
     ) { padding ->
@@ -369,7 +369,7 @@ fun CommunityScreen(db: MandatDb, session: Session, id: Long) {
                                 Event(title = "", day = today, kind = EventKind.RECEPTION.name, place = c.name, createdAt = 0, updatedAt = 0),
                                 isNew = true, communityId = id,
                             ).also { it.title = c.name }
-                        }) { Text("+ " + stringResource(R.string.event_reception)) }
+                        }) { Text("+ " + stringResource(ua.mandat.data.EventKind.RECEPTION.label())) }
                         TextButton(onClick = { picking = LinkKind.EVENT }) { Text(stringResource(R.string.district_link_existing)) }
                     }
                 }
