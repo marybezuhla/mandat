@@ -140,6 +140,17 @@ class BackupStreamTest {
         assertFalse(file.copyOfRange(16, 60).contentEquals(other.copyOfRange(16, 60)))
     }
 
+    @Test fun theSaltIsBoundIntoTheFile() {
+        // The same key under another salt at the start of the file: refused, though the key itself is right
+        val k = BackupCrypto.deriveKey(pw, ByteArray(BackupStream.SALT_BYTES), fast)
+        val a = ByteArray(BackupStream.SALT_BYTES) { 1 }
+        val b = ByteArray(BackupStream.SALT_BYTES) { 2 }
+        val file = seal(copy.toByteArray(Charsets.UTF_8), BackupStream.storedKey(a, k))
+        assertEquals(copy, String(BackupFile.open(ByteArrayInputStream(file), BackupStream.storedKey(a, k)).use { it.readBytes() }, Charsets.UTF_8))
+        val moved = b + file.copyOfRange(BackupStream.SALT_BYTES, file.size)
+        expect<BackupCrypto.WrongPasswordOrDamaged> { BackupFile.open(ByteArrayInputStream(moved), BackupStream.storedKey(b, k)).use { it.readBytes() } }
+    }
+
     @Test fun anOlderOnePieceFileIsNotTakenForOneInParts() {
         val old = BackupCrypto.encrypt("{\"format\":1}".toByteArray(), pw, fast)
         expect<BackupCrypto.WrongPasswordOrDamaged> { unseal(old) }

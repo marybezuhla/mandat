@@ -28,7 +28,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -182,7 +181,7 @@ fun BudgetScreen(db: MandatDb, session: Session) {
                     QuickChip(stringResource(R.string.dash_year), year) { year = true; back = 0 }
                     Spacer(Modifier.weight(1f))
                     StepButton(back = true, onClick = { back++ })
-                    Text(title, style = MaterialTheme.typography.titleSmall)
+                    Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.announced())
                     StepButton(back = false, onClick = { if (back > 0) back-- }, enabled = back > 0)
                 }
             }

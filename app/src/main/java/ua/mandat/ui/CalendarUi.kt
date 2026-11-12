@@ -33,10 +33,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -226,7 +224,7 @@ fun CalendarScreenForTest(db: MandatDb, session: Session, view0: Int) {
                     StepButton(back = true, onClick = { selected = if (weekMode) selected - 7 else sel.minusMonths(1).toEpochDay() })
                     val title = if (weekMode) "${Dates.short(from)} – ${Dates.short(to)}"
                     else sel.format(DateTimeFormatter.ofPattern("LLLL yyyy")).replaceFirstChar { it.uppercase() }
-                    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).announced(), textAlign = TextAlign.Center)
                     StepButton(back = false, onClick = { selected = if (weekMode) selected + 7 else sel.plusMonths(1).toEpochDay() })
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -656,7 +654,7 @@ private fun WeekGrid(
     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             StepButton(back = true, onClick = onPrev)
-            Text("${Dates.short(from)} – ${Dates.short(from + 6)}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+            Text("${Dates.short(from)} – ${Dates.short(from + 6)}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).announced(), textAlign = TextAlign.Center)
             StepButton(back = false, onClick = onNext)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {

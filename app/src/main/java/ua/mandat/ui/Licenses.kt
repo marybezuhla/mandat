@@ -34,6 +34,7 @@ fun licenceTexts(context: Context): List<LicenceText> {
     return listOf(
         "SQLCipher" to asset("sqlcipher.txt"),
         "Bouncy Castle" to org.bouncycastle.LICENSE.licenseText,
+        "Protocol Buffers" to asset("protobuf.txt"),
         "Apache License 2.0" to asset("apache-2.0.txt"),
         "GNU General Public License 3.0" to asset("gpl-3.0.txt"),
     ).map { (title, text) -> LicenceText(title, paragraphsOf(text)) }
@@ -42,6 +43,17 @@ fun licenceTexts(context: Context): List<LicenceText> {
 /** A long text as paragraphs (split at empty lines), so only what is on the screen is laid out. */
 fun paragraphsOf(text: String): List<String> =
     text.replace("\r\n", "\n").split(Regex("\n[ \t]*\n")).map { it.trim('\n') }.filter { it.isNotBlank() }
+
+/**
+ * A paragraph for a narrow screen: the file's own line breaks are dropped, so that the screen
+ * wraps the text itself. A line that begins a list item ("*") still begins a line.
+ */
+fun flowed(paragraph: String): String =
+    paragraph.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        .fold(StringBuilder()) { out, line ->
+            if (out.isNotEmpty()) out.append(if (line.startsWith("*")) "\n" else " ")
+            out.append(line)
+        }.toString()
 
 /** The libraries and materials in Mandat, each with its licence, and the texts those licences ask to show. */
 @Composable
@@ -59,7 +71,7 @@ fun LicensesDialog(onClose: () -> Unit) {
                 item { Text(stringResource(R.string.licenses_list), style = MaterialTheme.typography.bodyMedium) }
                 texts.forEach { licence ->
                     item { Text(licence.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() }) }
-                    items(licence.paragraphs) { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    items(licence.paragraphs) { Text(flowed(it), style = MaterialTheme.typography.bodySmall) }
                 }
             }
         },

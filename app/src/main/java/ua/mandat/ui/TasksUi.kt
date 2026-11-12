@@ -100,7 +100,7 @@ fun MiniChip(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
             .background(bg ?: MaterialTheme.colorScheme.surface)
-            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .let { if (onClick != null) it.clickable(onClick = onClick).named(text) else it }
             .padding(horizontal = 7.dp, vertical = 2.dp),
     )
 }

@@ -250,6 +250,8 @@ object AutoBackup {
                 context.contentResolver.openInputStream(uri)!!.use { BackupFile.read(it, key) }
                 Checked(uri)
             } catch (e: BackupCrypto.WrongPasswordOrDamaged) {
+                // A copy made by a version before 0.3.0 just before the update is one piece, and still a good copy
+                if (opensAsOnePiece(context, uri, key)) return Checked(uri)
                 deleteQuietly(context, uri)
                 Checked(null)
             } catch (e: BackupCrypto.NotABackup) {
@@ -374,6 +376,17 @@ object AutoBackup {
         }
         return null
     }
+
+    /** True when the file at [uri] is a whole one-piece copy made with [key] (the layout before 0.3.0). */
+    private fun opensAsOnePiece(context: Context, uri: Uri, key: BackupStream.Key): Boolean =
+        try {
+            val bytes = java.io.ByteArrayOutputStream()
+            context.contentResolver.openInputStream(uri)!!.use { BackupFile.copy(it, bytes, BackupCrypto.MAX_FILE_BYTES) }
+            BackupCrypto.decryptWithKey(bytes.toByteArray(), key.ikm).fill(0)
+            true
+        } catch (e: Throwable) {
+            false
+        }
 
     private fun deleteQuietly(context: Context, uri: Uri) {
         try {

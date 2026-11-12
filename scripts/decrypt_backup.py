@@ -29,7 +29,9 @@ import gzip
 import os
 import sys
 import unicodedata
+import zlib
 
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
@@ -65,7 +67,7 @@ def decrypt_parts(data: bytes, key: bytes) -> bytes:
             break
         index += 1
         size = SEGMENT
-    return gzip.decompress(bytes(out))
+    return gzip.decompress(out)
 
 
 def decrypt_one_piece(data: bytes, key: bytes) -> bytes:
@@ -80,7 +82,8 @@ def decrypt(data: bytes, password: str, kdf=KDF) -> bytes:
     for layout in (decrypt_parts, decrypt_one_piece):
         try:
             return layout(data, key)
-        except Exception:
+        except (InvalidTag, ValueError, OSError, EOFError, zlib.error):
+            # (not this layout, or not this password; running out of memory is not hidden behind that)
             continue
     raise SystemExit("Wrong password, or the file is damaged")
 

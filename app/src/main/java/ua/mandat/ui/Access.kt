@@ -11,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import ua.mandat.R
@@ -34,6 +36,9 @@ fun Modifier.decorative(): Modifier = clearAndSetSemantics { }
 
 /** A name for a control that shows only a sign or a tick. */
 fun Modifier.named(name: String): Modifier = semantics { contentDescription = name }
+
+/** A title that changes when an arrow beside it is pressed (a month, a week): a screen reader says the new one by itself. */
+fun Modifier.announced(): Modifier = semantics { liveRegion = LiveRegionMode.Polite }
 
 /** The "earlier" and "later" arrows of a period, named for a screen reader. */
 @Composable

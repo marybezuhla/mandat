@@ -9,10 +9,13 @@
 - Libraries used as dependencies, each under its own licence (the same list, with the texts the
   licences ask to show, is in the app: Options → About → Libraries and licences):
   - SQLCipher for Android (Zetetic LLC): database encryption. BSD-style licence
-    (`app/src/main/assets/licenses/sqlcipher.txt`).
+    (`app/src/main/assets/licenses/sqlcipher.txt`, from zetetic.net/sqlcipher/license). It carries
+    SQLite (public domain) and OpenSSL (Apache License 2.0) inside.
   - Bouncy Castle: Argon2id for backup passwords. MIT-style licence (its text is inside the library
     and is shown in the app).
-  - Tink (Google): streaming encryption of backups. Apache License 2.0.
+  - Tink (Google): streaming encryption of backups. Apache License 2.0. It carries Protocol Buffers
+    (Google, BSD 3-Clause licence, `app/src/main/assets/licenses/protobuf.txt`) and Gson
+    (Apache License 2.0) inside.
   - zip4j: password-protected ZIP for export. Apache License 2.0.
   - LiteRT-LM (Google AI Edge): optional on-device AI. Apache License 2.0.
   - AndroidX and Jetpack Compose (Google), Kotlin and kotlinx.coroutines (JetBrains).

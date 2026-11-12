@@ -18,6 +18,8 @@ import java.util.zip.GZIPOutputStream
  * Like the one-piece file before it ([BackupCrypto]), it has no readable header or marker: to
  * anyone without the password it looks like random bytes and does not reveal that it comes from
  * Mandat. Which of the two layouts a file has is found by trying, with the password.
+ * (Automatic copies are all made with one key, so they all begin with the same 16 bytes of salt:
+ * someone who sees the folder can tell that those files belong together, though not what they are.)
  *
  * Layout: salt (16) | streaming ciphertext of a gzip stream.
  * The password goes through Argon2id with the same fixed settings as before ([BackupCrypto.DEFAULT]).

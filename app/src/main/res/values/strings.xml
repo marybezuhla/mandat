@@ -1454,11 +1454,11 @@
     <string name="author_support_humanitarian">Humanitarian aid</string>
     <string name="author_support_any">You can also support any trusted foundation, volunteers or unit you know. Check fundraisers: official details and reports.</string>
     <string name="licenses_title">Libraries and licences</string>
-    <string name="licenses_intro">Mandat is free, open-source software (GPL-3.0-or-later): github.com/marybezuhla/mandat. It uses libraries and materials by other authors, each under its own licence.</string>
-    <string name="licenses_list">• SQLCipher for Android (Zetetic): database encryption. BSD licence, text below.\n• Bouncy Castle: the key from a backup password (Argon2id). MIT licence, text below.\n• Tink (Google): encryption of backups in parts. Apache 2.0.\n• zip4j: password-protected ZIP for export. Apache 2.0.\n• LiteRT-LM (Google AI Edge): optional on-device AI. Apache 2.0.\n• AndroidX and Jetpack Compose (Google), Kotlin and kotlinx.coroutines (JetBrains): the foundation of the app. Apache 2.0.\n• Material Symbols (Google): icons. Apache 2.0.\n• EFF Long Wordlist (Electronic Frontier Foundation, eff.org/dice): words for suggested passwords. CC BY 3.0 US, unchanged except for removed dice numbers.\n\nThe libraries they bring along have their own licences.</string>
+    <string name="licenses_intro">Mandat is free, open-source software (GPL-3.0-or-later): github.com/marybezuhla/mandat. It uses libraries and materials by other authors, all under their own licences.</string>
+    <string name="licenses_list">• SQLCipher for Android (Zetetic): database encryption. BSD licence, text below. It carries SQLite (public domain) and OpenSSL (Apache 2.0) inside.\n• Bouncy Castle: the key from a backup password (Argon2id). MIT licence, text below.\n• Tink (Google): encryption of backups in parts. Apache 2.0. It carries Protocol Buffers (Google; BSD licence, text below) and Gson (Apache 2.0) inside.\n• zip4j: password-protected ZIP for export. Apache 2.0.\n• LiteRT-LM (Google AI Edge): optional on-device AI. Apache 2.0.\n• AndroidX and Jetpack Compose (Google), Kotlin and kotlinx.coroutines (JetBrains): the foundation of the app. Apache 2.0.\n• Material Symbols (Google): icons. Apache 2.0.\n• EFF Long Wordlist (Electronic Frontier Foundation, eff.org/dice): words for suggested passwords. CC BY 3.0 US (creativecommons.org/licenses/by/3.0/us), unchanged except for removed dice numbers.\n\nThe libraries they depend on have their own licences.</string>
     <string name="step_back">Earlier</string>
     <string name="step_forward">Later</string>
-    <string name="mark_done_named">Done: %1$s</string>
+    <string name="mark_done_named">Mark as done: %1$s</string>
     <string name="kind_delegation">Delegation</string>
     <string name="kind_promise">Promise</string>
 </resources>

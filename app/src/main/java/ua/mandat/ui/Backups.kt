@@ -95,8 +95,10 @@ class Backups(private val context: Context, private val session: Session) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
-        // A copy left on its way out or in when Mandat was stopped (encrypted, inside Mandat's own storage)
-        scope.launch { try { BackupFile.clear(context) } catch (e: Exception) { } }
+        // A copy left on its way out or in when Mandat was stopped (encrypted, inside Mandat's own storage).
+        // At the first start of the process nothing can be on its way, so everything goes; later only what is old
+        val first = firstInProcess.compareAndSet(true, false)
+        scope.launch { try { if (first) BackupFile.clear(context, olderThanMs = 0) else BackupFile.clear(context) } catch (e: Exception) { } }
     }
 
     /** Automatic backups: on or off, and when the last one worked or failed. */
@@ -132,10 +134,13 @@ class Backups(private val context: Context, private val session: Session) {
             session.reconcileAuto(db)
         } else {
             // Off first, so nothing counts the discarded file as a good copy
-            session.withRealDb { auto.disable(context, it) }
-            if (result != null) result.uri?.let { auto.discard(context, it) }
-            // Still writing after a minute: remove the file once it is finished
-            else scope.launch { job.await().uri?.let { auto.discard(context, it) } }
+            val off = session.withRealDb { auto.disable(context, it); true } == true
+            // (locked meanwhile, so it could not be turned off: then the copy stays and is recorded at the next unlock)
+            if (off) {
+                if (result != null) result.uri?.let { auto.discard(context, it) }
+                // Still writing after a minute: remove the file once it is finished
+                else scope.launch { job.await().uri?.let { auto.discard(context, it) } }
+            }
         }
         refreshAuto()
         if (ok) BackupNotice.AutoOn else BackupNotice.AutoFailed
@@ -175,8 +180,11 @@ class Backups(private val context: Context, private val session: Session) {
         // Only a new, empty file is written; a file Mandat started writing into is removed after a failure
         var touched = false
         var temp: File? = null
-        run(onCrash = { temp?.delete(); if (touched) deleteQuietly(uri); BackupNotice.SaveFailed }) {
+        // (once the file is known to be the new empty one, any failure removes it: no empty "backup" stays behind)
+        var ours = false
+        run(onCrash = { temp?.delete(); if (ours || touched) deleteQuietly(uri); BackupNotice.SaveFailed }) {
             if (!isNewDocument(context, uri)) return@run BackupNotice.ExistingFile
+            ours = true
             val chars = password.toCharArray()
             val key = try { BackupStream.newKey(chars) } finally { chars.fill(' ') }
             try {
@@ -191,7 +199,10 @@ class Backups(private val context: Context, private val session: Session) {
                 } catch (e: Exception) {
                     null
                 }
-                if (written == null) return@run BackupNotice.SaveFailed
+                if (written == null) {
+                    deleteQuietly(uri)
+                    return@run BackupNotice.SaveFailed
+                }
                 context.contentResolver.openOutputStream(uri, "wt")!!.use { out ->
                     touched = true
                     file.inputStream().use { BackupFile.copy(it, out) }
@@ -212,8 +223,8 @@ class Backups(private val context: Context, private val session: Session) {
                     BackupNotice.SaveFailed
                 }
             } catch (e: Exception) {
-                // A half-written file must not stay behind looking like a backup
-                if (touched) deleteQuietly(uri)
+                // Neither a half-written file nor an empty one stays behind looking like a backup
+                deleteQuietly(uri)
                 BackupNotice.SaveFailed
             } finally {
                 key.wipe()
@@ -230,7 +241,8 @@ class Backups(private val context: Context, private val session: Session) {
      */
     fun open(uri: Uri, password: String, startedAt: Int) {
         var temp: File? = null
-        run(onCrash = { temp?.delete(); BackupNotice.NotABackup }) {
+        // (a failure of Mandat itself says nothing about the file: it is not called "not a backup")
+        run(onCrash = { temp?.delete(); BackupNotice.RestoreFailed }) {
             var key: BackupStream.Key? = null
             var kept = false
             try {
@@ -272,10 +284,8 @@ class Backups(private val context: Context, private val session: Session) {
                 BackupNotice.FromNewer
             } catch (e: BackupData.Incompatible) {
                 BackupNotice.Incompatible
-            } catch (e: BackupCrypto.FileUnreadable) {
-                BackupNotice.RestoreFailed
             } catch (e: Exception) {
-                BackupNotice.NotABackup
+                BackupNotice.RestoreFailed
             } finally {
                 if (!kept) {
                     key?.wipe()
@@ -415,6 +425,19 @@ class Backups(private val context: Context, private val session: Session) {
                 if (result != null) notice = result
             }
         }
+    }
+
+    /** The picker made a new file, but Mandat locked before it could be written: the empty file is removed and the owner told. */
+    fun savePickedTooLate(uri: Uri) {
+        scope.launch {
+            val empty = isNewDocument(context, uri)
+            if (empty) deleteQuietly(uri)
+            withContext(Dispatchers.Main) { if (notice == null) notice = BackupNotice.SaveFailed }
+        }
+    }
+
+    private companion object {
+        val firstInProcess = java.util.concurrent.atomic.AtomicBoolean(true)
     }
 
     private fun deleteQuietly(uri: Uri) {

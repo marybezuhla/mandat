@@ -89,6 +89,8 @@ fun Options(session: Session, onBack: () -> Unit) {
         newPassword = null
         val fresh = pickedAt == session.generationNow()
         if (uri != null && password != null && fresh) backups.save(uri, password)
+        // Mandat locked while the file was being chosen: nothing was written, and that is said
+        else if (uri != null && password != null) backups.savePickedTooLate(uri)
     }
     // Automatic backups: the folder is chosen first, then the password
     var autoFolder by remember { mutableStateOf<android.net.Uri?>(null) }
