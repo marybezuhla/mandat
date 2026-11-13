@@ -20,4 +20,4 @@ Mandat is a private organiser for people who handle many matters with many peopl
 <b>Modes</b>
 Verkhovna Rada, local council, a deputy's assistant, official, citizen: the bodies, positions and some names change.
 
-Not for classified information. Open source, GPL-3.0-or-later.
+Not for classified or restricted official information. Open source, GPL-3.0-or-later.

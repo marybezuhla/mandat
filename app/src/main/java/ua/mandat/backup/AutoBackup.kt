@@ -271,9 +271,15 @@ object AutoBackup {
             file.delete()
             return null
         }
+        // When it was first picked up again is kept as the file's own time, so that it survives
+        // another stop: a folder that never answers is said after a day, however often Mandat restarts
+        if (kotlin.math.abs(file.lastModified() - info.createdAt) < 60_000L) file.setLastModified(System.currentTimeMillis())
         inHand.add(info.name)
         return Prepared(info.folder, info.name, info.createdAt, file, resumed = true)
     }
+
+    /** True when this process already holds the copy called [name] (it is being sent, or about to be). */
+    fun inHand(name: String): Boolean = name in inHand
 
     /** The outcome of [check]: the accepted copy, or none; [unknown] if the file could not be read now. */
     class Checked(val accepted: Uri?, val unknown: Boolean = false)

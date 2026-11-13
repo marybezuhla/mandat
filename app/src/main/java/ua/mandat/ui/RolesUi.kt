@@ -85,7 +85,7 @@ fun RoleBuilder(session: Session? = null, onDraft: ((String?) -> Unit)? = null, 
             )
         }
         OutlinedTextField(
-            value = name, onValueChange = { name = it; touched = true },
+            value = name, onValueChange = { name = it },
             label = { Text(stringResource(R.string.role_name_hint)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),

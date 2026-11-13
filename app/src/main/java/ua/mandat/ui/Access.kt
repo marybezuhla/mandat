@@ -1,5 +1,6 @@
 package ua.mandat.ui
 
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -31,7 +32,7 @@ fun Modifier.checkRow(checked: Boolean, onChange: (Boolean) -> Unit): Modifier =
 
 /** The same for a switch: the row is the control, the switch inside is only drawn (pass it no handler). */
 fun Modifier.switchRow(on: Boolean, onChange: (Boolean) -> Unit): Modifier =
-    toggleable(value = on, role = Role.Switch, onValueChange = onChange)
+    heightIn(min = 48.dp).toggleable(value = on, role = Role.Switch, onValueChange = onChange)
 
 /** The tick of a [checkRow]: only drawn, the row is the control. It takes the same room as a checkbox of its own. */
 @Composable

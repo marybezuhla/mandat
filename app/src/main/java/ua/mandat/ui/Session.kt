@@ -629,7 +629,8 @@ class Session(app: Application) : AndroidViewModel(app) {
             ua.mandat.backup.AutoBackup.writePrepared(getApplication(), p)
         }.also {
             autoJob = it
-            autoStartedAt = System.currentTimeMillis()
+            // (for a copy picked up again after a stop: when it was first picked up, see AutoBackup.waiting)
+            autoStartedAt = if (p.resumed) p.file.lastModified() else 0L
         }
 
     /**
@@ -643,8 +644,9 @@ class Session(app: Application) : AndroidViewModel(app) {
     private suspend fun settleAuto(db: MandatDb): Boolean? {
         val auto = ua.mandat.backup.AutoBackup
         val app = getApplication<Application>()
-        // "Stuck for a day" counts from when this process began to send the copy, not from when it
-        // was prepared: a copy that waited over a weekend is not stuck the moment it is sent at last
+        // "Stuck for a day" counts from when the copy was prepared or, for one that waited through a
+        // stop of Mandat, from when it was first picked up again: a copy that waited over a weekend
+        // is not stuck the moment it is sent at last, and a folder that never answers is still said
         fun stuck(info: ua.mandat.backup.AutoBackup.PendingInfo) =
             System.currentTimeMillis() - maxOf(info.createdAt, autoStartedAt) > AUTO_STUCK_MS
         // (once a copy is recorded either way, what waited under its name is of no use)
@@ -667,6 +669,16 @@ class Session(app: Application) : AndroidViewModel(app) {
             }
             return null
         }
+        if (result?.name != info.name && auto.inHand(info.name)) {
+            // This process holds the copy, but its sending is not the one known here: tried again next time
+            info.key?.wipe()
+            if (stuck(info)) {
+                writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
+                dropWaiting(info)
+                return false
+            }
+            return null
+        }
         if (result?.name != info.name) {
             // No sending of this copy is known here: Mandat was stopped before it left for the folder.
             // If it still waits whole in Mandat's own storage, it is sent now. (Only Mandat's own
@@ -680,8 +692,13 @@ class Session(app: Application) : AndroidViewModel(app) {
                 val sending = startAutoWrite(waiting)
                 result = withTimeoutOrNull(AUTO_WAIT_MS) { sending.await() }
                 if (result == null) {
-                    // Still on its way: recorded next time
+                    // Still on its way: recorded next time, or said after a day
                     info.key?.wipe()
+                    if (stuck(info)) {
+                        writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
+                        dropWaiting(info)
+                        return false
+                    }
                     return null
                 }
             }
@@ -1161,7 +1178,7 @@ class Session(app: Application) : AndroidViewModel(app) {
          * One for the whole process: the screen may be opened anew while a copy is still on its way.
          */
         @Volatile private var autoJob: kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result>? = null
-        /** When this process last began to send a copy to the folder. */
+        /** For a copy picked up again after a stop of Mandat: when it was first picked up (0 for any other). */
         @Volatile private var autoStartedAt = 0L
         /** Pending copies are settled one at a time, whoever asks (the unlock, "copy now", a restore). */
         private val autoSettling = Mutex()

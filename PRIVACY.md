@@ -28,7 +28,7 @@
 - Видалення застосунку (системне питання Android) прибирає все, що він зберігав на телефоні, разом із ключем і моделлю ШІ.
 - Ваші файли резервних копій та експорту лишаються там, куди ви їх зберегли: їх видаляєте ви.
 
-**Межі.** Мандат не призначено для відомостей з грифом. Режим поїздки не захищає від того, хто змусить відкрити Мандат і підтвердити вимкнення режиму.
+**Межі.** Мандат не призначено для таємної та службової інформації. Режим поїздки не захищає від того, хто змусить відкрити Мандат і підтвердити вимкнення режиму.
 
 ---
 
@@ -60,4 +60,4 @@ Mandat has no internet permission: it sends nothing and downloads nothing by its
 - Uninstalling the app (Android asks to confirm) removes everything it kept on the phone, the key and the AI model included.
 - Your backup and export files stay where you saved them: you delete those yourself.
 
-**Limits.** Mandat is not for classified information. Trip mode does not protect against someone who forces you to open Mandat and confirm turning it off.
+**Limits.** Mandat is not for classified or restricted official information. Trip mode does not protect against someone who forces you to open Mandat and confirm turning it off.
