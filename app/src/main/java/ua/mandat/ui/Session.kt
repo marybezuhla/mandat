@@ -623,46 +623,105 @@ class Session(app: Application) : AndroidViewModel(app) {
     // generation (the owner already left the app) is closed straight away.
     @Volatile private var generation = 0
     private val writes = Mutex()
-    /** The automatic copy being written (or written last), shared by closing and "copy now". */
-    @Volatile private var autoJob: kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result>? = null
-
-    /** Writes prepared encrypted bytes to the folder, without the database. */
+    /** Sends a prepared encrypted copy to the folder, without the database. */
     fun startAutoWrite(p: ua.mandat.backup.AutoBackup.Prepared, lazy: Boolean = false): kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result> =
         background.async(start = if (lazy) kotlinx.coroutines.CoroutineStart.LAZY else kotlinx.coroutines.CoroutineStart.DEFAULT) {
             ua.mandat.backup.AutoBackup.writePrepared(getApplication(), p)
-        }.also { autoJob = it }
+        }.also {
+            autoJob = it
+            // (for a copy picked up again after a stop: when it was first picked up, see AutoBackup.waiting)
+            autoStartedAt = if (p.resumed) p.file.lastModified() else 0L
+        }
 
     /**
      * Records a pending automatic copy. Folder work happens outside the lock and is bounded in
      * time, so a stuck folder never holds the database. Returns true if a copy was accepted,
      * false if it failed, null if it is still being written (tried again next time).
      */
-    suspend fun reconcileAuto(db: MandatDb): Boolean? {
+    suspend fun reconcileAuto(db: MandatDb): Boolean? = autoSettling.withLock { settleAuto(db) }
+
+    /** One at a time in the whole process ([autoSettling]): two callers must never send or record the same copy. */
+    private suspend fun settleAuto(db: MandatDb): Boolean? {
         val auto = ua.mandat.backup.AutoBackup
         val app = getApplication<Application>()
+        // "Stuck for a day" counts from when the copy was prepared or, for one that waited through a
+        // stop of Mandat, from when it was first picked up again: a copy that waited over a weekend
+        // is not stuck the moment it is sent at last, and a folder that never answers is still said
+        fun stuck(info: ua.mandat.backup.AutoBackup.PendingInfo) =
+            System.currentTimeMillis() - maxOf(info.createdAt, autoStartedAt) > AUTO_STUCK_MS
+        // (once a copy is recorded either way, what waited under its name is of no use)
+        fun dropWaiting(info: ua.mandat.backup.AutoBackup.PendingInfo) {
+            try { ua.mandat.backup.BackupFile.waiting(app, info.name).delete() } catch (e: Exception) { }
+        }
         // Old copies that were chosen for removal but not yet removed (Mandat stopped meanwhile)
         val leftovers = writes.withLock { if (db.isOpen) try { auto.toDelete(db) } catch (e: Exception) { null } else null }
         if (!leftovers.isNullOrEmpty()) finishDeleting(db, leftovers)
         val info = writes.withLock { if (db.isOpen) try { auto.pendingInfo(db) } catch (e: Exception) { null } else null } ?: return null
         val job = autoJob
-        val result = if (job == null) null else withTimeoutOrNull(AUTO_WAIT_MS) { job.await() }
+        var result = if (job == null) null else withTimeoutOrNull(AUTO_WAIT_MS) { job.await() }
         if (job != null && result == null) {
-            info.key?.fill(0)
+            info.key?.wipe()
             // Still being written: try again next time, unless the folder has not answered for a day
-            if (System.currentTimeMillis() - info.createdAt > AUTO_STUCK_MS) {
+            if (stuck(info)) {
                 writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
+                dropWaiting(info)
                 return false
             }
             return null
         }
+        if (result?.name != info.name && auto.inHand(info.name)) {
+            // This process holds the copy, but its sending is not the one known here: tried again next time
+            info.key?.wipe()
+            if (stuck(info)) {
+                writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
+                dropWaiting(info)
+                return false
+            }
+            return null
+        }
+        if (result?.name != info.name) {
+            // No sending of this copy is known here: Mandat was stopped before it left for the folder.
+            // If it still waits whole in Mandat's own storage, it is sent now. (Only Mandat's own
+            // storage is read here, so there is nothing to wait for and no time limit.)
+            val waiting = try {
+                kotlinx.coroutines.withContext(Dispatchers.IO) { auto.waiting(app, info) }
+            } catch (e: Exception) {
+                null
+            }
+            if (waiting != null) {
+                val sending = startAutoWrite(waiting)
+                result = withTimeoutOrNull(AUTO_WAIT_MS) { sending.await() }
+                if (result == null) {
+                    // Still on its way: recorded next time, or said after a day
+                    info.key?.wipe()
+                    if (stuck(info)) {
+                        writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
+                        dropWaiting(info)
+                        return false
+                    }
+                    return null
+                }
+            }
+        }
+        val known = result
         val checked = withTimeoutOrNull(AUTO_WAIT_MS) {
-            background.async { auto.check(app, info, result) }.await()
-        } ?: return null
+            background.async { auto.check(app, info, known) }.await()
+        }
+        if (checked == null) {
+            // The folder did not answer in time: tried again next time, and said after a day like the cases above
+            if (stuck(info)) {
+                writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
+                dropWaiting(info)
+                return false
+            }
+            return null
+        }
         // The file could not be read just now: leave it pending (never delete a copy for that),
         // but after a day say so, so that automatic backups never stop silently
         if (checked.unknown) {
-            if (System.currentTimeMillis() - info.createdAt > AUTO_STUCK_MS) {
+            if (stuck(info)) {
                 writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
+                dropWaiting(info)
                 return false
             }
             return null
@@ -670,6 +729,7 @@ class Session(app: Application) : AndroidViewModel(app) {
         val toDelete = writes.withLock {
             if (db.isOpen) try { auto.record(db, info, checked.accepted) } catch (e: Exception) { null } else null
         } ?: return null
+        dropWaiting(info)
         if (toDelete.isNotEmpty()) finishDeleting(db, toDelete)
         return checked.accepted != null
     }
@@ -1078,9 +1138,9 @@ class Session(app: Application) : AndroidViewModel(app) {
                                 // Not saved; nothing about the content is logged
                             }
                         }
-                        // Automatic backup, if turned on and due: only encrypted here, written after closing
+                        // Automatic backup, if turned on and due: only encrypted here (into Mandat's own storage), sent to the folder after closing
                         prepared = if (!backup) null else try {
-                            ua.mandat.backup.AutoBackup.prepareIfDue(current.db)
+                            ua.mandat.backup.AutoBackup.prepareIfDue(getApplication(), current.db)
                         } catch (e: Throwable) {
                             null
                         }
@@ -1113,6 +1173,15 @@ class Session(app: Application) : AndroidViewModel(app) {
         /** A larger .vcf is refused (6 000 contacts without photos are a few MB; with photos tens of MB). */
         const val MAX_VCF_BYTES = 50L * 1024 * 1024
         private const val AUTO_WAIT_MS = 30 * 1000L
+        /**
+         * The automatic copy being written (or written last), shared by closing and "copy now".
+         * One for the whole process: the screen may be opened anew while a copy is still on its way.
+         */
+        @Volatile private var autoJob: kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result>? = null
+        /** For a copy picked up again after a stop of Mandat: when it was first picked up (0 for any other). */
+        @Volatile private var autoStartedAt = 0L
+        /** Pending copies are settled one at a time, whoever asks (the unlock, "copy now", a restore). */
+        private val autoSettling = Mutex()
         private const val AUTO_STUCK_MS = 24 * 60 * 60 * 1000L
     }
 

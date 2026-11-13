@@ -58,6 +58,13 @@ import ua.mandat.data.isOverdue
 /** What a row is; each kind has its own colour and picture, readable at a glance. */
 enum class TaskKind { HARD, SOFT, DELEGATION, PROMISE }
 
+private fun TaskKind.label(): Int = when (this) {
+    TaskKind.HARD -> R.string.deadline_hard
+    TaskKind.SOFT -> R.string.deadline_soft
+    TaskKind.DELEGATION -> R.string.kind_delegation
+    TaskKind.PROMISE -> R.string.kind_promise
+}
+
 @Composable
 private fun TaskKind.badge(): Pair<androidx.compose.ui.graphics.Color, androidx.compose.ui.graphics.Color> {
     val dark = androidx.compose.foundation.isSystemInDarkTheme()
@@ -93,7 +100,7 @@ fun MiniChip(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
             .background(bg ?: MaterialTheme.colorScheme.surface)
-            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .let { if (onClick != null) it.clickable(onClick = onClick).named(text) else it }
             .padding(horizontal = 7.dp, vertical = 2.dp),
     )
 }
@@ -140,7 +147,8 @@ fun TaskRow(
             Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape).background(bg),
             contentAlignment = Alignment.Center,
         ) {
-            androidx.compose.material3.Icon(kind.icon(), contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
+            // The kind is told by the picture and its colour: a screen reader says it in words
+            androidx.compose.material3.Icon(kind.icon(), contentDescription = stringResource(kind.label()), tint = fg, modifier = Modifier.size(18.dp))
         }
         androidx.compose.foundation.layout.Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
@@ -168,7 +176,7 @@ fun TaskRow(
                     modifier = Modifier.padding(top = 4.dp), maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
         }
-        Checkbox(checked = done, onCheckedChange = { onToggleDone() })
+        Checkbox(checked = done, onCheckedChange = { onToggleDone() }, modifier = Modifier.named(stringResource(R.string.mark_done_named, what)))
     }
 }
 
@@ -363,7 +371,7 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
                         Text(stringResource(R.string.delegation_returned), style = MaterialTheme.typography.bodyLarge)
                         Text(stringResource(R.string.delegation_returned_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                     }
-                    androidx.compose.material3.Switch(checked = draft.returned, onCheckedChange = { draft.returned = it })
+                    androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.delegation_returned)), checked = draft.returned, onCheckedChange = { draft.returned = it })
                 }
         }
         if (!draft.isNew) SheetGroup {

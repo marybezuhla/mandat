@@ -84,13 +84,31 @@ fun LensBar(db: ua.mandat.data.MandatDb, session: Session, full: Boolean) {
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
     ) {
         QuickChip(androidx.compose.ui.res.stringResource(ua.mandat.R.string.lens_all), lens == null) { session.lensRole.value = null }
-        roles.forEach { r -> QuickChip(shortRole(r.name), lens == r.id) { session.lensRole.value = if (lens == r.id) null else r.id } }
+        val short = shortRoles(roles.map { it.name })
+        roles.forEachIndexed { i, r -> QuickChip(short[i], lens == r.id) { session.lensRole.value = if (lens == r.id) null else r.id } }
         QuickChip(noRole, lens == 0L) { session.lensRole.value = if (lens == 0L) null else 0L }
     }
 }
 
-/** A role name short enough for a chip: the part before a dash, at most 24 characters. */
-fun shortRole(name: String): String {
-    val head = name.substringBefore(" — ").substringBefore(" - ").trim()
-    return if (head.length <= 24) head else head.take(23).trimEnd() + "…"
+/**
+ * Role names short enough for chips: the part before a dash (the post), at most 24 characters.
+ * When several roles have the same post ("Member — …", "Member — …"), each shows what tells it
+ * apart instead: its own name in «…», or else the body after the dash.
+ */
+fun shortRoleNames(names: Map<Long, String>): Map<Long, String> {
+    val ids = names.keys.toList()
+    return ids.zip(shortRoles(ids.map { names.getValue(it) })).toMap()
+}
+
+/** The same for a list of names, in its order. */
+fun shortRoles(names: List<String>): List<String> {
+    fun head(name: String) = name.substringBefore(" — ").substringBefore(" - ").trim()
+    fun clip(text: String) = if (text.length <= 24) text else text.take(23).trimEnd() + "…"
+    val heads = names.map(::head)
+    return names.mapIndexed { i, name ->
+        if (heads.count { it == heads[i] } == 1) return@mapIndexed clip(heads[i])
+        val own = name.substringAfter("«", "").substringBeforeLast("»", "").trim()
+        val body = name.substringAfter(" — ", "").ifEmpty { name.substringAfter(" - ", "") }.substringBefore(" «").trim()
+        clip(own.ifEmpty { body }.ifEmpty { name.trim() })
+    }
 }

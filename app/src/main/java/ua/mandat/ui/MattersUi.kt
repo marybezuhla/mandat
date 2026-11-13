@@ -432,12 +432,12 @@ fun MatterEditor(db: MandatDb, session: Session, draft: MatterDraft) {
                 minLines = 4,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { draft.sensitive = !draft.sensitive }) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().switchRow(draft.sensitive) { draft.sensitive = it }) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.matter_sensitive), style = MaterialTheme.typography.bodyMedium)
                     Text(stringResource(R.string.matter_sensitive_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                 }
-                androidx.compose.material3.Switch(checked = draft.sensitive, onCheckedChange = { draft.sensitive = it })
+                androidx.compose.material3.Switch(checked = draft.sensitive, onCheckedChange = null)
             }
             }
             if (request.isNew) {
@@ -475,8 +475,8 @@ fun MatterEditor(db: MandatDb, session: Session, draft: MatterDraft) {
             text = {
                 Column {
                     Text(stringResource(R.string.matter_delete_confirm))
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp).clickable { deleteAll = !deleteAll }) {
-                        androidx.compose.material3.Checkbox(checked = deleteAll, onCheckedChange = { deleteAll = it })
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp).checkRow(deleteAll) { deleteAll = it }) {
+                        CheckMark(deleteAll)
                         Text(stringResource(R.string.matter_delete_all), style = MaterialTheme.typography.bodyMedium)
                     }
                     Text(stringResource(if (deleteAll) R.string.matter_delete_all_hint else R.string.matter_delete_keep_hint), style = MaterialTheme.typography.bodySmall,
@@ -488,8 +488,8 @@ fun MatterEditor(db: MandatDb, session: Session, draft: MatterDraft) {
                     if (aidRecords.isNotEmpty()) Text(stringResource(R.string.matter_delete_aid, aidRecords.size),
                         color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
                     // Texts hold much writing: the owner decides whether they go with the matter or stay unlinked
-                    if (matterTexts.isNotEmpty() && !deleteAll) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp).clickable { deleteTexts = !deleteTexts }) {
-                        androidx.compose.material3.Checkbox(checked = deleteTexts, onCheckedChange = { deleteTexts = it })
+                    if (matterTexts.isNotEmpty() && !deleteAll) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp).checkRow(deleteTexts) { deleteTexts = it }) {
+                        CheckMark(deleteTexts)
                         Text(stringResource(R.string.matter_delete_texts, matterTexts.size), style = MaterialTheme.typography.bodyMedium)
                     }
                 }

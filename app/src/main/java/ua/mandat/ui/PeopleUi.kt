@@ -101,7 +101,7 @@ fun PeopleList(db: MandatDb, session: Session) {
     val categorySlices = buildList {
         add(Slice("TEAM", teamLabel, people.count { it.teamRole != null }, ChartColors.blue))
         // Standard categories, then the owner's own words, each with its own row
-        (PersonCategory.entries.filter { it != PersonCategory.OTHER }.map { it.name } + ownCategories(people) + PersonCategory.OTHER.name)
+        (ua.mandat.data.standardCategories(AppMode.mode.deputy, people).map { it.name } + ownCategories(people) + PersonCategory.OTHER.name)
             .forEachIndexed { i, key ->
                 add(Slice(key, categoryLabel(key), people.count { it.teamRole == null && categoryKey(it) == key }, SeriesColors[(i + 1) % SeriesColors.size]))
             }
@@ -423,7 +423,7 @@ fun PersonEditor(db: MandatDb, session: Session, draft: PersonDraft) {
                         Text(stringResource(R.string.person_is_group), style = MaterialTheme.typography.bodyLarge)
                         Text(stringResource(R.string.person_is_group_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                     }
-                    androidx.compose.material3.Switch(checked = draft.isGroup, onCheckedChange = { draft.isGroup = it })
+                    androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.person_is_group)), checked = draft.isGroup, onCheckedChange = { draft.isGroup = it })
                 }
                 // Influence and stance: for the influence map; never for the team (no rating of people)
                 Text(stringResource(R.string.influence), style = MaterialTheme.typography.labelLarge)

@@ -25,7 +25,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -325,10 +324,8 @@ fun InfoDialog(db: MandatDb, session: Session, d: InfoDraft) {
                     InfoKind.DISCUSSION, InfoKind.CRITIQUE -> {
                         Text(stringResource(R.string.checks_title), style = MaterialTheme.typography.labelLarge)
                         IntegrityCheck.entries.forEach { c ->
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable {
-                                d.checks = if (c in d.checks) d.checks - c else d.checks + c
-                            }) {
-                                Checkbox(checked = c in d.checks, onCheckedChange = { on -> d.checks = if (on) d.checks + c else d.checks - c })
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.checkRow(c in d.checks) { on -> d.checks = if (on) d.checks + c else d.checks - c }) {
+                                CheckMark(c in d.checks)
                                 Text(stringResource(c.label()), style = MaterialTheme.typography.bodyMedium)
                             }
                         }
@@ -338,8 +335,8 @@ fun InfoDialog(db: MandatDb, session: Session, d: InfoDraft) {
                 }
                 OutlinedTextField(d.notes, { d.notes = it }, label = { Text(stringResource(d.kind.notesLabel())) }, minLines = 2, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(d.result, { d.result = it }, label = { Text(stringResource(R.string.info_result)) }, minLines = 1, modifier = Modifier.fillMaxWidth())
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = d.closed, onCheckedChange = { d.closed = it })
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.checkRow(d.closed) { d.closed = it }) {
+                    CheckMark(d.closed)
                     Text(stringResource(R.string.info_closed_mark), style = MaterialTheme.typography.bodyMedium)
                 }
                 if (!d.isNew) TextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }

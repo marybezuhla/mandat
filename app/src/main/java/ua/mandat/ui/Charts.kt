@@ -139,7 +139,8 @@ private fun BarRow(label: String, value: Int, fraction: Float, color: Color, isS
             .clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(130.dp))
+        // (two lines: a long name such as "Петиція / пропозиція" is read whole)
+        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(130.dp))
         Box(Modifier.weight(1f).height(10.dp).clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
             Box(Modifier.fillMaxWidth(fraction.coerceIn(0.02f, 1f)).height(10.dp).clip(RoundedCornerShape(5.dp))
                 .background(if (dim) color.copy(alpha = 0.3f) else color))
@@ -226,7 +227,7 @@ fun Legend(parts: List<Slice>, selected: String?, onPick: (String?) -> Unit, mod
             ) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(p.color))
                 Spacer(Modifier.width(8.dp))
-                Text(p.label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                Text(p.label, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f))
                 Text(p.display ?: groupDigits(p.value), style = MaterialTheme.typography.labelLarge)
             }
@@ -288,7 +289,8 @@ fun StackBar(slices: List<Slice>, selected: String? = null, onPick: ((String?) -
             Box(
                 Modifier.weight(p.value.toFloat()).fillMaxHeight()
                     .background(if (dim) p.color.copy(alpha = 0.25f) else p.color)
-                    .let { m -> if (onPick != null) m.clickable { onPick(if (selected == p.key) null else p.key) } else m },
+                    // (a strip of colour has no name: a screen reader uses the named rows below, which do the same)
+                    .let { m -> if (onPick != null) m.decorative().clickable { onPick(if (selected == p.key) null else p.key) } else m },
             )
         }
     }
@@ -301,7 +303,7 @@ fun StackBar(slices: List<Slice>, selected: String? = null, onPick: ((String?) -
             Row(
                 Modifier.clip(RoundedCornerShape(6.dp))
                     .background(if (selected == p.key) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                    .let { m -> if (onPick != null) m.clickable { onPick(if (selected == p.key) null else p.key) } else m }
+                    .let { m -> if (onPick != null) m.clickable { onPick(if (selected == p.key) null else p.key) }.picked(selected == p.key) else m }
                     .padding(horizontal = 4.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -327,11 +329,13 @@ fun DayColumns(days: List<DayLoad>, selected: Long?, onPick: (Long?) -> Unit) {
             Column(
                 Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp))
                     .background(if (isSel) scheme.primaryContainer else Color.Transparent)
-                    .clickable { onPick(if (isSel) null else d.day) },
+                    .clickable { onPick(if (isSel) null else d.day) }
+                    .said(androidx.compose.ui.res.stringResource(if (d.hard) ua.mandat.R.string.day_column_hard else ua.mandat.R.string.day_column_said, d.label, d.count), chosen = isSel),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Bottom,
             ) {
-                if (d.count > 0) Text(d.count.toString(), style = MaterialTheme.typography.labelSmall, color = Muted)
+                // (a hard deadline is marked with "!" too, not by the darker colour alone)
+                if (d.count > 0) Text(d.count.toString() + if (d.hard) " !" else "", style = MaterialTheme.typography.labelSmall, color = Muted)
                 val h = if (d.count == 0) 3.dp else (56f * d.count / max).coerceAtLeast(8f).dp
                 Box(
                     Modifier.padding(horizontal = 3.dp).fillMaxWidth().height(h).clip(RoundedCornerShape(4.dp))

@@ -62,12 +62,34 @@ fun TextKind.label(): Int = when (this) {
     TextKind.TEMPLATE -> R.string.text_kind_template
 }
 
-/** A ready template: typical text with [fields] to fill in. */
-class TextTemplate(val key: String, val kind: TextKind, val title: Int, val body: Int)
+/** A ready template: typical text with [fields] to fill in; [lead] is a first line put before the body. */
+class TextTemplate(val key: String, val kind: TextKind, val title: Int, val body: Int, val lead: Int? = null)
 
+/**
+ * A deputy's appeal and inquiry differ by the law they rest on: the Law on the status of the
+ * People's Deputy (articles 16 and 15) or the Law on the status of deputies of local councils
+ * (articles 13, 21 and 22). Each kind of deputy gets its own; every text asks to check the
+ * article against the current wording.
+ */
+private val MP_LETTERS = listOf(
+    TextTemplate("appeal", TextKind.LETTER, R.string.tpl_dep_appeal_title, R.string.tpl_mp_appeal_body),
+    TextTemplate("inquiry", TextKind.LETTER, R.string.tpl_dep_inquiry_title, R.string.tpl_mp_inquiry_body),
+)
+private val COUNCIL_LETTERS = listOf(
+    TextTemplate("appeal", TextKind.LETTER, R.string.tpl_dep_appeal_title, R.string.tpl_council_appeal_body),
+    TextTemplate("inquiry", TextKind.LETTER, R.string.tpl_dep_inquiry_title, R.string.tpl_council_inquiry_body),
+)
+
+/** An assistant drafts them for a deputy of either kind, and is told at the top that only the deputy signs. */
+private val ASSISTANT_LETTERS = listOf(
+    TextTemplate("appeal", TextKind.LETTER, R.string.tpl_for_mp_appeal_title, R.string.tpl_mp_appeal_body, R.string.tpl_for_deputy_lead),
+    TextTemplate("inquiry", TextKind.LETTER, R.string.tpl_for_mp_inquiry_title, R.string.tpl_mp_inquiry_body, R.string.tpl_for_deputy_lead),
+    TextTemplate("council_appeal", TextKind.LETTER, R.string.tpl_for_councillor_appeal_title, R.string.tpl_council_appeal_body, R.string.tpl_for_deputy_lead),
+    TextTemplate("council_inquiry", TextKind.LETTER, R.string.tpl_for_councillor_inquiry_title, R.string.tpl_council_inquiry_body, R.string.tpl_for_deputy_lead),
+)
+
+/** The templates every mode may use (a deputy's appeal and inquiry are added by [textTemplates]). */
 val TEXT_TEMPLATES = listOf(
-    TextTemplate("appeal", TextKind.LETTER, R.string.tpl_appeal_title, R.string.tpl_appeal_body),
-    TextTemplate("inquiry", TextKind.LETTER, R.string.tpl_inquiry_title, R.string.tpl_inquiry_body),
     TextTemplate("reply", TextKind.LETTER, R.string.tpl_reply_title, R.string.tpl_reply_body),
     TextTemplate("invite", TextKind.LETTER, R.string.tpl_invite_title, R.string.tpl_invite_body),
     TextTemplate("cover", TextKind.LETTER, R.string.tpl_cover_title, R.string.tpl_cover_body),
@@ -86,8 +108,10 @@ private val CITIZEN_TEMPLATES = listOf(
 
 /** The ready templates of the chosen mode: a deputy's letters only where the owner is a deputy. */
 fun textTemplates(): List<TextTemplate> = when (AppMode.mode) {
-    ua.mandat.data.Mode.RADA, ua.mandat.data.Mode.COUNCIL -> TEXT_TEMPLATES
-    ua.mandat.data.Mode.OFFICIAL -> TEXT_TEMPLATES.filter { it.key != "appeal" && it.key != "inquiry" }
+    ua.mandat.data.Mode.RADA -> MP_LETTERS + TEXT_TEMPLATES
+    ua.mandat.data.Mode.COUNCIL -> COUNCIL_LETTERS + TEXT_TEMPLATES
+    ua.mandat.data.Mode.ASSISTANT -> ASSISTANT_LETTERS + TEXT_TEMPLATES
+    ua.mandat.data.Mode.OFFICIAL -> TEXT_TEMPLATES
     ua.mandat.data.Mode.CITIZEN -> CITIZEN_TEMPLATES + TEXT_TEMPLATES.filter { it.key in setOf("thanks", "greeting", "speech", "column") }
 }
 
@@ -169,7 +193,10 @@ private fun TextLine(t: TextDoc, matterTitle: String?, onOpen: () -> Unit) {
 fun TemplatePicker(own: List<TextDoc>, matterId: Long? = null, onDismiss: () -> Unit, onPick: (TextDraft) -> Unit) {
     val builtIn = textTemplates().map { t -> PickItem("b:" + t.key, stringResource(t.title), stringResource(t.kind.label())) }
     val mine = own.map { PickItem("o:" + it.id, it.title, stringResource(R.string.text_kind_template)) }
-    val bodies = textTemplates().associate { "b:" + it.key to Triple(stringResource(it.title), stringResource(it.body), it.kind) }
+    val bodies = textTemplates().associate { t ->
+        val lead = t.lead?.let { stringResource(it) + "\n\n" }.orEmpty()
+        "b:" + t.key to Triple(stringResource(t.title), lead + stringResource(t.body), t.kind)
+    }
     PickSheet(stringResource(R.string.text_from_template), builtIn + mine, onPick = { key ->
         if (key.startsWith("b:")) bodies[key]?.let { (title, body, kind) -> onPick(newText(matterId, kind, title, body)) }
         else own.firstOrNull { "o:" + it.id == key }?.let { o -> onPick(newText(matterId, TextKind.OTHER, o.title, o.body)) }

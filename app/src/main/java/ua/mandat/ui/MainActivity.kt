@@ -139,6 +139,8 @@ class MainActivity : AppCompatActivity() {
         // prompt must not go on pretending. It is switched on again in Options.
         Appearance.setPinOnly(this, false)
         MandatDb.deleteFiles(this)
+        // (a copy that was on its way to or from a folder: encrypted, and gone as well)
+        ua.mandat.backup.BackupFile.clear(this, olderThanMs = 0)
         // Nothing about the deleted data may stay behind, not even the days of reminders
         ua.mandat.notify.Reminders.clear(this)
         // ...nor access to a folder chosen for automatic backups

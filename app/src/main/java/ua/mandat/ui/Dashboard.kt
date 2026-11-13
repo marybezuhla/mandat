@@ -131,7 +131,7 @@ fun Dashboard(db: MandatDb, session: Session) {
                     Text(stringResource(R.string.graph_title), style = MaterialTheme.typography.titleSmall)
                     Text(stringResource(R.string.graph_card_hint), style = MaterialTheme.typography.labelMedium, color = Muted)
                 }
-                Text("→", color = MaterialTheme.colorScheme.primary)
+                Text("→", color = MaterialTheme.colorScheme.primary, modifier = Modifier.decorative())
             }
         }
         MCard(onClick = { session.showRetro = true }) {
@@ -140,7 +140,7 @@ fun Dashboard(db: MandatDb, session: Session) {
                     Text(stringResource(R.string.retro_title), style = MaterialTheme.typography.titleSmall)
                     Text(stringResource(R.string.retro_card_hint), style = MaterialTheme.typography.labelMedium, color = Muted)
                 }
-                Text("→", color = MaterialTheme.colorScheme.primary)
+                Text("→", color = MaterialTheme.colorScheme.primary, modifier = Modifier.decorative())
             }
         }
         // A short summary of the period by the on-device AI, from the same numbers and titles (only a suggestion)

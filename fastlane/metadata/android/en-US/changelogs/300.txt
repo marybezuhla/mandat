@@ -1,0 +1,6 @@
+• A backup is written in parts and has no size ceiling; backups made earlier still open.
+• A new mode: a deputy's assistant.
+• The app works better with a screen reader.
+• A colleague and a deputy are now separate categories of people.
+• Turning the phone no longer drops what was not saved.
+• Options list the libraries and licences.

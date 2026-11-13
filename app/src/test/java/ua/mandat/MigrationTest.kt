@@ -13,7 +13,11 @@ import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import ua.mandat.backup.BackupCrypto
 import ua.mandat.backup.BackupData
+import ua.mandat.backup.BackupFile
+import ua.mandat.backup.BackupLines
+import ua.mandat.backup.BackupStream
 import ua.mandat.data.DB_VERSION
 import ua.mandat.data.MIGRATIONS
 import ua.mandat.data.MandatDb
@@ -180,6 +184,155 @@ class MigrationTest {
         } finally {
             db.close()
             app.deleteDatabase(name)
+        }
+    }
+
+    /** Every table with its rows, as text: all that a copy holds, without the time it was made. */
+    private fun contents(db: MandatDb): String =
+        JSONObject(String(BackupData.dump(db), Charsets.UTF_8)).getJSONObject("tables").toString()
+
+    private fun setting(db: MandatDb, key: String): Int =
+        db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM settings WHERE `key` = '$key'").use { it.moveToFirst(); it.getInt(0) }
+
+    /**
+     * One more row in every table of today's database, with what real data has and the plain test
+     * rows lack: quotes, slashes, line breaks and a line separator in texts, times in milliseconds,
+     * and nothing at all where a column allows it. (Today's tables have no fractions or binary cells.)
+     */
+    private fun addRichRows(db: MandatDb): Int {
+        val sql = db.openHelper.writableDatabase
+        val tables = ArrayList<String>()
+        sql.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('android_metadata', 'room_master_table')").use { c ->
+            while (c.moveToNext()) tables += c.getString(0)
+        }
+        val days = setOf("day", "due", "endDay", "untilDay", "checkIn", "lastContact", "stanceSince")
+        val small = setOf("startMin", "endMin", "energy", "mood", "influence", "reach", "risk", "remindBefore", "votesNeeded", "population")
+        for (table in tables) {
+            val values = android.content.ContentValues()
+            sql.query("PRAGMA table_info(`$table`)").use { c ->
+                while (c.moveToNext()) {
+                    val column = c.getString(c.getColumnIndexOrThrow("name"))
+                    val type = c.getString(c.getColumnIndexOrThrow("type")).uppercase()
+                    val required = c.getInt(c.getColumnIndexOrThrow("notnull")) != 0 || c.getInt(c.getColumnIndexOrThrow("pk")) != 0
+                    when (type) {
+                        "INTEGER" -> values.put(column, when {
+                            column in days -> 19_000L
+                            column in small -> 1L
+                            column.endsWith("At") -> 1_700_000_000_123L
+                            else -> 5_000L
+                        })
+                        "REAL" -> values.put(column, 2.25)
+                        "BLOB" -> values.put(column, byteArrayOf(0, 1, -1))
+                        else -> if (required) values.put(column, "Рядок \"у лапках\" \\ коса / риска\nдругий рядок\tпісля табуляції\u2028після роздільника, it's [$table]") else values.putNull(column)
+                    }
+                }
+            }
+            sql.insert(table, android.database.sqlite.SQLiteDatabase.CONFLICT_ABORT, values)
+        }
+        return tables.size
+    }
+
+    @Test fun copyInPartsRoundTrip() {
+        val name = "parts.db"
+        oldDatabase(name, 7)
+        val db = openToday(name)
+        // (opened, so that the migrations have run; then every table of today gets a row of harder data)
+        assertEquals(DB_VERSION, db.openHelper.writableDatabase.version)
+        assertTrue(addRichRows(db) > 20)
+        val fresh = Room.inMemoryDatabaseBuilder(app, MandatDb::class.java).allowMainThreadQueries().build()
+        val file = File(app.cacheDir, "parts-test.bin")
+        val key = BackupStream.newKey("тест-пароль-для-копії".toCharArray(), BackupCrypto.KdfParams(memoryKiB = 8 * 1024, iterations = 1, parallelism = 1))
+        try {
+            // The automatic-backup settings never go into a copy...
+            db.openHelper.writableDatabase.execSQL("INSERT INTO settings (`key`, `value`) VALUES ('auto_backup_folder', 'content://x')")
+            val written = BackupFile.write(db, key, file)
+            assertTrue(written.rows > 0)
+            assertEquals(DB_VERSION, written.schema)
+            // Checked to its last row against today's tables, without touching any data
+            val checked = file.inputStream().use { BackupFile.read(it, key, BackupData.Checker(BackupData.layout(fresh))) }
+            assertTrue(checked.same(written))
+            assertEquals(0, count(fresh, "matters"))
+            // ...and this phone's own stay through a restore
+            fresh.openHelper.writableDatabase.execSQL("INSERT INTO settings (`key`, `value`) VALUES ('auto_backup_manual', '77')")
+            file.inputStream().use { input -> BackupFile.open(input, key).use { BackupData.restore(fresh, it, checked) } }
+            assertEquals(contents(db), contents(fresh))
+            assertTrue(count(fresh, "matters") > 0)
+            assertEquals(1, setting(fresh, "auto_backup_manual"))
+            assertEquals(0, setting(fresh, "auto_backup_folder"))
+
+            // A file that is not the one the owner was shown replaces nothing
+            fresh.openHelper.writableDatabase.execSQL("DELETE FROM matters")
+            val other = BackupData.Summary(checked.createdAt, checked.schema, checked.rows, ByteArray(32))
+            try {
+                file.inputStream().use { input -> BackupFile.open(input, key).use { BackupData.restore(fresh, it, other) } }
+                fail("a copy other than the one shown must be refused")
+            } catch (e: BackupData.Incompatible) {
+                // expected
+            }
+            assertEquals(0, count(fresh, "matters"))
+            assertTrue(count(fresh, "people") > 0)
+        } finally {
+            key.wipe()
+            file.delete()
+            fresh.close()
+            db.close()
+            app.deleteDatabase(name)
+        }
+    }
+
+    @Test fun oddCopiesAreRefusedByThePhonesOwnParserToo() {
+        // The same checks as in BackupStreamTest, here with Android's JSON parser (the one that ships)
+        val head = """{"app":"mandat","kind":"backup","format":2,"schema":$DB_VERSION,"created":1}"""
+        val table = """{"t":"settings","c":["key","value"]}"""
+        fun read(text: String) = BackupLines.read(text.byteInputStream(), null)
+        assertEquals(2, read("$head\n$table\n[\"a\",\"b\"]\n[\"в\",\"рядок\\nдругий\"]\n{\"end\":2}\n").rows)
+        listOf(
+            "$head\n$table\n[\"a\",\"b\"]\n",
+            "$head\n$table\n[\"a\",\"b\"]\n{\"end\":2}\n",
+            "$head\n{\"end\":0}\n{\"end\":0}\n",
+            "$head\n[\"a\",\"b\"]\n{\"end\":1}\n",
+            "$head\n$table\n[\"a\"]\n{\"end\":1}\n",
+            "$head\n$table\n$table\n{\"end\":0}\n",
+            "$head\n{\"t\":\"settings\",\"c\":[\"key\",7]}\n{\"end\":0}\n",
+            "",
+        ).forEach { bad ->
+            try {
+                read(bad)
+                fail("must be refused: $bad")
+            } catch (e: BackupData.Incompatible) {
+                // expected
+            }
+        }
+        try {
+            read(head.replace("\"format\":2", "\"format\":3") + "\n")
+            fail("a newer format must be named as such")
+        } catch (e: BackupData.FromNewer) {
+            // expected
+        }
+    }
+
+    @Test fun copyInPartsIsCheckedAgainstTodaysTables() {
+        val db = Room.inMemoryDatabaseBuilder(app, MandatDb::class.java).allowMainThreadQueries().build()
+        try {
+            val layout = BackupData.layout(db)
+            val head = """{"app":"mandat","kind":"backup","format":2,"schema":$DB_VERSION,"created":1}"""
+            fun check(rest: String) = BackupLines.read("$head\n$rest".byteInputStream(), BackupData.Checker(layout))
+            assertEquals(1, check("{\"t\":\"reviews\",\"c\":[\"id\",\"day\"]}\n[1,5]\n{\"end\":1}\n").rows)
+            listOf(
+                // A table or a column this version does not have, and text where a number belongs
+                "{\"t\":\"nope\",\"c\":[\"id\"]}\n{\"end\":0}\n",
+                "{\"t\":\"reviews\",\"c\":[\"id\",\"nope\"]}\n{\"end\":0}\n",
+                "{\"t\":\"reviews\",\"c\":[\"id\",\"day\"]}\n[1,\"вчора\"]\n{\"end\":1}\n",
+            ).forEach { bad ->
+                try {
+                    check(bad)
+                    fail("must be refused: $bad")
+                } catch (e: BackupData.Incompatible) {
+                    // expected
+                }
+            }
+        } finally {
+            db.close()
         }
     }
 

@@ -33,10 +33,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -98,7 +96,12 @@ fun TimeTab(db: MandatDb, session: Session) {
 fun EventKind.label(): Int = when (this) {
     EventKind.MEETING -> R.string.event_meeting
     EventKind.SESSION -> forMode(R.string.event_session, R.string.event_session_plain)
-    EventKind.COMMITTEE -> forMode(R.string.event_committee, R.string.event_committee_plain)
+    EventKind.COMMITTEE -> when (AppMode.mode) {
+        // (a local council works through standing commissions, not committees; an assistant may serve either)
+        ua.mandat.data.Mode.COUNCIL -> R.string.event_committee_council
+        ua.mandat.data.Mode.ASSISTANT -> R.string.event_committee_assistant
+        else -> forMode(R.string.event_committee, R.string.event_committee_plain)
+    }
     EventKind.TRIP -> R.string.event_trip
     EventKind.RECEPTION -> if (AppMode.mode == ua.mandat.data.Mode.CITIZEN) R.string.event_reception_citizen else R.string.event_reception
     EventKind.CALL -> R.string.event_call
@@ -223,11 +226,11 @@ fun CalendarScreenForTest(db: MandatDb, session: Session, view0: Int) {
         item(key = "grid") {
             MCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { selected = if (weekMode) selected - 7 else sel.minusMonths(1).toEpochDay() }) { Text("‹", style = MaterialTheme.typography.titleLarge) }
+                    StepButton(back = true, onClick = { selected = if (weekMode) selected - 7 else sel.minusMonths(1).toEpochDay() })
                     val title = if (weekMode) "${Dates.short(from)} – ${Dates.short(to)}"
                     else sel.format(DateTimeFormatter.ofPattern("LLLL yyyy")).replaceFirstChar { it.uppercase() }
-                    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    IconButton(onClick = { selected = if (weekMode) selected + 7 else sel.plusMonths(1).toEpochDay() }) { Text("›", style = MaterialTheme.typography.titleLarge) }
+                    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).announced(), textAlign = TextAlign.Center)
+                    StepButton(back = false, onClick = { selected = if (weekMode) selected + 7 else sel.plusMonths(1).toEpochDay() })
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     ViewChips(view) { view = it }
@@ -318,11 +321,15 @@ private fun DayCell(day: Long, selected: Boolean, today: Boolean, inMonth: Boole
     val scheme = MaterialTheme.colorScheme
     // A busier day is shaded a little deeper, so heavy days stand out from afar
     val shade = when { load >= 6 -> 0.26f; load >= 4 -> 0.17f; load >= 2 -> 0.09f; load >= 1 -> 0.04f; else -> 0f }
+    // For a screen reader: the whole date, "today", and how much is on the day (the eye sees a number, a border and dots)
+    val date = LocalDate.ofEpochDay(day)
+    val name = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()) + ", " + Dates.format(day)
+    val said = stringResource(R.string.cal_day_said, if (today) stringResource(R.string.cal_day_today, name) else name, load)
     Column(
         modifier.aspectRatio(0.9f).padding(2.dp).clip(RoundedCornerShape(8.dp))
             .background(if (selected) scheme.primaryContainer else if (inMonth && shade > 0f) Tone.plan.copy(alpha = shade) else Color.Transparent)
             .let { if (today && !selected) it.border(1.dp, scheme.primary, RoundedCornerShape(8.dp)) else it }
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick).said(said, chosen = selected),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -490,9 +497,9 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
                     session.showAiSplit = true
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { draft.remind = !draft.remind }) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().switchRow(draft.remind) { draft.remind = it }) {
                 Text(stringResource(R.string.event_remind), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                androidx.compose.material3.Switch(checked = draft.remind, onCheckedChange = { draft.remind = it })
+                androidx.compose.material3.Switch(checked = draft.remind, onCheckedChange = null)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -655,9 +662,9 @@ private fun WeekGrid(
     val nowMin = java.time.LocalTime.now().let { it.hour * 60 + it.minute }
     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onPrev) { Text("‹", style = MaterialTheme.typography.titleLarge) }
-            Text("${Dates.short(from)} – ${Dates.short(from + 6)}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            IconButton(onClick = onNext) { Text("›", style = MaterialTheme.typography.titleLarge) }
+            StepButton(back = true, onClick = onPrev)
+            Text("${Dates.short(from)} – ${Dates.short(from + 6)}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).announced(), textAlign = TextAlign.Center)
+            StepButton(back = false, onClick = onNext)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             ViewChips(view, onView)
@@ -814,7 +821,7 @@ fun DayStrip(db: MandatDb, session: Session) {
 @Composable
 private fun NowLine(nowMin: Int) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(stringResource(R.string.now_at, timeText(nowMin)), style = MaterialTheme.typography.labelSmall, color = ChartColors.coral)
+        Text(stringResource(R.string.now_at, timeText(nowMin)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
         Spacer(Modifier.width(6.dp))
         Box(Modifier.weight(1f).height(2.dp).background(ChartColors.coral))
     }

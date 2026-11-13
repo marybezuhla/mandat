@@ -143,6 +143,8 @@ class ScreensTest {
     @Test fun next() = shot("07-smart-next") { SmartListScreen(db, session, SmartList.NEXT) }
 
     // The choice of mode and roles at the first start, as an official and as a citizen see it
+    @Test fun rolesAssistant() = inMode(ua.mandat.data.Mode.ASSISTANT) { shot("26-roles-assistant") { ua.mandat.ui.RolesSetup(session) } }
+    @Test fun peopleAssistant() = inMode(ua.mandat.data.Mode.ASSISTANT) { shot("28-people-assistant") { PeopleList(db, session) } }
     @Test fun rolesOfficial() = inMode(ua.mandat.data.Mode.OFFICIAL) { shot("26-roles-official") { ua.mandat.ui.RolesSetup(session) } }
     @Test fun rolesCitizen() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("26-roles-citizen") { ua.mandat.ui.RolesSetup(session) } }
     @Config(qualifiers = "+night")

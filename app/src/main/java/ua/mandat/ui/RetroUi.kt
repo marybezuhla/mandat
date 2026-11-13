@@ -228,7 +228,7 @@ fun RetroScreen(db: MandatDb, session: Session) {
                             verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(10.dp).clip(CircleShape).background(colorOf.getValue(id)))
                             Spacer(Modifier.width(8.dp))
-                            Text(roleName[id]?.let(::shortRole) ?: stringResource(R.string.time_no_role), style = MaterialTheme.typography.labelMedium,
+                            Text(shortRoleNames(roleName)[id] ?: stringResource(R.string.time_no_role), style = MaterialTheme.typography.labelMedium,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                             Text(hoursText(total) + " →", style = MaterialTheme.typography.labelMedium, color = Muted)
                         }

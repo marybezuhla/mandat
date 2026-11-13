@@ -308,9 +308,11 @@ fun ExportScreen(db: MandatDb, session: Session) {
                     Check(stringResource(R.string.packet_check), plan.packet) { plan.packet = it }
                     if (plan.packet) Column(Modifier.padding(start = 40.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = plan.matterId != null, onCheckedChange = { if (it) pickingMatter = true else plan.matterId = null })
-                            Text(plan.matterId?.let { id -> stringResource(R.string.packet_matter_one, titles.firstOrNull { it.id == id }?.title.orEmpty()) }
-                                ?: stringResource(R.string.packet_one_matter), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { pickingMatter = true })
+                            val one = plan.matterId?.let { id -> stringResource(R.string.packet_matter_one, titles.firstOrNull { it.id == id }?.title.orEmpty()) }
+                                ?: stringResource(R.string.packet_one_matter)
+                            Checkbox(checked = plan.matterId != null, onCheckedChange = { if (it) pickingMatter = true else plan.matterId = null },
+                                modifier = Modifier.named(one))
+                            Text(one, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { pickingMatter = true })
                         }
                         if (plan.matterId != null && plan.matterId in sensitiveIds) Text(stringResource(R.string.packet_sensitive), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                         Check(stringResource(R.string.packet_contacts), plan.packetContacts) { plan.packetContacts = it }
@@ -330,10 +332,11 @@ fun ExportScreen(db: MandatDb, session: Session) {
                 }
                 Check(stringResource(R.string.export_diary), plan.diary) { plan.diary = it }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = plan.matterId != null, onCheckedChange = { if (it) pickingMatter = true else plan.matterId = null })
-                    Text(plan.matterId?.let { id -> stringResource(R.string.export_matter_one, titles.firstOrNull { it.id == id }?.title.orEmpty()) }
-                        ?: stringResource(R.string.export_matter), style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.clickable { pickingMatter = true })
+                    val one = plan.matterId?.let { id -> stringResource(R.string.export_matter_one, titles.firstOrNull { it.id == id }?.title.orEmpty()) }
+                        ?: stringResource(R.string.export_matter)
+                    Checkbox(checked = plan.matterId != null, onCheckedChange = { if (it) pickingMatter = true else plan.matterId = null },
+                        modifier = Modifier.named(one))
+                    Text(one, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { pickingMatter = true })
                 }
                 plan.textId?.let { Check(stringResource(R.string.export_text_one, textTitle.orEmpty()), true) { on -> if (!on) plan.textId = null } }
                 plan.briefId?.let { Check(stringResource(R.string.export_brief_one), true) { on -> if (!on) plan.briefId = null } }
@@ -530,8 +533,8 @@ const val MANDAT_EXPORT_EXT = "bin"
 
 @Composable
 private fun Check(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onChange(!checked) }) {
-        Checkbox(checked = checked, onCheckedChange = onChange)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().checkRow(checked, onChange)) {
+        CheckMark(checked)
         Text(label, style = MaterialTheme.typography.bodyMedium)
     }
 }
@@ -986,14 +989,41 @@ sealed interface Opened {
 
 private fun openMandatExport(file: ByteArray, password: String, stop: () -> Boolean): Opened {
     val damaged = Opened.Problem(R.string.import_mandat_wrong)
+    val crypto = ua.mandat.backup.BackupCrypto
+    val stream = ua.mandat.backup.BackupStream
+    val chars = password.toCharArray()
+    var key: ua.mandat.backup.BackupStream.Key? = null
     val inner = try {
-        ua.mandat.backup.BackupCrypto.decrypt(file, password)
+        if (file.size < crypto.MIN_FILE_BYTES) return Opened.Problem(R.string.import_mandat_not)
+        // The key is made once (a few seconds) and serves both kinds of file: they begin with the same salt
+        val k = stream.keyFor(file.copyOf(stream.SALT_BYTES), chars).also { key = it }
+        // (an export is one piece and never larger than this)
+        val tooBig = file.size > crypto.MAX_FILE_BYTES
+        val onePiece = if (tooBig) null else try {
+            crypto.decryptWithKey(file, k.ikm)
+        } catch (e: ua.mandat.backup.BackupCrypto.WrongPasswordOrDamaged) {
+            null
+        }
+        if (onePiece == null) {
+            // A backup (written in parts since 0.3.0) opened here by mistake is named as such
+            val backup = try {
+                stream.reader(java.io.ByteArrayInputStream(file, stream.SALT_BYTES, file.size - stream.SALT_BYTES), k).close()
+                true
+            } catch (e2: Exception) {
+                false
+            }
+            return if (backup) Opened.Problem(R.string.import_mandat_is_backup) else if (tooBig) Opened.Problem(R.string.import_mandat_not) else damaged
+        }
+        onePiece
     } catch (e: ua.mandat.backup.BackupCrypto.NotABackup) {
         return Opened.Problem(R.string.import_mandat_not)
     } catch (e: Exception) {
         return damaged
     } catch (e: OutOfMemoryError) {
         return damaged
+    } finally {
+        chars.fill(' ')
+        key?.wipe()
     }
     return try {
         // A backup opened here by mistake is named as such

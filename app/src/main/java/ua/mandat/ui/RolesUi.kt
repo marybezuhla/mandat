@@ -46,13 +46,22 @@ import ua.mandat.data.Role
 import ua.mandat.data.SETTING_ROLES_ASKED
 import ua.mandat.data.Setting
 
-/** Builds a role from a body, a position and an optional name: "Secretary — Committee «…»". */
+/**
+ * Builds a role from a body, a position and an optional name: "Secretary — Committee «…»".
+ * [onDraft] hears the role as it stands once the owner has chosen or typed something, and null
+ * after it is added: so a role that was put together but not "added" is not lost.
+ */
 @Composable
-fun RoleBuilder(session: Session? = null, onAdd: (String) -> Unit) {
+fun RoleBuilder(session: Session? = null, onDraft: ((String?) -> Unit)? = null, onAdd: (String) -> Unit) {
     val context = LocalContext.current
     var body by remember(AppMode.mode) { mutableStateOf(roleBodies().first()) }
     var position by remember(AppMode.mode) { mutableStateOf(roleBodies().first().positions.firstOrNull()) }
     var name by remember { mutableStateOf("") }
+    var touched by remember(AppMode.mode) { mutableStateOf(false) }
+    if (onDraft != null) {
+        val draft = if (touched || name.isNotBlank()) composeRoleName(stringResource(body.name), position?.let { stringResource(it) }, name) else null
+        androidx.compose.runtime.LaunchedEffect(draft) { onDraft(draft) }
+    }
     // A name typed for a new role is kept in the Inbox if Mandat locks before it is added
     if (session != null && name.isNotBlank()) SaveOnLock(session, "role-name") { db -> persistInboxDraft(db, name) }
 
@@ -64,6 +73,7 @@ fun RoleBuilder(session: Session? = null, onAdd: (String) -> Unit) {
             onPick = {
                 body = it
                 position = it.positions.firstOrNull()
+                touched = true
             },
         )
         position?.let { current ->
@@ -71,7 +81,7 @@ fun RoleBuilder(session: Session? = null, onAdd: (String) -> Unit) {
                 label = stringResource(R.string.role_position),
                 current = stringResource(current),
                 options = body.positions.map { it to context.getString(it) },
-                onPick = { position = it },
+                onPick = { position = it; touched = true },
             )
         }
         OutlinedTextField(
@@ -84,6 +94,7 @@ fun RoleBuilder(session: Session? = null, onAdd: (String) -> Unit) {
             onClick = {
                 onAdd(composeRoleName(context.getString(body.name), position?.let { context.getString(it) }, name))
                 name = ""
+                touched = false
             },
             modifier = Modifier.fillMaxWidth(),
         ) { Text(stringResource(R.string.role_add_button)) }
@@ -102,6 +113,9 @@ fun composeRoleName(body: String, position: String?, name: String): String {
 fun RolesSetup(session: Session) {
     val added = remember { mutableStateListOf<String>() }
     var finished by remember { mutableStateOf(false) }
+    // A role put together but not yet "added": "Done" asks about it, so that it is neither lost nor added unasked
+    var draft by remember { mutableStateOf<String?>(null) }
+    var asking by remember { mutableStateOf<String?>(null) }
 
     fun finish(save: Boolean) {
         if (finished) return
@@ -124,7 +138,7 @@ fun RolesSetup(session: Session) {
         Spacer(Modifier.height(8.dp))
         ModePicker(session)
         Spacer(Modifier.height(8.dp))
-        RoleBuilder(onAdd = { if (it !in added) added += it })
+        RoleBuilder(onDraft = { draft = it }, onAdd = { if (it !in added) added += it })
         if (added.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.roles_added), style = MaterialTheme.typography.titleMedium)
@@ -138,13 +152,38 @@ fun RolesSetup(session: Session) {
             }
         }
         Spacer(Modifier.height(16.dp))
-        Button(onClick = { finish(save = true) }, enabled = !finished, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = {
+                val pending = draft
+                if (pending != null && pending !in added) asking = pending else finish(save = true)
+            },
+            enabled = !finished, modifier = Modifier.fillMaxWidth(),
+        ) {
             Text(stringResource(R.string.roles_done))
         }
         TextButton(onClick = { finish(save = false) }, enabled = !finished, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.roles_skip))
         }
     }
+    asking?.let { role ->
+        DraftRoleQuestion(
+            role,
+            onAdd = { asking = null; if (role !in added) added += role; finish(save = true) },
+            onSkip = { asking = null; finish(save = true) },
+            onBack = { asking = null },
+        )
+    }
+}
+
+/** "Done" with a role put together but not added: add it as well, or leave it out. Closing the question goes back to the screen. */
+@Composable
+private fun DraftRoleQuestion(role: String, onAdd: () -> Unit, onSkip: () -> Unit, onBack: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onBack,
+        text = { Text(stringResource(R.string.roles_draft_question, role)) },
+        confirmButton = { TextButton(onClick = onAdd) { Text(stringResource(R.string.roles_draft_add)) } },
+        dismissButton = { TextButton(onClick = onSkip) { Text(stringResource(R.string.roles_draft_skip)) } },
+    )
 }
 
 /** The roles section in Options: add, rename and delete. */
@@ -261,4 +300,8 @@ fun ModePicker(session: Session) {
         }
     }
     Text(stringResource(R.string.mode_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
+    // What this mode means for an assistant: the work is the deputy's, and so are the signatures
+    if (AppMode.mode == ua.mandat.data.Mode.ASSISTANT) {
+        Text(stringResource(R.string.mode_assistant_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
+    }
 }

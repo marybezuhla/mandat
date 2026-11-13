@@ -7,7 +7,7 @@
 **Які дані є і де вони лежать**
 - Справи, люди, календар, доручення, обіцянки, тексти, щоденник, бюджет, вхідні й довідник контактів — лише на цьому телефоні, у базі, зашифрованій SQLCipher. Ключ лежить у сховищі ключів Android і відкривається відбитком або PIN-кодом телефона.
 - Без шифрування лишаються: налаштування вигляду й безпеки (тема, «Лише PIN», знімки екрана, автоблокування, нейтральна іконка), вмикачі нагадувань і календаря телефона, позначка «Мандат щось скопіював у буфер» (без тексту), технічні позначки й файл моделі ШІ (без ваших даних) і дати, на які є нагадування. Android також пам'ятає вибрану теку автокопій.
-- Хмарних копій і перенесення Android немає (`allowBackup="false"`, усе виключено). Резервна копія — лише у файл чи теку, які обираєте ви, і завжди з паролем (Argon2id + AES-256). Копія містить усе, разом зі справами, схованими режимом поїздки.
+- Хмарних копій і перенесення Android немає (`allowBackup="false"`, усе виключено). Резервна копія — лише у файл чи теку, які обираєте ви, і завжди з паролем (Argon2id + AES-256). Копія містить усе, разом зі справами, схованими режимом поїздки. Поки копія створюється чи відновлюється, її вже зашифрований файл недовго лежить у власному сховищі Мандата: доки його не надіслано в теку або доки ви не підтвердите чи не скасуєте відновлення. Те, що лишилося після перерваної роботи, прибирається під час наступного запуску; автоматична копія, яка не встигла потрапити в теку, досилається після наступного відкриття. Незашифрованою копія на диск не потрапляє ніколи.
 - Експорт за замовчуванням — зашифрований файл Мандата; ZIP з паролем — для інших застосунків. Відкритий файл (.vcf, .ics, CSV, Markdown, PDF, Word) — лише за вашим вибором і після попередження: його прочитає кожен, хто має файл.
 
 **Що бачать сторонні**
@@ -28,7 +28,7 @@
 - Видалення застосунку (системне питання Android) прибирає все, що він зберігав на телефоні, разом із ключем і моделлю ШІ.
 - Ваші файли резервних копій та експорту лишаються там, куди ви їх зберегли: їх видаляєте ви.
 
-**Межі.** Мандат не призначено для відомостей з грифом. Режим поїздки не захищає від того, хто змусить відкрити Мандат і підтвердити вимкнення режиму.
+**Межі.** Мандат не призначено для таємної та службової інформації. Режим поїздки не захищає від того, хто змусить відкрити Мандат і підтвердити вимкнення режиму.
 
 ---
 
@@ -39,7 +39,7 @@ Mandat has no internet permission: it sends nothing and downloads nothing by its
 **What data there is and where it lives**
 - Matters, people, the calendar, delegations, promises, texts, the diary, the budget, the inbox and the address book: only on this phone, in a database encrypted with SQLCipher. The key is in the Android key store and opens with your fingerprint or the phone PIN.
 - Not encrypted: appearance and security settings (theme, PIN only, screenshots, automatic lock, neutral icon), the reminder and phone-calendar switches, a mark that Mandat copied something to the clipboard (without the text), technical AI marks and the model file (none of your data) and the dates that have reminders. Android also remembers the folder chosen for automatic backups.
-- No Android cloud backup or device transfer (`allowBackup="false"`, everything excluded). Backups go only to a file or folder you choose, always with a password (Argon2id + AES-256). A backup contains everything, including matters hidden by trip mode.
+- No Android cloud backup or device transfer (`allowBackup="false"`, everything excluded). Backups go only to a file or folder you choose, always with a password (Argon2id + AES-256). A backup contains everything, including matters hidden by trip mode. While a backup is being made or restored, its already encrypted file stays for a short time in Mandat's own storage: until it is sent to the folder, or until you confirm or cancel the restore. Anything left by an interrupted run is removed at the next start; an automatic copy that did not reach the folder in time is sent after the next unlock. The backup never reaches the disk unencrypted.
 - Export is an encrypted Mandat file by default; a ZIP with a password is for other apps. An open file (.vcf, .ics, CSV, Markdown, PDF, Word) only by your choice and after a warning: anyone who has the file can read it.
 
 **What others can see**
@@ -60,4 +60,4 @@ Mandat has no internet permission: it sends nothing and downloads nothing by its
 - Uninstalling the app (Android asks to confirm) removes everything it kept on the phone, the key and the AI model included.
 - Your backup and export files stay where you saved them: you delete those yourself.
 
-**Limits.** Mandat is not for classified information. Trip mode does not protect against someone who forces you to open Mandat and confirm turning it off.
+**Limits.** Mandat is not for classified or restricted official information. Trip mode does not protect against someone who forces you to open Mandat and confirm turning it off.

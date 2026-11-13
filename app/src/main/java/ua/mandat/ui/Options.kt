@@ -89,6 +89,8 @@ fun Options(session: Session, onBack: () -> Unit) {
         newPassword = null
         val fresh = pickedAt == session.generationNow()
         if (uri != null && password != null && fresh) backups.save(uri, password)
+        // Mandat locked while the file was being chosen: nothing was written, and that is said
+        else if (uri != null && password != null) backups.savePickedTooLate(uri)
     }
     // Automatic backups: the folder is chosen first, then the password
     var autoFolder by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -196,7 +198,7 @@ fun Options(session: Session, onBack: () -> Unit) {
                             Text(stringResource(R.string.auto_title), style = MaterialTheme.typography.bodyLarge)
                             Text(stringResource(R.string.auto_hint, ua.mandat.backup.AutoBackup.KEEP), style = MaterialTheme.typography.labelMedium, color = Muted)
                         }
-                        androidx.compose.material3.Switch(
+                        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.auto_title)),
                             checked = auto?.enabled == true,
                             enabled = !backups.busy && auto != null,
                             onCheckedChange = { on ->
@@ -268,6 +270,10 @@ fun Options(session: Session, onBack: () -> Unit) {
 
             OptionGroup(stringResource(R.string.about_title), stringResource(R.string.opt_about_hint), Sym.info) {
                 Text(stringResource(R.string.about_text, appVersion()), style = MaterialTheme.typography.bodyMedium)
+                // The libraries inside Mandat and their licences (some ask for their text to be shown in the app)
+                var showLicenses by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+                TextButton(onClick = { showLicenses = true }) { Text(stringResource(R.string.licenses_title)) }
+                if (showLicenses) LicensesDialog(onClose = { showLicenses = false })
                 // The author's letter and how to support Ukraine, as in the author's other apps
                 val context = androidx.compose.ui.platform.LocalContext.current
                 AuthorLetter(Modifier.padding(top = 12.dp))
@@ -470,8 +476,8 @@ private val passwordKeyboard = KeyboardOptions(keyboardType = KeyboardType.Passw
 /** A long password typed blind is easy to get wrong: the owner may look at it (nobody else sees the screen by default). */
 @Composable
 private fun ShowPassword(show: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { onChange(!show) }) {
-        androidx.compose.material3.Checkbox(checked = show, onCheckedChange = onChange)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().checkRow(show, onChange)) {
+        CheckMark(show)
         Text(stringResource(R.string.password_show), style = MaterialTheme.typography.bodyMedium)
     }
 }
@@ -605,7 +611,7 @@ private fun RemindersSection(session: Session) {
     Text(stringResource(R.string.reminders_text), style = MaterialTheme.typography.bodyLarge)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.reminders_switch), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        androidx.compose.material3.Switch(checked = on, onCheckedChange = { want ->
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.reminders_switch)), checked = on, onCheckedChange = { want ->
             denied = false
             if (!want) {
                 ua.mandat.notify.Reminders.setOn(context, false)
@@ -657,7 +663,7 @@ private fun PhoneCalendarSwitch(session: Session) {
             Text(stringResource(if (PhoneCalendar.canGiveBack) R.string.phone_cal_hint else R.string.phone_cal_hint_12), style = MaterialTheme.typography.labelMedium, color = Muted)
             if (denied) Text(stringResource(R.string.phone_cal_denied), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
         }
-        androidx.compose.material3.Switch(checked = on, onCheckedChange = { want ->
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.phone_cal_switch)), checked = on, onCheckedChange = { want ->
             denied = false
             if (!want) {
                 PhoneCalendar.setOn(context, false)
@@ -693,7 +699,7 @@ private fun ScreenshotsSwitch(session: Session) {
             if (!Appearance.canAllowScreenshots) Text(stringResource(R.string.screenshots_need_13), style = MaterialTheme.typography.labelMedium, color = Muted)
             if (failed) Text(stringResource(if (session.screenshotsAllowed) R.string.screenshots_off_failed else R.string.screenshots_failed), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
         }
-        androidx.compose.material3.Switch(checked = session.screenshotsAllowed, enabled = Appearance.canAllowScreenshots, onCheckedChange = { on ->
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.screenshots_allow)), checked = session.screenshotsAllowed, enabled = Appearance.canAllowScreenshots, onCheckedChange = { on ->
             if (on) confirm = true else set(false)
         })
     }
@@ -737,7 +743,7 @@ private fun LookSection(session: Session) {
             Text(stringResource(R.string.look_dynamic), style = MaterialTheme.typography.bodyLarge)
             Text(stringResource(R.string.look_dynamic_hint), style = MaterialTheme.typography.labelMedium, color = Muted)
         }
-        androidx.compose.material3.Switch(checked = session.dynamicColors, onCheckedChange = {
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.look_dynamic)), checked = session.dynamicColors, onCheckedChange = {
             session.dynamicColors = it
             Appearance.setDynamic(context, it)
         })
@@ -753,7 +759,7 @@ private fun DistrictSwitch(db: ua.mandat.data.MandatDb, session: Session) {
             Text(stringResource(forMode(R.string.district_switch, R.string.district_switch_plain)), style = MaterialTheme.typography.bodyLarge)
             Text(stringResource(forMode(R.string.district_switch_hint, R.string.district_switch_hint_plain)), style = MaterialTheme.typography.labelMedium, color = Muted)
         }
-        androidx.compose.material3.Switch(checked = on?.value == "1", onCheckedChange = { v ->
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(forMode(R.string.district_switch, R.string.district_switch_plain))), checked = on?.value == "1", onCheckedChange = { v ->
             session.write { it.settings().put(ua.mandat.data.Setting(ua.mandat.data.SETTING_DISTRICT, if (v) "1" else "0")) }
         })
     }
@@ -769,7 +775,7 @@ private fun NeutralIconSwitch() {
             Text(stringResource(R.string.neutral_icon), style = MaterialTheme.typography.bodyLarge)
             Text(stringResource(R.string.neutral_icon_hint), style = MaterialTheme.typography.labelMedium, color = Muted)
         }
-        androidx.compose.material3.Switch(checked = on, onCheckedChange = { v ->
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.neutral_icon)), checked = on, onCheckedChange = { v ->
             try { Appearance.setNeutralIcon(context, v) } catch (e: Exception) { }
             on = Appearance.neutralIcon(context)
         })
@@ -817,7 +823,7 @@ private fun PinOnlySwitch(session: Session) {
             if (failed) Text(stringResource(R.string.pin_only_failed), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
         }
         // Both ways need the phone's PIN or password (never a fingerprint)
-        androidx.compose.material3.Switch(checked = on, onCheckedChange = { v -> failed = !activity.switchPinOnly(v) })
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.pin_only)), checked = on, onCheckedChange = { v -> failed = !activity.switchPinOnly(v) })
     }
 }
 
@@ -845,7 +851,7 @@ private fun TripSwitch(db: ua.mandat.data.MandatDb, session: Session) {
         val context = LocalContext.current
         val confirmTitle = stringResource(R.string.trip_confirm_off)
         // Turning it off needs the phone's own fingerprint or PIN, not just a tap
-        androidx.compose.material3.Switch(checked = on, onCheckedChange = { v ->
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.trip_mode)), checked = on, onCheckedChange = { v ->
             if (v) explain = true
             else context.findActivity()?.let { a -> confirmWithPhoneLock(a, session, confirmTitle) { set(false) } }
         })
