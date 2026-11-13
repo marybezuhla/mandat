@@ -102,16 +102,22 @@ fun cleanCommunity(c: Community): Community? {
 }
 
 /**
- * Who the owner is: a member of the national parliament or of a local council, an official, or a
- * citizen. Decides the bodies and positions offered for roles and some names; everything else is
+ * Who the owner is: a member of the national parliament or of a local council, a deputy's
+ * assistant, an official, or a citizen. Decides the bodies and positions offered for roles and some names; everything else is
  * the same, and no stored data depends on it. Kept by name under [SETTING_MODE]; a missing or
  * unknown value means the parliament, as it was before there was a choice.
  */
 enum class Mode {
-    RADA, COUNCIL, OFFICIAL, CITIZEN;
+    RADA, COUNCIL, ASSISTANT, OFFICIAL, CITIZEN;
 
-    /** Elected work (the parliament or a local council): the wording and templates written for a deputy apply. */
-    val elected: Boolean get() = this == RADA || this == COUNCIL
+    /**
+     * Elected work (the parliament or a local council), the owner's own or, for an assistant, the
+     * deputy's: the wording and templates written for a deputy's work apply.
+     */
+    val elected: Boolean get() = this == RADA || this == COUNCIL || this == ASSISTANT
+
+    /** The owner is a deputy: other deputies are colleagues. (For an assistant a deputy is not a colleague.) */
+    val deputy: Boolean get() = this == RADA || this == COUNCIL
 
     companion object {
         fun of(key: String?) = entries.firstOrNull { it.name == key } ?: RADA

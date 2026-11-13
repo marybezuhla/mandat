@@ -1464,4 +1464,11 @@
     <string name="unlink_question">Remove this link? The records themselves stay.</string>
     <string name="triage_changed">Changed: %1$s</string>
     <string name="triage_undo">Put it back</string>
+    <string name="mode_assistant">Deputy\'s assistant</string>
+    <string name="assistant_body_mp">People\'s Deputy of Ukraine</string>
+    <string name="assistant_body_councillor">Local councillor</string>
+    <string name="assistant_body_reception">Constituency office</string>
+    <string name="assistant_pos_consultant">Assistant-consultant</string>
+    <string name="assistant_pos_voluntary">Voluntary assistant-consultant</string>
+    <string name="assistant_pos_worker">Staff</string>
 </resources>

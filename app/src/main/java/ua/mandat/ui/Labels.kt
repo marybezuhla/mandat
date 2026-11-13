@@ -19,6 +19,7 @@ object AppMode {
 fun Mode.label(): Int = when (this) {
     Mode.RADA -> R.string.mode_rada
     Mode.COUNCIL -> R.string.mode_council
+    Mode.ASSISTANT -> R.string.mode_assistant
     Mode.OFFICIAL -> R.string.mode_official
     Mode.CITIZEN -> R.string.mode_citizen
 }
@@ -32,33 +33,33 @@ fun forMode(elected: Int, plain: Int): Int = if (AppMode.mode.elected) elected e
 /** Types that do not fit the chosen mode are not offered for new matters (old ones keep theirs). */
 fun matterTypesForMode(): List<MatterType> = when (AppMode.mode) {
     Mode.COUNCIL, Mode.CITIZEN -> MatterType.entries.filter { it != MatterType.INTERNATIONAL }
-    Mode.RADA, Mode.OFFICIAL -> MatterType.entries
+    Mode.RADA, Mode.ASSISTANT, Mode.OFFICIAL -> MatterType.entries
 }
 
 /** The stored type is the same in every mode; only the name shown follows the mode. */
 fun MatterType.label(): Int = when (this) {
     MatterType.CAMPAIGN -> R.string.type_CAMPAIGN
     MatterType.BILL -> when (AppMode.mode) {
-        Mode.RADA -> R.string.type_BILL
+        Mode.RADA, Mode.ASSISTANT -> R.string.type_BILL
         Mode.COUNCIL -> R.string.type_BILL_council
         Mode.OFFICIAL -> R.string.type_BILL_official
         Mode.CITIZEN -> R.string.type_BILL_citizen
     }
     MatterType.INVESTIGATION -> when (AppMode.mode) {
-        Mode.RADA -> R.string.type_INVESTIGATION
+        Mode.RADA, Mode.ASSISTANT -> R.string.type_INVESTIGATION
         Mode.COUNCIL -> R.string.type_INVESTIGATION_council
         Mode.OFFICIAL -> R.string.type_INVESTIGATION_official
         Mode.CITIZEN -> R.string.type_INVESTIGATION_citizen
     }
     MatterType.COURT -> R.string.type_COURT
     MatterType.DISTRICT -> when (AppMode.mode) {
-        Mode.RADA, Mode.COUNCIL -> R.string.type_DISTRICT
+        Mode.RADA, Mode.COUNCIL, Mode.ASSISTANT -> R.string.type_DISTRICT
         Mode.OFFICIAL, Mode.CITIZEN -> R.string.type_DISTRICT_community
     }
     MatterType.INTERNATIONAL -> R.string.type_INTERNATIONAL
     MatterType.WORKING_GROUP -> R.string.type_WORKING_GROUP
     MatterType.INQUIRY -> when (AppMode.mode) {
-        Mode.RADA, Mode.COUNCIL -> R.string.type_INQUIRY
+        Mode.RADA, Mode.COUNCIL, Mode.ASSISTANT -> R.string.type_INQUIRY
         Mode.OFFICIAL -> R.string.type_INQUIRY_official
         Mode.CITIZEN -> R.string.type_INQUIRY_citizen
     }
@@ -96,6 +97,7 @@ data class RoleBody(val name: Int, val positions: List<Int>)
 fun roleBodies(): List<RoleBody> = when (AppMode.mode) {
     Mode.RADA -> ROLE_BODIES
     Mode.COUNCIL -> COUNCIL_BODIES
+    Mode.ASSISTANT -> ASSISTANT_BODIES
     Mode.OFFICIAL -> OFFICIAL_BODIES
     Mode.CITIZEN -> CITIZEN_BODIES
 }
@@ -106,6 +108,18 @@ private val OFFICE_POSITIONS = listOf(
 )
 
 /** An official: generic names only. */
+/**
+ * For a deputy's assistant: whom they assist (the deputy's name goes into the role's own name)
+ * and the deputy's reception office. The work itself is the deputy's, so everything else is as in
+ * the deputy's modes.
+ */
+val ASSISTANT_BODIES = listOf(
+    RoleBody(R.string.assistant_body_mp, listOf(R.string.assistant_pos_consultant, R.string.assistant_pos_voluntary)),
+    RoleBody(R.string.assistant_body_councillor, listOf(R.string.assistant_pos_consultant)),
+    RoleBody(R.string.assistant_body_reception, listOf(R.string.pos_head, R.string.assistant_pos_worker)),
+    RoleBody(R.string.mode_body_working_group, listOf(R.string.pos_head, R.string.pos_member)),
+)
+
 val OFFICIAL_BODIES = listOf(
     RoleBody(R.string.office_body_ministry, OFFICE_POSITIONS),
     RoleBody(R.string.office_body_administration, OFFICE_POSITIONS),
@@ -176,7 +190,8 @@ fun ua.mandat.data.TeamRole.label(): Int = when (this) {
 }
 
 fun ua.mandat.data.PersonCategory.label(): Int = when (this) {
-    ua.mandat.data.PersonCategory.COLLEAGUE_MP -> forMode(R.string.cat_COLLEAGUE_MP, R.string.cat_COLLEAGUE_MP_plain)
+    // (a colleague only for another deputy; for an assistant, as for an official or a citizen, simply a deputy)
+    ua.mandat.data.PersonCategory.COLLEAGUE_MP -> if (AppMode.mode.deputy) R.string.cat_COLLEAGUE_MP else R.string.cat_COLLEAGUE_MP_plain
     ua.mandat.data.PersonCategory.COLLEAGUE -> R.string.cat_COLLEAGUE
     ua.mandat.data.PersonCategory.OFFICIAL -> R.string.cat_OFFICIAL
     ua.mandat.data.PersonCategory.EXPERT -> R.string.cat_EXPERT

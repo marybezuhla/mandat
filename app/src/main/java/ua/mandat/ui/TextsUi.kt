@@ -86,7 +86,8 @@ private val CITIZEN_TEMPLATES = listOf(
 
 /** The ready templates of the chosen mode: a deputy's letters only where the owner is a deputy. */
 fun textTemplates(): List<TextTemplate> = when (AppMode.mode) {
-    ua.mandat.data.Mode.RADA, ua.mandat.data.Mode.COUNCIL -> TEXT_TEMPLATES
+    // (an assistant drafts the deputy's own texts)
+    ua.mandat.data.Mode.RADA, ua.mandat.data.Mode.COUNCIL, ua.mandat.data.Mode.ASSISTANT -> TEXT_TEMPLATES
     ua.mandat.data.Mode.OFFICIAL -> TEXT_TEMPLATES.filter { it.key != "appeal" && it.key != "inquiry" }
     ua.mandat.data.Mode.CITIZEN -> CITIZEN_TEMPLATES + TEXT_TEMPLATES.filter { it.key in setOf("thanks", "greeting", "speech", "column") }
 }

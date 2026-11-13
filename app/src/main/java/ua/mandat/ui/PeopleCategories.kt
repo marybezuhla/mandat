@@ -56,7 +56,7 @@ fun ownCategories(people: List<Person>): List<String> =
 
 /** All categories one can choose: the standard ones for this mode (except "other") and the owner's own. */
 fun categoryChoices(people: List<Person>): List<String> =
-    ua.mandat.data.standardCategories(AppMode.mode.elected, people).map { it.name } + ownCategories(people)
+    ua.mandat.data.standardCategories(AppMode.mode.deputy, people).map { it.name } + ownCategories(people)
 
 /**
  * Category in the person card: the main one (standard or own), others the person also belongs to,

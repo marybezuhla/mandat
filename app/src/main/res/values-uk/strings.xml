@@ -1480,4 +1480,11 @@
     <string name="unlink_question">Прибрати цей зв\'язок? Самі записи лишаться.</string>
     <string name="triage_changed">Змінено: %1$s</string>
     <string name="triage_undo">Повернути як було</string>
+    <string name="mode_assistant">Помічник депутата</string>
+    <string name="assistant_body_mp">Народний депутат</string>
+    <string name="assistant_body_councillor">Депутат місцевої ради</string>
+    <string name="assistant_body_reception">Громадська приймальня</string>
+    <string name="assistant_pos_consultant">Помічник-консультант</string>
+    <string name="assistant_pos_voluntary">Помічник-консультант на громадських засадах</string>
+    <string name="assistant_pos_worker">Працівник</string>
 </resources>
