@@ -194,10 +194,51 @@ class MigrationTest {
     private fun setting(db: MandatDb, key: String): Int =
         db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM settings WHERE `key` = '$key'").use { it.moveToFirst(); it.getInt(0) }
 
+    /**
+     * One more row in every table of today's database, with what real data has and the plain test
+     * rows lack: quotes, slashes, line breaks and a line separator in texts, times in milliseconds,
+     * fractions, and nothing at all where a column allows it.
+     */
+    private fun addRichRows(db: MandatDb): Int {
+        val sql = db.openHelper.writableDatabase
+        val tables = ArrayList<String>()
+        sql.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('android_metadata', 'room_master_table')").use { c ->
+            while (c.moveToNext()) tables += c.getString(0)
+        }
+        val days = setOf("day", "due", "endDay", "untilDay", "checkIn", "lastContact", "stanceSince")
+        val small = setOf("startMin", "endMin", "energy", "mood", "influence", "reach", "risk", "remindBefore", "votesNeeded", "population")
+        for (table in tables) {
+            val values = android.content.ContentValues()
+            sql.query("PRAGMA table_info(`$table`)").use { c ->
+                while (c.moveToNext()) {
+                    val column = c.getString(c.getColumnIndexOrThrow("name"))
+                    val type = c.getString(c.getColumnIndexOrThrow("type")).uppercase()
+                    val required = c.getInt(c.getColumnIndexOrThrow("notnull")) != 0 || c.getInt(c.getColumnIndexOrThrow("pk")) != 0
+                    when (type) {
+                        "INTEGER" -> values.put(column, when {
+                            column in days -> 19_000L
+                            column in small -> 1L
+                            column.endsWith("At") -> 1_700_000_000_123L
+                            else -> 5_000L
+                        })
+                        "REAL" -> values.put(column, 2.25)
+                        "BLOB" -> values.put(column, byteArrayOf(0, 1, -1))
+                        else -> if (required) values.put(column, "Рядок \"у лапках\" \\ коса / риска\nдругий рядок\tпісля табуляції\u2028після роздільника, it's [$table]") else values.putNull(column)
+                    }
+                }
+            }
+            sql.insert(table, android.database.sqlite.SQLiteDatabase.CONFLICT_ABORT, values)
+        }
+        return tables.size
+    }
+
     @Test fun copyInPartsRoundTrip() {
         val name = "parts.db"
         oldDatabase(name, 7)
         val db = openToday(name)
+        // (opened, so that the migrations have run; then every table of today gets a row of harder data)
+        assertEquals(DB_VERSION, db.openHelper.writableDatabase.version)
+        assertTrue(addRichRows(db) > 20)
         val fresh = Room.inMemoryDatabaseBuilder(app, MandatDb::class.java).allowMainThreadQueries().build()
         val file = File(app.cacheDir, "parts-test.bin")
         val key = BackupStream.newKey("тест-пароль-для-копії".toCharArray(), BackupCrypto.KdfParams(memoryKiB = 8 * 1024, iterations = 1, parallelism = 1))
@@ -236,6 +277,37 @@ class MigrationTest {
             fresh.close()
             db.close()
             app.deleteDatabase(name)
+        }
+    }
+
+    @Test fun oddCopiesAreRefusedByThePhonesOwnParserToo() {
+        // The same checks as in BackupStreamTest, here with Android's JSON parser (the one that ships)
+        val head = """{"app":"mandat","kind":"backup","format":2,"schema":$DB_VERSION,"created":1}"""
+        val table = """{"t":"settings","c":["key","value"]}"""
+        fun read(text: String) = BackupLines.read(text.byteInputStream(), null)
+        assertEquals(2, read("$head\n$table\n[\"a\",\"b\"]\n[\"в\",\"рядок\\nдругий\"]\n{\"end\":2}\n").rows)
+        listOf(
+            "$head\n$table\n[\"a\",\"b\"]\n",
+            "$head\n$table\n[\"a\",\"b\"]\n{\"end\":2}\n",
+            "$head\n{\"end\":0}\n{\"end\":0}\n",
+            "$head\n[\"a\",\"b\"]\n{\"end\":1}\n",
+            "$head\n$table\n[\"a\"]\n{\"end\":1}\n",
+            "$head\n$table\n$table\n{\"end\":0}\n",
+            "$head\n{\"t\":\"settings\",\"c\":[\"key\",7]}\n{\"end\":0}\n",
+            "",
+        ).forEach { bad ->
+            try {
+                read(bad)
+                fail("must be refused: $bad")
+            } catch (e: BackupData.Incompatible) {
+                // expected
+            }
+        }
+        try {
+            read(head.replace("\"format\":2", "\"format\":3") + "\n")
+            fail("a newer format must be named as such")
+        } catch (e: BackupData.FromNewer) {
+            // expected
         }
     }
 
