@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ua.mandat.StabilityTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-13T02:25:53.249Z" hostname="runnervmccnms" time="0.013">
+  <properties/>
+  <testcase name="obsidianNotesCannotLoadOrRun" classname="ua.mandat.StabilityTest" time="0.001"/>
+  <testcase name="wipingBufferKeepsWhatWasWrittenAndClears" classname="ua.mandat.StabilityTest" time="0.002"/>
+  <testcase name="rawKeyGoesBackAndForth" classname="ua.mandat.StabilityTest" time="0.0"/>
+  <testcase name="hiddenTitlesAreFoundInOtherWordForms" classname="ua.mandat.StabilityTest" time="0.001"/>
+  <testcase name="calendarFileWithEndlessEventIsBounded" classname="ua.mandat.StabilityTest" time="0.001"/>
+  <testcase name="peopleKnownOnlyThroughHiddenMattersAreHidden" classname="ua.mandat.StabilityTest" time="0.001"/>
+  <testcase name="communitiesTiedOnlyToHiddenThingsAreHidden" classname="ua.mandat.StabilityTest" time="0.0"/>
+  <testcase name="eventsOutsideReasonAreNotSaved" classname="ua.mandat.StabilityTest" time="0.001"/>
+  <testcase name="diaryDaysTiedToHiddenThingsAreHidden" classname="ua.mandat.StabilityTest" time="0.001"/>
+  <testcase name="passwordBytesAreTheSameAsBefore" classname="ua.mandat.StabilityTest" time="0.004"/>
+  <testcase name="obsidianNamesHoldNoCodeMarks" classname="ua.mandat.StabilityTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

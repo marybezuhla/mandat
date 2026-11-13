@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ua.mandat.LicensesTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-13T02:25:47.249Z" hostname="runnervmccnms" time="4.088">
+  <properties/>
+  <testcase name="aLongTextIsSplitAtEmptyLines" classname="ua.mandat.LicensesTest" time="4.027"/>
+  <testcase name="everyLicenceTextTravelsWithTheApp" classname="ua.mandat.LicensesTest" time="0.061"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[[Robolectric] WARN: Android SDK 36 requires Java 21 (have Java 17). Tests won't be run on SDK 36 unless explicitly requested.
+]]></system-err>
+</testsuite>

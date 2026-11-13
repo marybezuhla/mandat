@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ua.mandat.AuditFixesTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-13T02:25:42.968Z" hostname="runnervmccnms" time="0.043">
+  <properties/>
+  <testcase name="packetNumbersItsOwnRecords" classname="ua.mandat.AuditFixesTest" time="0.008"/>
+  <testcase name="changingOnlyTheStatusCountsAsAChange" classname="ua.mandat.AuditFixesTest" time="0.016"/>
+  <testcase name="backupReminderComesWhenItShould" classname="ua.mandat.AuditFixesTest" time="0.001"/>
+  <testcase name="automaticCopiesKeepWeeksToo" classname="ua.mandat.AuditFixesTest" time="0.007"/>
+  <testcase name="writtenInTripModeStaysInView" classname="ua.mandat.AuditFixesTest" time="0.011"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ua.mandat.BackupStreamTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-13T02:25:43.428Z" hostname="runnervmccnms" time="1.418">
+  <properties/>
+  <testcase name="theSaltIsBoundIntoTheFile" classname="ua.mandat.BackupStreamTest" time="0.164"/>
+  <testcase name="anOlderOnePieceFileIsNotTakenForOneInParts" classname="ua.mandat.BackupStreamTest" time="0.05"/>
+  <testcase name="theStoredKeyOfAutomaticCopiesMakesFilesThePasswordOpens" classname="ua.mandat.BackupStreamTest" time="0.036"/>
+  <testcase name="wrongPasswordAnyChangeOrCutIsRefused" classname="ua.mandat.BackupStreamTest" time="0.429"/>
+  <testcase name="opensAFileMadeInTheRecoveryScriptsLayout" classname="ua.mandat.BackupStreamTest" time="0.014"/>
+  <testcase name="roundTripRowByRow" classname="ua.mandat.BackupStreamTest" time="0.032"/>
+  <testcase name="compressedAndWithoutAnyMarker" classname="ua.mandat.BackupStreamTest" time="0.218"/>
+  <testcase name="oddContentsAreRefused" classname="ua.mandat.BackupStreamTest" time="0.077"/>
+  <testcase name="partsCutSwappedOrRepeatedAreRefused" classname="ua.mandat.BackupStreamTest" time="0.396"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

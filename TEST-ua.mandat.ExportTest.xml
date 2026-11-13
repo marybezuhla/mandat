@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ua.mandat.ExportTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-11-13T02:25:44.867Z" hostname="runnervmccnms" time="0.09">
+  <properties/>
+  <testcase name="contactsFromCsv" classname="ua.mandat.ExportTest" time="0.004"/>
+  <testcase name="longContinuationIsLinearAndBounded" classname="ua.mandat.ExportTest" time="0.07"/>
+  <testcase name="emojiNotSplitByFolding" classname="ua.mandat.ExportTest" time="0.005"/>
+  <testcase name="csvIsSafe" classname="ua.mandat.ExportTest" time="0.001"/>
+  <testcase name="csvColumnsCapped" classname="ua.mandat.ExportTest" time="0.004"/>
+  <testcase name="icsRoundTrip" classname="ua.mandat.ExportTest" time="0.002"/>
+  <testcase name="notes" classname="ua.mandat.ExportTest" time="0.0"/>
+  <testcase name="exportMark" classname="ua.mandat.ExportTest" time="0.0"/>
+  <testcase name="markdownLineStartsStayText" classname="ua.mandat.ExportTest" time="0.001"/>
+  <testcase name="negativeAmountStaysNumber" classname="ua.mandat.ExportTest" time="0.0"/>
+  <testcase name="markdownLinksEscaped" classname="ua.mandat.ExportTest" time="0.0"/>
+  <testcase name="vcardRoundTrip" classname="ua.mandat.ExportTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

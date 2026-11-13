@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ua.mandat.RetroTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-13T02:25:53.233Z" hostname="runnervmccnms" time="0.005">
+  <properties/>
+  <testcase name="monthsAreClipped" classname="ua.mandat.RetroTest" time="0.002"/>
+  <testcase name="finishedFromJournalOrLastChange" classname="ua.mandat.RetroTest" time="0.001"/>
+  <testcase name="journalRecordsOnlyChanges" classname="ua.mandat.RetroTest" time="0.001"/>
+  <testcase name="focusFollowsTheJournal" classname="ua.mandat.RetroTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

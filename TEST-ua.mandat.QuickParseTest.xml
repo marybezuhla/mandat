@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ua.mandat.QuickParseTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-13T02:25:53.212Z" hostname="runnervmccnms" time="0.015">
+  <properties/>
+  <testcase name="peopleInAnyCase" classname="ua.mandat.QuickParseTest" time="0.004"/>
+  <testcase name="dates" classname="ua.mandat.QuickParseTest" time="0.002"/>
+  <testcase name="kinds" classname="ua.mandat.QuickParseTest" time="0.009"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ua.mandat.AiTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-13T02:25:42.883Z" hostname="runnervmccnms" time="0.082">
+  <properties/>
+  <testcase name="citesOnlyRecordsThatWereGiven" classname="ua.mandat.AiTest" time="0.035"/>
+  <testcase name="hintKeepsOnlyKnownNames" classname="ua.mandat.AiTest" time="0.012"/>
+  <testcase name="sortedNotesKeepTheirNumbers" classname="ua.mandat.AiTest" time="0.02"/>
+  <testcase name="readsItemsAndSkipsUnknownKinds" classname="ua.mandat.AiTest" time="0.0"/>
+  <testcase name="chunksCutAtParagraphs" classname="ua.mandat.AiTest" time="0.003"/>
+  <testcase name="readsACutOffAnswer" classname="ua.mandat.AiTest" time="0.002"/>
+  <testcase name="tidyMakesAnswersPlain" classname="ua.mandat.AiTest" time="0.007"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

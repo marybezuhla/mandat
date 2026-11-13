@@ -1,0 +1,12 @@
+Archive:  app/build/outputs/apk/release/app-release-unsigned.apk
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+    10880  1981-01-01 01:01   assets/dexopt/baseline.prof
+      606  1981-01-01 01:01   assets/dexopt/baseline.profm
+    62144  1981-01-01 01:01   assets/eff_large_wordlist.txt
+    11358  1981-01-01 01:01   assets/licenses/apache-2.0.txt
+    35149  1981-01-01 01:01   assets/licenses/gpl-3.0.txt
+     1732  1981-01-01 01:01   assets/licenses/protobuf.txt
+     1469  1981-01-01 01:01   assets/licenses/sqlcipher.txt
+---------                     -------
+   123338                     7 files

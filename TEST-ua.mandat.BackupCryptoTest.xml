@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ua.mandat.BackupCryptoTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-13T02:25:43.015Z" hostname="runnervmccnms" time="0.409">
+  <properties/>
+  <testcase name="tinyFilesAreRefused" classname="ua.mandat.BackupCryptoTest" time="0.002"/>
+  <testcase name="argon2idMatchesTheReferenceImplementation" classname="ua.mandat.BackupCryptoTest" time="0.251"/>
+  <testcase name="changedDataIsDetected" classname="ua.mandat.BackupCryptoTest" time="0.051"/>
+  <testcase name="fileHasNoReadableMarker" classname="ua.mandat.BackupCryptoTest" time="0.015"/>
+  <testcase name="suggestedPasswordHasSixWords" classname="ua.mandat.BackupCryptoTest" time="0.004"/>
+  <testcase name="roundTrip" classname="ua.mandat.BackupCryptoTest" time="0.027"/>
+  <testcase name="wrongPasswordIsRefused" classname="ua.mandat.BackupCryptoTest" time="0.026"/>
+  <testcase name="opensAFileMadeByTheRecoveryScriptFormat" classname="ua.mandat.BackupCryptoTest" time="0.011"/>
+  <testcase name="obviouslyWeakPasswordsAreRefused" classname="ua.mandat.BackupCryptoTest" time="0.001"/>
+  <testcase name="changedNonceIsDetected" classname="ua.mandat.BackupCryptoTest" time="0.021"/>
+  <testcase name="aRefusedPasswordSaysWhichRuleItBreaks" classname="ua.mandat.BackupCryptoTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

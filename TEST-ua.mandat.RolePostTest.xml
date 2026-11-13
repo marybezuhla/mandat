@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ua.mandat.RolePostTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-13T02:25:53.244Z" hostname="runnervmccnms" time="0.003">
+  <properties/>
+  <testcase name="anAssistantWorksOnADeputysMattersButIsNotOne" classname="ua.mandat.RolePostTest" time="0.001"/>
+  <testcase name="modeIsReadByNameAndFallsBackToTheParliament" classname="ua.mandat.RolePostTest" time="0.0"/>
+  <testcase name="roleChipsTellRolesApart" classname="ua.mandat.RolePostTest" time="0.001"/>
+  <testcase name="postsOfOfficialsAndCitizensAreGuessedToo" classname="ua.mandat.RolePostTest" time="0.001"/>
+  <testcase name="guessesThePostFromTheName" classname="ua.mandat.RolePostTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

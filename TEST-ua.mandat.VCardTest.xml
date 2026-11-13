@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ua.mandat.VCardTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-13T02:25:53.285Z" hostname="runnervmccnms" time="0.203">
+  <properties/>
+  <testcase name="readsVersion3WithFolding" classname="ua.mandat.VCardTest" time="0.001"/>
+  <testcase name="phones" classname="ua.mandat.VCardTest" time="0.001"/>
+  <testcase name="aByteOrderMarkDoesNotCostTheFirstContact" classname="ua.mandat.VCardTest" time="0.0"/>
+  <testcase name="skipsPhotosAndEmptyCards" classname="ua.mandat.VCardTest" time="0.006"/>
+  <testcase name="readsVersion21QuotedPrintable" classname="ua.mandat.VCardTest" time="0.0"/>
+  <testcase name="readsThousands" classname="ua.mandat.VCardTest" time="0.194"/>
+  <testcase name="duplicatesAreSkipped" classname="ua.mandat.VCardTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

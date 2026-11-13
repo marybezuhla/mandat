@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ua.mandat.screens.ScreensTest" tests="41" skipped="0" failures="0" errors="0" timestamp="2026-11-13T02:26:13.434Z" hostname="runnervmccnms" time="12.462">
+  <properties/>
+  <testcase name="timeDark" classname="ua.mandat.screens.ScreensTest" time="0.683"/>
+  <testcase name="rolesAssistant" classname="ua.mandat.screens.ScreensTest" time="0.408"/>
+  <testcase name="todayDark" classname="ua.mandat.screens.ScreensTest" time="0.408"/>
+  <testcase name="community" classname="ua.mandat.screens.ScreensTest" time="0.465"/>
+  <testcase name="budget" classname="ua.mandat.screens.ScreensTest" time="0.417"/>
+  <testcase name="dashboardOfficial" classname="ua.mandat.screens.ScreensTest" time="0.365"/>
+  <testcase name="dashboard" classname="ua.mandat.screens.ScreensTest" time="0.343"/>
+  <testcase name="promises" classname="ua.mandat.screens.ScreensTest" time="0.312"/>
+  <testcase name="people" classname="ua.mandat.screens.ScreensTest" time="0.342"/>
+  <testcase name="periodMoved" classname="ua.mandat.screens.ScreensTest" time="0.311"/>
+  <testcase name="rolesCitizen" classname="ua.mandat.screens.ScreensTest" time="0.24"/>
+  <testcase name="directory" classname="ua.mandat.screens.ScreensTest" time="0.289"/>
+  <testcase name="review" classname="ua.mandat.screens.ScreensTest" time="0.296"/>
+  <testcase name="topics" classname="ua.mandat.screens.ScreensTest" time="0.274"/>
+  <testcase name="triage" classname="ua.mandat.screens.ScreensTest" time="0.295"/>
+  <testcase name="districtCitizen" classname="ua.mandat.screens.ScreensTest" time="0.306"/>
+  <testcase name="weekGrid" classname="ua.mandat.screens.ScreensTest" time="0.266"/>
+  <testcase name="influenceMatter" classname="ua.mandat.screens.ScreensTest" time="0.299"/>
+  <testcase name="calendarDark" classname="ua.mandat.screens.ScreensTest" time="0.31"/>
+  <testcase name="peopleCitizen" classname="ua.mandat.screens.ScreensTest" time="0.264"/>
+  <testcase name="matterCard" classname="ua.mandat.screens.ScreensTest" time="0.293"/>
+  <testcase name="calendar" classname="ua.mandat.screens.ScreensTest" time="0.313"/>
+  <testcase name="info" classname="ua.mandat.screens.ScreensTest" time="0.282"/>
+  <testcase name="next" classname="ua.mandat.screens.ScreensTest" time="0.277"/>
+  <testcase name="time" classname="ua.mandat.screens.ScreensTest" time="0.295"/>
+  <testcase name="brief" classname="ua.mandat.screens.ScreensTest" time="0.26"/>
+  <testcase name="diary" classname="ua.mandat.screens.ScreensTest" time="0.254"/>
+  <testcase name="retro" classname="ua.mandat.screens.ScreensTest" time="0.293"/>
+  <testcase name="today" classname="ua.mandat.screens.ScreensTest" time="0.286"/>
+  <testcase name="alliances" classname="ua.mandat.screens.ScreensTest" time="0.247"/>
+  <testcase name="district" classname="ua.mandat.screens.ScreensTest" time="0.268"/>
+  <testcase name="periodYear" classname="ua.mandat.screens.ScreensTest" time="0.336"/>
+  <testcase name="rolesCitizenDark" classname="ua.mandat.screens.ScreensTest" time="0.211"/>
+  <testcase name="influenceAll" classname="ua.mandat.screens.ScreensTest" time="0.259"/>
+  <testcase name="mattersCitizen" classname="ua.mandat.screens.ScreensTest" time="0.239"/>
+  <testcase name="rolesOfficial" classname="ua.mandat.screens.ScreensTest" time="0.202"/>
+  <testcase name="matters" classname="ua.mandat.screens.ScreensTest" time="0.232"/>
+  <testcase name="peopleAssistant" classname="ua.mandat.screens.ScreensTest" time="0.242"/>
+  <testcase name="eventSheet" classname="ua.mandat.screens.ScreensTest" time="0.281"/>
+  <testcase name="waiting" classname="ua.mandat.screens.ScreensTest" time="0.257"/>
+  <testcase name="oneOnOne" classname="ua.mandat.screens.ScreensTest" time="0.238"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
