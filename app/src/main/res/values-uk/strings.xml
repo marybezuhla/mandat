@@ -1487,4 +1487,9 @@
     <string name="assistant_pos_consultant">Помічник-консультант</string>
     <string name="assistant_pos_voluntary">Помічник-консультант на громадських засадах</string>
     <string name="assistant_pos_worker">Працівник</string>
+    <string name="cal_day_said">%1$s, записів: %2$d</string>
+    <string name="cal_day_today">%1$s, сьогодні</string>
+    <string name="day_column_said">%1$s: %2$d</string>
+    <string name="day_column_hard">%1$s: %2$d, є жорсткий строк</string>
+    <string name="money_add_category">Додати категорію</string>
 </resources>

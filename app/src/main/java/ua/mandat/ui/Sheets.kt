@@ -171,7 +171,7 @@ fun <T> ChoiceTiles(
                         Modifier.weight(1f).heightIn(min = 64.dp).clip(shape)
                             .background(if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                             .border(if (on) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, Color.Transparent), shape)
-                            .clickable { onPick(o) }.padding(horizontal = 6.dp, vertical = 10.dp),
+                            .choice(on) { onPick(o) }.padding(horizontal = 6.dp, vertical = 10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                     ) {
                         val i = icon?.invoke(o)

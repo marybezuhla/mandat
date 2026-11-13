@@ -423,7 +423,7 @@ fun PersonEditor(db: MandatDb, session: Session, draft: PersonDraft) {
                         Text(stringResource(R.string.person_is_group), style = MaterialTheme.typography.bodyLarge)
                         Text(stringResource(R.string.person_is_group_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                     }
-                    androidx.compose.material3.Switch(checked = draft.isGroup, onCheckedChange = { draft.isGroup = it })
+                    androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.person_is_group)), checked = draft.isGroup, onCheckedChange = { draft.isGroup = it })
                 }
                 // Influence and stance: for the influence map; never for the team (no rating of people)
                 Text(stringResource(R.string.influence), style = MaterialTheme.typography.labelLarge)

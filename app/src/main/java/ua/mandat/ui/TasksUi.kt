@@ -371,7 +371,7 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
                         Text(stringResource(R.string.delegation_returned), style = MaterialTheme.typography.bodyLarge)
                         Text(stringResource(R.string.delegation_returned_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                     }
-                    androidx.compose.material3.Switch(checked = draft.returned, onCheckedChange = { draft.returned = it })
+                    androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.delegation_returned)), checked = draft.returned, onCheckedChange = { draft.returned = it })
                 }
         }
         if (!draft.isNew) SheetGroup {

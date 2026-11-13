@@ -198,7 +198,7 @@ fun Options(session: Session, onBack: () -> Unit) {
                             Text(stringResource(R.string.auto_title), style = MaterialTheme.typography.bodyLarge)
                             Text(stringResource(R.string.auto_hint, ua.mandat.backup.AutoBackup.KEEP), style = MaterialTheme.typography.labelMedium, color = Muted)
                         }
-                        androidx.compose.material3.Switch(
+                        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.auto_title)),
                             checked = auto?.enabled == true,
                             enabled = !backups.busy && auto != null,
                             onCheckedChange = { on ->
@@ -611,7 +611,7 @@ private fun RemindersSection(session: Session) {
     Text(stringResource(R.string.reminders_text), style = MaterialTheme.typography.bodyLarge)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.reminders_switch), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        androidx.compose.material3.Switch(checked = on, onCheckedChange = { want ->
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.reminders_switch)), checked = on, onCheckedChange = { want ->
             denied = false
             if (!want) {
                 ua.mandat.notify.Reminders.setOn(context, false)
@@ -663,7 +663,7 @@ private fun PhoneCalendarSwitch(session: Session) {
             Text(stringResource(if (PhoneCalendar.canGiveBack) R.string.phone_cal_hint else R.string.phone_cal_hint_12), style = MaterialTheme.typography.labelMedium, color = Muted)
             if (denied) Text(stringResource(R.string.phone_cal_denied), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
         }
-        androidx.compose.material3.Switch(checked = on, onCheckedChange = { want ->
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.phone_cal_switch)), checked = on, onCheckedChange = { want ->
             denied = false
             if (!want) {
                 PhoneCalendar.setOn(context, false)
@@ -699,7 +699,7 @@ private fun ScreenshotsSwitch(session: Session) {
             if (!Appearance.canAllowScreenshots) Text(stringResource(R.string.screenshots_need_13), style = MaterialTheme.typography.labelMedium, color = Muted)
             if (failed) Text(stringResource(if (session.screenshotsAllowed) R.string.screenshots_off_failed else R.string.screenshots_failed), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
         }
-        androidx.compose.material3.Switch(checked = session.screenshotsAllowed, enabled = Appearance.canAllowScreenshots, onCheckedChange = { on ->
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.screenshots_allow)), checked = session.screenshotsAllowed, enabled = Appearance.canAllowScreenshots, onCheckedChange = { on ->
             if (on) confirm = true else set(false)
         })
     }
@@ -743,7 +743,7 @@ private fun LookSection(session: Session) {
             Text(stringResource(R.string.look_dynamic), style = MaterialTheme.typography.bodyLarge)
             Text(stringResource(R.string.look_dynamic_hint), style = MaterialTheme.typography.labelMedium, color = Muted)
         }
-        androidx.compose.material3.Switch(checked = session.dynamicColors, onCheckedChange = {
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.look_dynamic)), checked = session.dynamicColors, onCheckedChange = {
             session.dynamicColors = it
             Appearance.setDynamic(context, it)
         })
@@ -759,7 +759,7 @@ private fun DistrictSwitch(db: ua.mandat.data.MandatDb, session: Session) {
             Text(stringResource(forMode(R.string.district_switch, R.string.district_switch_plain)), style = MaterialTheme.typography.bodyLarge)
             Text(stringResource(forMode(R.string.district_switch_hint, R.string.district_switch_hint_plain)), style = MaterialTheme.typography.labelMedium, color = Muted)
         }
-        androidx.compose.material3.Switch(checked = on?.value == "1", onCheckedChange = { v ->
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(forMode(R.string.district_switch, R.string.district_switch_plain))), checked = on?.value == "1", onCheckedChange = { v ->
             session.write { it.settings().put(ua.mandat.data.Setting(ua.mandat.data.SETTING_DISTRICT, if (v) "1" else "0")) }
         })
     }
@@ -775,7 +775,7 @@ private fun NeutralIconSwitch() {
             Text(stringResource(R.string.neutral_icon), style = MaterialTheme.typography.bodyLarge)
             Text(stringResource(R.string.neutral_icon_hint), style = MaterialTheme.typography.labelMedium, color = Muted)
         }
-        androidx.compose.material3.Switch(checked = on, onCheckedChange = { v ->
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.neutral_icon)), checked = on, onCheckedChange = { v ->
             try { Appearance.setNeutralIcon(context, v) } catch (e: Exception) { }
             on = Appearance.neutralIcon(context)
         })
@@ -823,7 +823,7 @@ private fun PinOnlySwitch(session: Session) {
             if (failed) Text(stringResource(R.string.pin_only_failed), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
         }
         // Both ways need the phone's PIN or password (never a fingerprint)
-        androidx.compose.material3.Switch(checked = on, onCheckedChange = { v -> failed = !activity.switchPinOnly(v) })
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.pin_only)), checked = on, onCheckedChange = { v -> failed = !activity.switchPinOnly(v) })
     }
 }
 
@@ -851,7 +851,7 @@ private fun TripSwitch(db: ua.mandat.data.MandatDb, session: Session) {
         val context = LocalContext.current
         val confirmTitle = stringResource(R.string.trip_confirm_off)
         // Turning it off needs the phone's own fingerprint or PIN, not just a tap
-        androidx.compose.material3.Switch(checked = on, onCheckedChange = { v ->
+        androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.trip_mode)), checked = on, onCheckedChange = { v ->
             if (v) explain = true
             else context.findActivity()?.let { a -> confirmWithPhoneLock(a, session, confirmTitle) { set(false) } }
         })

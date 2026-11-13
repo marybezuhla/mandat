@@ -437,7 +437,7 @@ fun MatterEditor(db: MandatDb, session: Session, draft: MatterDraft) {
                     Text(stringResource(R.string.matter_sensitive), style = MaterialTheme.typography.bodyMedium)
                     Text(stringResource(R.string.matter_sensitive_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                 }
-                androidx.compose.material3.Switch(checked = draft.sensitive, onCheckedChange = { draft.sensitive = it })
+                androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.matter_sensitive)), checked = draft.sensitive, onCheckedChange = { draft.sensitive = it })
             }
             }
             if (request.isNew) {

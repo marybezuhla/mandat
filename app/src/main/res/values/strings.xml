@@ -1471,4 +1471,9 @@
     <string name="assistant_pos_consultant">Assistant-consultant</string>
     <string name="assistant_pos_voluntary">Voluntary assistant-consultant</string>
     <string name="assistant_pos_worker">Staff</string>
+    <string name="cal_day_said">%1$s, entries: %2$d</string>
+    <string name="cal_day_today">%1$s, today</string>
+    <string name="day_column_said">%1$s: %2$d</string>
+    <string name="day_column_hard">%1$s: %2$d, with a hard deadline</string>
+    <string name="money_add_category">Add category</string>
 </resources>

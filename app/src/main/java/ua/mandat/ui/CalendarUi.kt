@@ -316,11 +316,15 @@ private fun DayCell(day: Long, selected: Boolean, today: Boolean, inMonth: Boole
     val scheme = MaterialTheme.colorScheme
     // A busier day is shaded a little deeper, so heavy days stand out from afar
     val shade = when { load >= 6 -> 0.26f; load >= 4 -> 0.17f; load >= 2 -> 0.09f; load >= 1 -> 0.04f; else -> 0f }
+    // For a screen reader: the whole date, "today", and how much is on the day (the eye sees a number, a border and dots)
+    val date = LocalDate.ofEpochDay(day)
+    val name = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()) + ", " + Dates.format(day)
+    val said = stringResource(R.string.cal_day_said, if (today) stringResource(R.string.cal_day_today, name) else name, load)
     Column(
         modifier.aspectRatio(0.9f).padding(2.dp).clip(RoundedCornerShape(8.dp))
             .background(if (selected) scheme.primaryContainer else if (inMonth && shade > 0f) Tone.plan.copy(alpha = shade) else Color.Transparent)
             .let { if (today && !selected) it.border(1.dp, scheme.primary, RoundedCornerShape(8.dp)) else it }
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick).said(said, chosen = selected),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -490,7 +494,7 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
             }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { draft.remind = !draft.remind }) {
                 Text(stringResource(R.string.event_remind), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                androidx.compose.material3.Switch(checked = draft.remind, onCheckedChange = { draft.remind = it })
+                androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.event_remind)), checked = draft.remind, onCheckedChange = { draft.remind = it })
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

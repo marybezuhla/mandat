@@ -524,13 +524,13 @@ private fun CategoriesDialog(session: Session, settings: Map<String, String>, on
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { income.forEach { c -> FilterBadge(c) { income = income - c } } }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(newIn, { newIn = it.take(40) }, singleLine = true, modifier = Modifier.weight(1f), label = { Text(stringResource(R.string.money_new_category)) })
-                    TextButton(onClick = { if (newIn.isNotBlank()) { income = (income + newIn.trim()).distinct(); newIn = "" } }) { Text("+") }
+                    TextButton(onClick = { if (newIn.isNotBlank()) { income = (income + newIn.trim()).distinct(); newIn = "" } }, modifier = Modifier.named(stringResource(R.string.money_add_category))) { Text("+") }
                 }
                 Text(stringResource(R.string.money_expense), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { expense.forEach { c -> FilterBadge(c) { expense = expense - c } } }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(newOut, { newOut = it.take(40) }, singleLine = true, modifier = Modifier.weight(1f), label = { Text(stringResource(R.string.money_new_category)) })
-                    TextButton(onClick = { if (newOut.isNotBlank()) { expense = (expense + newOut.trim()).distinct(); newOut = "" } }) { Text("+") }
+                    TextButton(onClick = { if (newOut.isNotBlank()) { expense = (expense + newOut.trim()).distinct(); newOut = "" } }, modifier = Modifier.named(stringResource(R.string.money_add_category))) { Text("+") }
                 }
                 Text(stringResource(R.string.money_categories_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
         }
