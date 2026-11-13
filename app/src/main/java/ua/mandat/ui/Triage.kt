@@ -21,6 +21,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,9 @@ fun TriageScreen(db: MandatDb, session: Session) {
     val today = Dates.today()
     val limit = today - OLD_OVERDUE_DAYS
     val now = { System.currentTimeMillis() }
+    // One tap changes an item for good (its old date is gone): the last change can be taken back
+    var last by remember { androidx.compose.runtime.mutableStateOf<Pair<String, () -> Unit>?>(null) }
+    fun did(what: String, back: () -> Unit) { last = what to back }
 
     val oldDl = deadlines.filter { it.day < limit }.sortedBy { it.day }
     val oldD = delegations.filter { it.due != null && it.due < limit }.sortedBy { it.due }
@@ -84,6 +88,14 @@ fun TriageScreen(db: MandatDb, session: Session) {
             verticalArrangement = Arrangement.spacedBy(Space.gap),
         ) {
             item(key = "hint") { Text(stringResource(R.string.triage_hint), style = MaterialTheme.typography.bodyMedium, color = Muted) }
+            last?.let { (what, back) ->
+                item(key = "undo") {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.triage_changed, what), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).announced())
+                        TextButton(onClick = { back(); last = null }) { Text(stringResource(R.string.triage_undo)) }
+                    }
+                }
+            }
             if (oldDl.isEmpty() && oldD.isEmpty() && oldP.isEmpty()) item(key = "empty") { EmptyHint(Sym.checkCircle, stringResource(R.string.triage_empty)) }
             if (oldDl.isNotEmpty()) item(key = "dl") {
                 SectionCard(Sym.schedule, stringResource(R.string.deadlines), count = oldDl.size) {
@@ -91,9 +103,9 @@ fun TriageScreen(db: MandatDb, session: Session) {
                         Column {
                             DeadlineRow(d, d.matterId?.let(titleOf::get), session)
                             Actions(
-                                done = { session.write { it.deadlines().update(d.copy(status = TaskStatus.DONE.name, closedAt = now())) } },
-                                later = { session.write { it.deadlines().update(d.copy(day = today + 7)) } },
-                                drop = { session.write { it.deadlines().update(d.copy(status = TaskStatus.CANCELLED.name, closedAt = now())) } },
+                                done = { session.write { it.deadlines().update(d.copy(status = TaskStatus.DONE.name, closedAt = now())) }; did(d.title) { session.write { it.deadlines().update(d) } } },
+                                later = { session.write { it.deadlines().update(d.copy(day = today + 7)) }; did(d.title) { session.write { it.deadlines().update(d) } } },
+                                drop = { session.write { it.deadlines().update(d.copy(status = TaskStatus.CANCELLED.name, closedAt = now())) }; did(d.title) { session.write { it.deadlines().update(d) } } },
                             )
                         }
                     }
@@ -105,9 +117,9 @@ fun TriageScreen(db: MandatDb, session: Session) {
                         Column {
                             DelegationRow(d, d.personId?.let(nameOf::get), d.matterId?.let(titleOf::get), session)
                             Actions(
-                                done = { session.write { it.delegations().update(d.copy(status = TaskStatus.DONE.name, closedAt = now())) } },
-                                later = { session.write { it.delegations().update(d.copy(due = today + 7)) } },
-                                drop = { session.write { it.delegations().update(d.copy(status = TaskStatus.CANCELLED.name, closedAt = now())) } },
+                                done = { session.write { it.delegations().update(d.copy(status = TaskStatus.DONE.name, closedAt = now())) }; did(d.what) { session.write { it.delegations().update(d) } } },
+                                later = { session.write { it.delegations().update(d.copy(due = today + 7)) }; did(d.what) { session.write { it.delegations().update(d) } } },
+                                drop = { session.write { it.delegations().update(d.copy(status = TaskStatus.CANCELLED.name, closedAt = now())) }; did(d.what) { session.write { it.delegations().update(d) } } },
                             )
                         }
                     }
@@ -120,8 +132,8 @@ fun TriageScreen(db: MandatDb, session: Session) {
                             PromiseRow(p, p.personId?.let(nameOf::get), p.matterId?.let(titleOf::get), session)
                             // For a promise, "dropped" opens it, so the owner writes why (it is public record)
                             Actions(
-                                done = { session.write { it.promises().update(p.copy(status = TaskStatus.DONE.name, closedAt = now())) } },
-                                later = { session.write { it.promises().update(p.copy(due = today + 7)) } },
+                                done = { session.write { it.promises().update(p.copy(status = TaskStatus.DONE.name, closedAt = now())) }; did(p.what) { session.write { it.promises().update(p) } } },
+                                later = { session.write { it.promises().update(p.copy(due = today + 7)) }; did(p.what) { session.write { it.promises().update(p) } } },
                                 drop = { session.promiseDraft = PromiseDraft(p, isNew = false).also { it.status = TaskStatus.CANCELLED } },
                             )
                         }

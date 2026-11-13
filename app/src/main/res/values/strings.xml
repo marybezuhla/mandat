@@ -1461,4 +1461,7 @@
     <string name="mark_done_named">Mark as done: %1$s</string>
     <string name="kind_delegation">Delegation</string>
     <string name="kind_promise">Promise</string>
+    <string name="unlink_question">Remove this link? The records themselves stay.</string>
+    <string name="triage_changed">Changed: %1$s</string>
+    <string name="triage_undo">Put it back</string>
 </resources>

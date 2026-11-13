@@ -36,4 +36,16 @@ class RolePostTest {
         assertEquals(Mode.RADA, Mode.of(null))
         assertEquals(Mode.RADA, Mode.of("SOMETHING_NEWER"))
     }
+
+    @org.junit.Test fun roleChipsTellRolesApart() {
+        // Different posts: the post alone is enough
+        org.junit.Assert.assertEquals(listOf("Голова", "Член"), ua.mandat.ui.shortRoles(listOf("Голова — Комітет «з питань бюджету»", "Член — Фракція")))
+        // The same post twice: each shows its own name, or else its body
+        org.junit.Assert.assertEquals(
+            listOf("з питань бюджету", "Тимчасова слідча комісія", "Голова"),
+            ua.mandat.ui.shortRoles(listOf("Член — Комітет «з питань бюджету»", "Член — Тимчасова слідча комісія", "Голова — Підкомітет")),
+        )
+        org.junit.Assert.assertEquals(listOf("Громадянин"), ua.mandat.ui.shortRoles(listOf("Громадянин")))
+        org.junit.Assert.assertEquals(mapOf(7L to "Перша", 9L to "Друга"), ua.mandat.ui.shortRoleNames(mapOf(7L to "Член — Рада «Перша»", 9L to "Член — Рада «Друга»")))
+    }
 }

@@ -308,7 +308,13 @@ fun CommunityScreen(db: MandatDb, session: Session, id: Long) {
     var picking by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     val roleNames = roles.associate { it.id to it.name }
-    fun unlink(kind: String, ref: Long) = session.write { it.communities().unlink(id, kind, ref) }
+    // A link is removed after a question, not by one stray tap
+    var unlinking by remember { mutableStateOf<Pair<String, Long>?>(null) }
+    fun unlink(kind: String, ref: Long) { unlinking = kind to ref }
+    unlinking?.let { (kind, ref) ->
+        ConfirmDialog(null, stringResource(R.string.unlink_question), stringResource(R.string.unlink),
+            onConfirm = { unlinking = null; session.write { it.communities().unlink(id, kind, ref) } }, onCancel = { unlinking = null })
+    }
 
     @Composable
     fun Removable(kind: String, ref: Long, content: @Composable () -> Unit) {

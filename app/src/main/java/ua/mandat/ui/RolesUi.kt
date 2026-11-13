@@ -46,13 +46,22 @@ import ua.mandat.data.Role
 import ua.mandat.data.SETTING_ROLES_ASKED
 import ua.mandat.data.Setting
 
-/** Builds a role from a body, a position and an optional name: "Secretary — Committee «…»". */
+/**
+ * Builds a role from a body, a position and an optional name: "Secretary — Committee «…»".
+ * [onDraft] hears the role as it stands once the owner has chosen or typed something, and null
+ * after it is added: so a role that was put together but not "added" is not lost.
+ */
 @Composable
-fun RoleBuilder(session: Session? = null, onAdd: (String) -> Unit) {
+fun RoleBuilder(session: Session? = null, onDraft: ((String?) -> Unit)? = null, onAdd: (String) -> Unit) {
     val context = LocalContext.current
     var body by remember(AppMode.mode) { mutableStateOf(roleBodies().first()) }
     var position by remember(AppMode.mode) { mutableStateOf(roleBodies().first().positions.firstOrNull()) }
     var name by remember { mutableStateOf("") }
+    var touched by remember(AppMode.mode) { mutableStateOf(false) }
+    if (onDraft != null) {
+        val draft = if (touched) composeRoleName(stringResource(body.name), position?.let { stringResource(it) }, name) else null
+        androidx.compose.runtime.LaunchedEffect(draft) { onDraft(draft) }
+    }
     // A name typed for a new role is kept in the Inbox if Mandat locks before it is added
     if (session != null && name.isNotBlank()) SaveOnLock(session, "role-name") { db -> persistInboxDraft(db, name) }
 
@@ -64,6 +73,7 @@ fun RoleBuilder(session: Session? = null, onAdd: (String) -> Unit) {
             onPick = {
                 body = it
                 position = it.positions.firstOrNull()
+                touched = true
             },
         )
         position?.let { current ->
@@ -71,11 +81,11 @@ fun RoleBuilder(session: Session? = null, onAdd: (String) -> Unit) {
                 label = stringResource(R.string.role_position),
                 current = stringResource(current),
                 options = body.positions.map { it to context.getString(it) },
-                onPick = { position = it },
+                onPick = { position = it; touched = true },
             )
         }
         OutlinedTextField(
-            value = name, onValueChange = { name = it },
+            value = name, onValueChange = { name = it; touched = true },
             label = { Text(stringResource(R.string.role_name_hint)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -84,6 +94,7 @@ fun RoleBuilder(session: Session? = null, onAdd: (String) -> Unit) {
             onClick = {
                 onAdd(composeRoleName(context.getString(body.name), position?.let { context.getString(it) }, name))
                 name = ""
+                touched = false
             },
             modifier = Modifier.fillMaxWidth(),
         ) { Text(stringResource(R.string.role_add_button)) }
@@ -102,11 +113,13 @@ fun composeRoleName(body: String, position: String?, name: String): String {
 fun RolesSetup(session: Session) {
     val added = remember { mutableStateListOf<String>() }
     var finished by remember { mutableStateOf(false) }
+    // A role put together but not yet "added": "Done" takes it too, so it is not lost
+    var draft by remember { mutableStateOf<String?>(null) }
 
     fun finish(save: Boolean) {
         if (finished) return
         finished = true
-        val names = if (save) added.toList() else emptyList()
+        val names = if (save) (added.toList() + listOfNotNull(draft)).distinct() else emptyList()
         session.write { db ->
             db.withTransaction {
                 names.forEachIndexed { i, name -> db.roles().insert(Role(name = name, position = i + 1, post = ua.mandat.data.RolePost.guess(name)?.name)) }
@@ -124,7 +137,7 @@ fun RolesSetup(session: Session) {
         Spacer(Modifier.height(8.dp))
         ModePicker(session)
         Spacer(Modifier.height(8.dp))
-        RoleBuilder(onAdd = { if (it !in added) added += it })
+        RoleBuilder(onDraft = { draft = it }, onAdd = { if (it !in added) added += it })
         if (added.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.roles_added), style = MaterialTheme.typography.titleMedium)

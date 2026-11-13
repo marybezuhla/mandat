@@ -139,7 +139,8 @@ private fun BarRow(label: String, value: Int, fraction: Float, color: Color, isS
             .clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(130.dp))
+        // (two lines: a long name such as "Петиція / пропозиція" is read whole)
+        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(130.dp))
         Box(Modifier.weight(1f).height(10.dp).clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
             Box(Modifier.fillMaxWidth(fraction.coerceIn(0.02f, 1f)).height(10.dp).clip(RoundedCornerShape(5.dp))
                 .background(if (dim) color.copy(alpha = 0.3f) else color))
@@ -226,7 +227,7 @@ fun Legend(parts: List<Slice>, selected: String?, onPick: (String?) -> Unit, mod
             ) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(p.color))
                 Spacer(Modifier.width(8.dp))
-                Text(p.label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                Text(p.label, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f))
                 Text(p.display ?: groupDigits(p.value), style = MaterialTheme.typography.labelLarge)
             }

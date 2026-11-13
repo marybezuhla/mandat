@@ -109,6 +109,12 @@ fun TodayFeel(db: MandatDb, session: Session) {
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
     val titles by remember(db) { db.matters().observeAllTitles().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     var picking by remember { mutableStateOf<String?>(null) }
+    // A link is removed after a question, not by one stray tap
+    var unlinking by remember { mutableStateOf<ua.mandat.data.ReviewLink?>(null) }
+    unlinking?.let { l ->
+        ConfirmDialog(null, stringResource(R.string.unlink_question), stringResource(R.string.unlink),
+            onConfirm = { unlinking = null; session.write { it.reviews().unlink(l.reviewId, l.kind, l.refId) } }, onCancel = { unlinking = null })
+    }
     // Tonight's entry tied to something hidden: neither its feel nor its links are shown
     val hiddenNow by session.hidden.collectAsStateWithLifecycle()
     val r = review?.takeIf { it.id !in hiddenNow.reviews }
@@ -118,7 +124,7 @@ fun TodayFeel(db: MandatDb, session: Session) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         mine.forEach { l ->
             val name = if (l.kind == "matter") titles.firstOrNull { it.id == l.refId }?.title else people.firstOrNull { it.id == l.refId }?.name
-            if (name != null) FilterBadge(name) { session.write { it.reviews().unlink(l.reviewId, l.kind, l.refId) } }
+            if (name != null) FilterBadge(name) { unlinking = l }
         }
         TextButton(onClick = { picking = "matter" }) { Text("+ " + stringResource(R.string.diary_link_matter)) }
         TextButton(onClick = { picking = "person" }) { Text("+ " + stringResource(R.string.diary_link_person)) }
