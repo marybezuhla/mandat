@@ -1,0 +1,23 @@
+Mandat is a private organiser for people who handle many matters with many people: a member of parliament or of a local council, their assistant, an official, an activist or simply an attentive citizen. It works without the internet: the app has no network permission at all. The interface is in Ukrainian and English.
+
+<b>Privacy</b>
+• Data stays on the phone, in a database encrypted with SQLCipher. Unlock with the phone's fingerprint or PIN, automatic lock, screenshots off by default.
+• Backups go only to a file or folder you choose, always with a password. A backup file carries no marker of the app.
+• Trip mode hides chosen matters and everything tied to them.
+• No accounts, ads, analytics or crash reports.
+
+<b>What is inside</b>
+• Matters: focus, background and sleeping ones, the next step, stuck matters.
+• People: categories, positions on matters, the team, an address book.
+• Calendar: month, week with an hour grid, list; deadlines, delegations and promises on one line.
+• Promises and delegations with due dates and reminders.
+• Communities and the district, receptions, a report for a period.
+• Texts with templates and versions, a diary, a budget, an inbox.
+• Overviews for a week, a month, a year: every number opens the records behind it.
+• Export and import: .vcf, .ics, CSV, Markdown, PDF, Word.
+• Optional on-device AI (you download the model yourself): everything stays on the phone.
+
+<b>Modes</b>
+Verkhovna Rada, local council, a deputy's assistant, official, citizen: the bodies, positions and some names change.
+
+Not for classified information. Open source, GPL-3.0-or-later.
