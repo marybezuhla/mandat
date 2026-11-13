@@ -54,7 +54,13 @@ object AutoBackup {
     }
 
     /** An encrypted copy waiting (in [file], inside Mandat's own storage) to be sent to the folder, and the name it will have. */
-    class Prepared(val folder: Uri, val name: String, val createdAt: Long, val file: java.io.File)
+    class Prepared(val folder: Uri, val name: String, val createdAt: Long, val file: java.io.File, val resumed: Boolean = false)
+
+    /**
+     * Names of the copies this process already holds a [Prepared] for: such a copy is being sent
+     * (or about to be), so it is never taken for one left behind by a stopped Mandat.
+     */
+    private val inHand = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     /** What happened to a [Prepared] copy (kept in memory until the next unlock). */
     data class Result(val name: String, val uri: Uri?, val ok: Boolean)
@@ -149,6 +155,7 @@ object AutoBackup {
                 return null
             }
             s.put(Setting(KEY_PENDING, "$name\t$now"))
+            inHand.add(name)
             kept = true
             return Prepared(folder, name, now, file)
         } finally {
@@ -177,6 +184,21 @@ object AutoBackup {
     fun writePrepared(context: Context, p: Prepared): Result {
         var uri: Uri? = null
         try {
+            if (p.resumed) {
+                // An earlier sending was cut off by a stop of Mandat. What it left in the folder under
+                // this name is kept if it is the whole copy (the same bytes), and removed otherwise
+                val left = try { findByName(context, p.folder, p.name) } catch (e: Exception) { null }
+                if (left != null) {
+                    val mine = p.file.inputStream().use { BackupFile.copy(it, null) }
+                    val theirs = try {
+                        context.contentResolver.openInputStream(left)!!.use { BackupFile.copy(it, null) }
+                    } catch (e: Exception) {
+                        null
+                    }
+                    if (theirs != null && theirs.contentEquals(mine)) return Result(p.name, left, true)
+                    deleteQuietly(context, left)
+                }
+            }
             val parent = DocumentsContract.buildDocumentUriUsingTree(p.folder, DocumentsContract.getTreeDocumentId(p.folder))
             uri = DocumentsContract.createDocument(context.contentResolver, parent, "application/octet-stream", p.name)
                 ?: return Result(p.name, null, false)
@@ -234,10 +256,12 @@ object AutoBackup {
     /**
      * A pending copy that never left for the folder (Mandat was stopped first) and still waits,
      * encrypted, in Mandat's own storage: checked to its last row, so that a file cut short by
-     * the stop is never sent as a copy. What the unfinished sending left in the folder under the
-     * same name is removed. Null when nothing whole waits.
+     * the stop is never sent as a copy. Only Mandat's own storage is read here; the folder is
+     * dealt with when the copy is sent ([writePrepared]). Null when nothing whole waits, or when
+     * this process is already sending that copy.
      */
     fun waiting(context: Context, info: PendingInfo): Prepared? {
+        if (info.name in inHand) return null
         val file = BackupFile.waiting(context, info.name)
         if (!file.isFile) return null
         val key = info.key ?: return null
@@ -247,12 +271,8 @@ object AutoBackup {
             file.delete()
             return null
         }
-        try {
-            findByName(context, info.folder, info.name)?.let { deleteQuietly(context, it) }
-        } catch (e: Exception) {
-            // The folder cannot be listed now: the copy is sent all the same
-        }
-        return Prepared(info.folder, info.name, info.createdAt, file)
+        inHand.add(info.name)
+        return Prepared(info.folder, info.name, info.createdAt, file, resumed = true)
     }
 
     /** The outcome of [check]: the accepted copy, or none; [unknown] if the file could not be read now. */

@@ -59,7 +59,7 @@ fun RoleBuilder(session: Session? = null, onDraft: ((String?) -> Unit)? = null, 
     var name by remember { mutableStateOf("") }
     var touched by remember(AppMode.mode) { mutableStateOf(false) }
     if (onDraft != null) {
-        val draft = if (touched) composeRoleName(stringResource(body.name), position?.let { stringResource(it) }, name) else null
+        val draft = if (touched || name.isNotBlank()) composeRoleName(stringResource(body.name), position?.let { stringResource(it) }, name) else null
         androidx.compose.runtime.LaunchedEffect(draft) { onDraft(draft) }
     }
     // A name typed for a new role is kept in the Inbox if Mandat locks before it is added
@@ -113,13 +113,14 @@ fun composeRoleName(body: String, position: String?, name: String): String {
 fun RolesSetup(session: Session) {
     val added = remember { mutableStateListOf<String>() }
     var finished by remember { mutableStateOf(false) }
-    // A role put together but not yet "added": "Done" takes it too, so it is not lost
+    // A role put together but not yet "added": "Done" asks about it, so that it is neither lost nor added unasked
     var draft by remember { mutableStateOf<String?>(null) }
+    var asking by remember { mutableStateOf<String?>(null) }
 
     fun finish(save: Boolean) {
         if (finished) return
         finished = true
-        val names = if (save) (added.toList() + listOfNotNull(draft)).distinct() else emptyList()
+        val names = if (save) added.toList() else emptyList()
         session.write { db ->
             db.withTransaction {
                 names.forEachIndexed { i, name -> db.roles().insert(Role(name = name, position = i + 1, post = ua.mandat.data.RolePost.guess(name)?.name)) }
@@ -151,13 +152,38 @@ fun RolesSetup(session: Session) {
             }
         }
         Spacer(Modifier.height(16.dp))
-        Button(onClick = { finish(save = true) }, enabled = !finished, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = {
+                val pending = draft
+                if (pending != null && pending !in added) asking = pending else finish(save = true)
+            },
+            enabled = !finished, modifier = Modifier.fillMaxWidth(),
+        ) {
             Text(stringResource(R.string.roles_done))
         }
         TextButton(onClick = { finish(save = false) }, enabled = !finished, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.roles_skip))
         }
     }
+    asking?.let { role ->
+        DraftRoleQuestion(
+            role,
+            onAdd = { asking = null; if (role !in added) added += role; finish(save = true) },
+            onSkip = { asking = null; finish(save = true) },
+            onBack = { asking = null },
+        )
+    }
+}
+
+/** "Done" with a role put together but not added: add it as well, or leave it out. Closing the question goes back to the screen. */
+@Composable
+private fun DraftRoleQuestion(role: String, onAdd: () -> Unit, onSkip: () -> Unit, onBack: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onBack,
+        text = { Text(stringResource(R.string.roles_draft_question, role)) },
+        confirmButton = { TextButton(onClick = onAdd) { Text(stringResource(R.string.roles_draft_add)) } },
+        dismissButton = { TextButton(onClick = onSkip) { Text(stringResource(R.string.roles_draft_skip)) } },
+    )
 }
 
 /** The roles section in Options: add, rename and delete. */

@@ -40,13 +40,15 @@ fun matterTypesForMode(): List<MatterType> = when (AppMode.mode) {
 fun MatterType.label(): Int = when (this) {
     MatterType.CAMPAIGN -> R.string.type_CAMPAIGN
     MatterType.BILL -> when (AppMode.mode) {
-        Mode.RADA, Mode.ASSISTANT -> R.string.type_BILL
+        Mode.RADA -> R.string.type_BILL
+        Mode.ASSISTANT -> R.string.type_BILL_assistant
         Mode.COUNCIL -> R.string.type_BILL_council
         Mode.OFFICIAL -> R.string.type_BILL_official
         Mode.CITIZEN -> R.string.type_BILL_citizen
     }
     MatterType.INVESTIGATION -> when (AppMode.mode) {
-        Mode.RADA, Mode.ASSISTANT -> R.string.type_INVESTIGATION
+        Mode.RADA -> R.string.type_INVESTIGATION
+        Mode.ASSISTANT -> R.string.type_INVESTIGATION_assistant
         Mode.COUNCIL -> R.string.type_INVESTIGATION_council
         Mode.OFFICIAL -> R.string.type_INVESTIGATION_official
         Mode.CITIZEN -> R.string.type_INVESTIGATION_citizen
@@ -107,7 +109,6 @@ private val OFFICE_POSITIONS = listOf(
     R.string.pos_head, R.string.pos_deputy_head, R.string.office_pos_unit_head, R.string.office_pos_specialist, R.string.office_pos_adviser,
 )
 
-/** An official: generic names only. */
 /**
  * For a deputy's assistant: whom they assist (the deputy's name goes into the role's own name)
  * and the deputy's reception office. The work itself is the deputy's, so everything else is as in
@@ -120,6 +121,7 @@ val ASSISTANT_BODIES = listOf(
     RoleBody(R.string.mode_body_working_group, listOf(R.string.pos_head, R.string.pos_member)),
 )
 
+/** An official: generic names only. */
 val OFFICIAL_BODIES = listOf(
     RoleBody(R.string.office_body_ministry, OFFICE_POSITIONS),
     RoleBody(R.string.office_body_administration, OFFICE_POSITIONS),

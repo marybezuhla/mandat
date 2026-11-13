@@ -197,7 +197,7 @@ class MigrationTest {
     /**
      * One more row in every table of today's database, with what real data has and the plain test
      * rows lack: quotes, slashes, line breaks and a line separator in texts, times in milliseconds,
-     * fractions, and nothing at all where a column allows it.
+     * and nothing at all where a column allows it. (Today's tables have no fractions or binary cells.)
      */
     private fun addRichRows(db: MandatDb): Int {
         val sql = db.openHelper.writableDatabase

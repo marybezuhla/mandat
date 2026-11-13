@@ -96,7 +96,12 @@ fun TimeTab(db: MandatDb, session: Session) {
 fun EventKind.label(): Int = when (this) {
     EventKind.MEETING -> R.string.event_meeting
     EventKind.SESSION -> forMode(R.string.event_session, R.string.event_session_plain)
-    EventKind.COMMITTEE -> forMode(R.string.event_committee, R.string.event_committee_plain)
+    EventKind.COMMITTEE -> when (AppMode.mode) {
+        // (a local council works through standing commissions, not committees; an assistant may serve either)
+        ua.mandat.data.Mode.COUNCIL -> R.string.event_committee_council
+        ua.mandat.data.Mode.ASSISTANT -> R.string.event_committee_assistant
+        else -> forMode(R.string.event_committee, R.string.event_committee_plain)
+    }
     EventKind.TRIP -> R.string.event_trip
     EventKind.RECEPTION -> if (AppMode.mode == ua.mandat.data.Mode.CITIZEN) R.string.event_reception_citizen else R.string.event_reception
     EventKind.CALL -> R.string.event_call
@@ -492,9 +497,9 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
                     session.showAiSplit = true
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { draft.remind = !draft.remind }) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().switchRow(draft.remind) { draft.remind = it }) {
                 Text(stringResource(R.string.event_remind), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.event_remind)), checked = draft.remind, onCheckedChange = { draft.remind = it })
+                androidx.compose.material3.Switch(checked = draft.remind, onCheckedChange = null)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

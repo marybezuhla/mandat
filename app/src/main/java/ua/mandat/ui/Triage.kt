@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -81,6 +83,21 @@ fun TriageScreen(db: MandatDb, session: Session) {
                 },
             )
         },
+        // Always in sight, wherever the list is scrolled
+        bottomBar = {
+            last?.let { (what, back) ->
+                androidx.compose.material3.Surface(tonalElevation = 3.dp) {
+                    Row(
+                        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = Space.screen, vertical = 4.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(stringResource(R.string.triage_changed, what), style = MaterialTheme.typography.bodyMedium, maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f).announced())
+                        TextButton(onClick = { back(); last = null }) { Text(stringResource(R.string.triage_undo)) }
+                    }
+                }
+            }
+        },
     ) { padding ->
         LazyColumn(
             Modifier.padding(padding).fillMaxSize(),
@@ -88,14 +105,6 @@ fun TriageScreen(db: MandatDb, session: Session) {
             verticalArrangement = Arrangement.spacedBy(Space.gap),
         ) {
             item(key = "hint") { Text(stringResource(R.string.triage_hint), style = MaterialTheme.typography.bodyMedium, color = Muted) }
-            last?.let { (what, back) ->
-                item(key = "undo") {
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.triage_changed, what), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).announced())
-                        TextButton(onClick = { back(); last = null }) { Text(stringResource(R.string.triage_undo)) }
-                    }
-                }
-            }
             if (oldDl.isEmpty() && oldD.isEmpty() && oldP.isEmpty()) item(key = "empty") { EmptyHint(Sym.checkCircle, stringResource(R.string.triage_empty)) }
             if (oldDl.isNotEmpty()) item(key = "dl") {
                 SectionCard(Sym.schedule, stringResource(R.string.deadlines), count = oldDl.size) {

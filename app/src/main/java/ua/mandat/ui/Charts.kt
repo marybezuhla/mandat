@@ -290,7 +290,7 @@ fun StackBar(slices: List<Slice>, selected: String? = null, onPick: ((String?) -
                 Modifier.weight(p.value.toFloat()).fillMaxHeight()
                     .background(if (dim) p.color.copy(alpha = 0.25f) else p.color)
                     // (a strip of colour has no name: a screen reader uses the named rows below, which do the same)
-                    .let { m -> if (onPick != null) m.clickable { onPick(if (selected == p.key) null else p.key) }.decorative() else m },
+                    .let { m -> if (onPick != null) m.decorative().clickable { onPick(if (selected == p.key) null else p.key) } else m },
             )
         }
     }

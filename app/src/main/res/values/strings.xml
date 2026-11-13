@@ -1476,4 +1476,11 @@
     <string name="day_column_said">%1$s: %2$d</string>
     <string name="day_column_hard">%1$s: %2$d, with a hard deadline</string>
     <string name="money_add_category">Add category</string>
+    <string name="roles_draft_question">You put a role together but did not add it:\n%1$s\nAdd it as well?</string>
+    <string name="roles_draft_add">Add</string>
+    <string name="roles_draft_skip">Leave it out</string>
+    <string name="type_BILL_assistant">Bill / draft decision</string>
+    <string name="type_INVESTIGATION_assistant">Investigation / oversight</string>
+    <string name="event_committee_council">Standing commission</string>
+    <string name="event_committee_assistant">Committee / commission</string>
 </resources>

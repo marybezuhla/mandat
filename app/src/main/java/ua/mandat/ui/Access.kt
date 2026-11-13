@@ -29,6 +29,10 @@ import ua.mandat.R
 fun Modifier.checkRow(checked: Boolean, onChange: (Boolean) -> Unit): Modifier =
     toggleable(value = checked, role = Role.Checkbox, onValueChange = onChange)
 
+/** The same for a switch: the row is the control, the switch inside is only drawn (pass it no handler). */
+fun Modifier.switchRow(on: Boolean, onChange: (Boolean) -> Unit): Modifier =
+    toggleable(value = on, role = Role.Switch, onValueChange = onChange)
+
 /** The tick of a [checkRow]: only drawn, the row is the control. It takes the same room as a checkbox of its own. */
 @Composable
 fun CheckMark(checked: Boolean) = Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.padding(12.dp))
