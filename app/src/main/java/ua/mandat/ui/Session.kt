@@ -623,9 +623,6 @@ class Session(app: Application) : AndroidViewModel(app) {
     // generation (the owner already left the app) is closed straight away.
     @Volatile private var generation = 0
     private val writes = Mutex()
-    /** The automatic copy being written (or written last), shared by closing and "copy now". */
-    @Volatile private var autoJob: kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result>? = null
-
     /** Sends a prepared encrypted copy to the folder, without the database. */
     fun startAutoWrite(p: ua.mandat.backup.AutoBackup.Prepared, lazy: Boolean = false): kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result> =
         background.async(start = if (lazy) kotlinx.coroutines.CoroutineStart.LAZY else kotlinx.coroutines.CoroutineStart.DEFAULT) {
@@ -645,7 +642,7 @@ class Session(app: Application) : AndroidViewModel(app) {
         if (!leftovers.isNullOrEmpty()) finishDeleting(db, leftovers)
         val info = writes.withLock { if (db.isOpen) try { auto.pendingInfo(db) } catch (e: Exception) { null } else null } ?: return null
         val job = autoJob
-        val result = if (job == null) null else withTimeoutOrNull(AUTO_WAIT_MS) { job.await() }
+        var result = if (job == null) null else withTimeoutOrNull(AUTO_WAIT_MS) { job.await() }
         if (job != null && result == null) {
             info.key?.wipe()
             // Still being written: try again next time, unless the folder has not answered for a day
@@ -655,8 +652,25 @@ class Session(app: Application) : AndroidViewModel(app) {
             }
             return null
         }
+        if (result?.name != info.name) {
+            // No sending of this copy is known here: Mandat was stopped before it left for the folder.
+            // If it still waits whole in Mandat's own storage, it is sent now
+            val waiting = withTimeoutOrNull(AUTO_WAIT_MS) {
+                background.async { try { auto.waiting(app, info) } catch (e: Exception) { null } }.await()
+            }
+            if (waiting != null) {
+                val sending = startAutoWrite(waiting)
+                result = withTimeoutOrNull(AUTO_WAIT_MS) { sending.await() }
+                if (result == null) {
+                    // Still on its way: recorded next time
+                    info.key?.wipe()
+                    return null
+                }
+            }
+        }
+        val known = result
         val checked = withTimeoutOrNull(AUTO_WAIT_MS) {
-            background.async { auto.check(app, info, result) }.await()
+            background.async { auto.check(app, info, known) }.await()
         }
         if (checked == null) {
             // The folder did not answer in time: tried again next time, and said after a day like the cases above
@@ -1121,6 +1135,11 @@ class Session(app: Application) : AndroidViewModel(app) {
         /** A larger .vcf is refused (6 000 contacts without photos are a few MB; with photos tens of MB). */
         const val MAX_VCF_BYTES = 50L * 1024 * 1024
         private const val AUTO_WAIT_MS = 30 * 1000L
+        /**
+         * The automatic copy being written (or written last), shared by closing and "copy now".
+         * One for the whole process: the screen may be opened anew while a copy is still on its way.
+         */
+        @Volatile private var autoJob: kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result>? = null
         private const val AUTO_STUCK_MS = 24 * 60 * 60 * 1000L
     }
 

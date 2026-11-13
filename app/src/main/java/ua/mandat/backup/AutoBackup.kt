@@ -44,8 +44,6 @@ object AutoBackup {
     const val KEEP_WEEKS = 4
     private const val INTERVAL_MS = 24L * 60 * 60 * 1000
     private const val FILE_PREFIX = "archive-"
-    /** The kind of [BackupFile.temp] file an automatic copy waits in. */
-    private const val TEMP_KIND = "auto"
 
     const val REASON_TOO_BIG = "too_big"
     private const val REASON_WRITE = "write"
@@ -101,6 +99,8 @@ object AutoBackup {
     suspend fun disable(context: Context, db: MandatDb) {
         val folder = db.settings().get(KEY_FOLDER)?.value?.let(Uri::parse)
         forget(db.settings())
+        // (a copy that still waited to be sent has nowhere to go now)
+        try { BackupFile.clearWaiting(context) } catch (e: Exception) { }
         if (folder != null) {
             try {
                 val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
@@ -125,10 +125,13 @@ object AutoBackup {
         val last = s.get(KEY_LAST_OK)?.value?.toLongOrNull() ?: 0L
         if (!force && now - last in 0 until INTERVAL_MS) return null
         val key = storedKey(s) ?: return null
+        // A neutral random name: it tells neither the app, nor that it is automatic, nor when Mandat was closed
+        val name = FILE_PREFIX + java.util.UUID.randomUUID().toString().replace("-", "").take(10) + ".bin"
         val file = try {
-            BackupFile.temp(context, TEMP_KIND)
+            // (nothing is pending, so whatever still waits here is of no use)
+            BackupFile.clearWaiting(context)
+            BackupFile.waiting(context, name)
         } catch (e: Exception) {
-            // The phone's storage is full, say. Said on the first tab, so that copies never stop silently
             key.wipe()
             fail(db, REASON_WRITE, now)
             return null
@@ -141,11 +144,10 @@ object AutoBackup {
                 fail(db, REASON_TOO_BIG, now)
                 return null
             } catch (e: Exception) {
+                // The phone's storage is full, say. Said on the first tab, so that copies never stop silently
                 fail(db, REASON_WRITE, now)
                 return null
             }
-            // A neutral random name: it tells neither the app, nor that it is automatic, nor when Mandat was closed
-            val name = FILE_PREFIX + java.util.UUID.randomUUID().toString().replace("-", "").take(10) + ".bin"
             s.put(Setting(KEY_PENDING, "$name\t$now"))
             kept = true
             return Prepared(folder, name, now, file)
@@ -227,6 +229,30 @@ object AutoBackup {
             folder = folder,
             key = storedKey(s),
         )
+    }
+
+    /**
+     * A pending copy that never left for the folder (Mandat was stopped first) and still waits,
+     * encrypted, in Mandat's own storage: checked to its last row, so that a file cut short by
+     * the stop is never sent as a copy. What the unfinished sending left in the folder under the
+     * same name is removed. Null when nothing whole waits.
+     */
+    fun waiting(context: Context, info: PendingInfo): Prepared? {
+        val file = BackupFile.waiting(context, info.name)
+        if (!file.isFile) return null
+        val key = info.key ?: return null
+        try {
+            file.inputStream().use { BackupFile.read(it, key) }
+        } catch (e: Throwable) {
+            file.delete()
+            return null
+        }
+        try {
+            findByName(context, info.folder, info.name)?.let { deleteQuietly(context, it) }
+        } catch (e: Exception) {
+            // The folder cannot be listed now: the copy is sent all the same
+        }
+        return Prepared(info.folder, info.name, info.createdAt, file)
     }
 
     /** The outcome of [check]: the accepted copy, or none; [unknown] if the file could not be read now. */

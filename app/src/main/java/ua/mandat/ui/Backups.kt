@@ -98,7 +98,13 @@ class Backups(private val context: Context, private val session: Session) {
         // A copy left on its way out or in when Mandat was stopped (encrypted, inside Mandat's own storage).
         // At the first start of the process nothing can be on its way, so everything goes; later only what is old
         val first = firstInProcess.compareAndSet(true, false)
-        scope.launch { try { if (first) BackupFile.clear(context, olderThanMs = 0) else BackupFile.clear(context) } catch (e: Exception) { } }
+        // (an automatic copy that waits to be sent stays: it is sent after the next unlock)
+        scope.launch {
+            try {
+                if (first) BackupFile.clear(context, olderThanMs = 0, keepWaiting = true) else BackupFile.clear(context, keepWaiting = true)
+            } catch (e: Exception) {
+            }
+        }
     }
 
     /** Automatic backups: on or off, and when the last one worked or failed. */
@@ -127,8 +133,9 @@ class Backups(private val context: Context, private val session: Session) {
             return@run if (tooBig) BackupNotice.AutoTooBig else BackupNotice.AutoFailed
         }
         // Written without the database, then checked with the password the owner typed
+        val wait = waitMs(prepared)
         val job = session.startAutoWrite(prepared)
-        val result = withTimeoutOrNull(60_000) { job.await() }
+        val result = withTimeoutOrNull(wait) { job.await() }
         val ok = result?.ok == true && result.uri != null && auto.opensWith(context, result.uri, password)
         if (ok) {
             session.reconcileAuto(db)
@@ -164,7 +171,8 @@ class Backups(private val context: Context, private val session: Session) {
             val tooBig = session.withRealDb { auto.status(it).failReason == auto.REASON_TOO_BIG } == true
             return@run if (tooBig) BackupNotice.AutoTooBig else BackupNotice.AutoFailed
         }
-        withTimeoutOrNull(60_000) { session.startAutoWrite(prepared).await() }
+        val wait = waitMs(prepared)
+        withTimeoutOrNull(wait) { session.startAutoWrite(prepared).await() }
         val ok = session.reconcileAuto(db) == true
         refreshAuto()
         if (ok) BackupNotice.AutoSaved else BackupNotice.AutoFailed
@@ -356,7 +364,7 @@ class Backups(private val context: Context, private val session: Session) {
                         refreshAuto()
                         return@run BackupNotice.RestoreTooBigForSafety
                     }
-                    val written = if (prepared == null) null else withTimeoutOrNull(60_000) { session.startAutoWrite(prepared).await() }
+                    val written = if (prepared == null) null else withTimeoutOrNull(waitMs(prepared)) { session.startAutoWrite(prepared).await() }
                     val ok = written?.ok == true && written.uri != null && session.reconcileAuto(db) == true
                     // Kept a month even if more copies are made today (another restore, "copy now")
                     if (ok) session.withRealDb { auto.keepAsSafety(it, written!!.uri!!, prepared!!.createdAt) }
@@ -438,6 +446,10 @@ class Backups(private val context: Context, private val session: Session) {
 
     private companion object {
         val firstInProcess = java.util.concurrent.atomic.AtomicBoolean(true)
+
+        /** How long to wait for a copy to reach the folder: a minute, and more for a large one (read before sending starts). */
+        fun waitMs(p: ua.mandat.backup.AutoBackup.Prepared): Long =
+            (60_000L + p.file.length() / (1024 * 1024) * 2_000L).coerceAtMost(10 * 60_000L)
     }
 
     private fun deleteQuietly(uri: Uri) {
