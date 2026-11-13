@@ -300,4 +300,8 @@ fun ModePicker(session: Session) {
         }
     }
     Text(stringResource(R.string.mode_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
+    // What this mode means for an assistant: the work is the deputy's, and so are the signatures
+    if (AppMode.mode == ua.mandat.data.Mode.ASSISTANT) {
+        Text(stringResource(R.string.mode_assistant_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
+    }
 }

@@ -11,7 +11,7 @@
 - 👥 **Люди.** Свої категорії, позиції в справах, команда, розмова віч-на-віч, довідник контактів з імпортом .vcf і CSV.
 - 📅 **Календар і час.** Місяць, тиждень із сіткою годин, список; щільність тижня з вільними вікнами; строки, доручення й обіцянки на одній стрічці.
 - 📊 **Наочність.** Зведення за тиждень, місяць, рік; кожне число відкриває записи, з яких воно складається. Кольори завжди з підписом чи відсотком.
-- 🧳 **Режим поїздки й лінза.** Позначені справи й усе пов'язане з ними (люди, записи щоденника, громади) зникають з екранів, пошуку, ШІ й експорту. Вимкнути режим можна лише відбитком чи PIN телефона; сховане себе не видає.
+- 🧳 **Режим поїздки й лінза.** Позначені справи й усе пов'язане з ними (люди, записи щоденника, громади) зникають з екранів, пошуку, ШІ й експорту. Вимкнути режим можна лише відбитком чи PIN телефона. Числа й списки схованого не видають, але сам перемикач в Опціях видно; від того, хто змусить відкрити телефон, режим не захищає. Ховаються справи, а не окремі люди: людина зі звичайних справ і довідник контактів лишаються.
 - 📤 **Експорт і імпорт.** .vcf, .ics, CSV, Markdown, PDF, сховище для Obsidian, пакет справ для колеги; за будь-який період. За замовчуванням зашифрований файл Мандата, ZIP з паролем — для інших застосунків.
 - 🔭 **Ретроспектива.** Напрямки, пріоритети минулого й динаміка за місяцями з журналу змін.
 - ✍️ **Тексти.** Листи, виступи, колонки, записки з шаблонами, версіями й експортом у Word і PDF.
@@ -52,7 +52,7 @@ A private, offline organiser for Android: matters, people, calendar, delegations
 - 👥 **People.** Your own categories, stances in matters, a team, one-to-one talks, an address book with .vcf and CSV import.
 - 📅 **Calendar and time.** Month, week with an hour grid, list; week density with free windows; deadlines, delegations and promises on one strip.
 - 📊 **At a glance.** Week, month and year overviews; every number opens the records it counts. Colours always come with a label or a percentage.
-- 🧳 **Trip mode and lens.** Marked matters and everything linked to them (people, diary entries, communities) disappear from screens, search, AI and export. Turning trip mode off needs the phone's fingerprint or PIN.
+- 🧳 **Trip mode and lens.** Marked matters and everything linked to them (people, diary entries, communities) disappear from screens, search, AI and export. Turning trip mode off needs the phone's fingerprint or PIN. Numbers and lists do not give away what is hidden, but the switch itself is visible in Options, and the mode does not protect against someone who forces you to open the phone. Matters are hidden, not single people: a person from ordinary matters and the address book stay.
 - 📤 **Export and import.** .vcf, .ics, CSV, Markdown, PDF, an Obsidian vault, a packet of matters for a colleague; for any period. By default an encrypted Mandat file; a ZIP with a password for other apps.
 - 🔭 **Retrospective.** Directions, past priorities and month-by-month movement from a journal of changes.
 - ✍️ **Texts.** Letters, speeches, columns, notes with templates, versions and export to Word and PDF.

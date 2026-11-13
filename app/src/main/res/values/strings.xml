@@ -3,14 +3,14 @@
     <string name="app_name">Mandat</string>
     <string name="neutral_name">Notes</string>
     <string name="tagline">Your private, encrypted organiser</string>
-    <string name="classified_notice">Not for classified information.</string>
+    <string name="classified_notice">Not for classified or restricted official information.</string>
     <string name="unlock">Unlock</string>
     <string name="unlock_title">Unlock Mandat</string>
     <string name="unlock_subtitle">Use your fingerprint or phone PIN</string>
     <string name="first_run_title">Welcome to Mandat</string>
-    <string name="first_run_text">Everything you add stays on this phone and is always encrypted. Mandat has no internet access. It opens with your fingerprint or the phone PIN.\n\nImportant: if you remove the phone\'s screen lock, the data can no longer be opened. Keep an encrypted backup (Options → Data and backups).</string>
+    <string name="first_run_text">Everything you add stays on this phone and is always encrypted. Mandat has no internet access.\n\nMandat has no password of its own: it opens with what opens the phone: a fingerprint, a PIN, a password or a pattern.\n\nImportant. The records on this phone are lost for good if you turn the screen lock off (even briefly), reset the phone to factory settings, or uninstall Mandat. Only a backup kept outside the phone saves them: Options → Data and backups.</string>
     <string name="first_run_start">Start</string>
-    <string name="no_screen_lock">Set a screen lock (PIN or password) on the phone first. Mandat uses it to protect your data.</string>
+    <string name="no_screen_lock">Set a screen lock on the phone first: in the phone\'s settings (Security or Lock screen) choose a PIN, a password or a pattern, then come back here. Mandat opens with what opens the phone, and that is how it protects your records.</string>
     <string name="key_lost">The encryption key is no longer available (for example, the screen lock was removed or the app data was partly lost). Mandat will not delete anything by itself. Your data can be restored only from an encrypted backup; without one it cannot be brought back.</string>
     <string name="no_screen_lock_data">The phone\'s screen lock is off. When the lock is removed, Android destroys the encryption key, so the data on this phone most likely cannot be opened any more, even if the lock is turned on again. Set a screen lock (PIN or password): Mandat will check the key and, if it is gone, offer to restore the data from a backup. Backup files stay where you saved them.</string>
     <string name="unlock_stuck">Mandat could not open several times in a row. The data itself may be intact. Try in turn: restart the phone; free some of the phone\'s storage; update Mandat to the latest version. If nothing helped and you have a backup and its password, uninstall Mandat, install it again and restore the data from the backup. Uninstalling erases everything on this phone: changes made after the backup will be lost.</string>
@@ -43,7 +43,7 @@
     <string name="backup_restore">Restore from a backup</string>
     <string name="backup_working">Working… this takes a few seconds.</string>
     <string name="backup_password_title">Backup password</string>
-    <string name="backup_password_hint">At least 16 characters. A few random words work best. Keep the password separately from the file: without it nobody can open the backup, not even you.</string>
+    <string name="backup_password_hint">At least 16 characters. A few random words work best. Write the password down on paper and keep it apart from the phone and from the file. If it is forgotten, nobody can open the backup: not you, not the app\'s author. The password cannot be recovered.</string>
     <string name="password">Password</string>
     <string name="password_repeat">Repeat password</string>
     <string name="password_too_short">The password is too short: at least 16 characters are needed.</string>
@@ -57,7 +57,7 @@
     <string name="restore_confirm_title">Replace current data?</string>
     <string name="restore_confirm_text">Backup from %1$s, records: %2$d. All data now in Mandat will be replaced by it. With automatic copies on, the current data is copied there first; otherwise make a fresh backup first if you may need it.</string>
     <string name="restore_replace">Replace</string>
-    <string name="notice_saved">Backup saved and checked. Records: %1$d.</string>
+    <string name="notice_saved">Backup saved and checked. Records: %1$d.\n\nIf the file is on this same phone, it will be lost together with the phone. Move it to a USB stick or a computer, or send it to yourself: nobody can read it without the password.</string>
     <string name="notice_save_failed">The backup could not be saved. Nothing was changed.</string>
     <string name="notice_existing_file">This file already holds something. Mandat does not write over an existing file: if writing failed, both copies could be lost. Save the backup under a new name.</string>
     <string name="notice_too_big">There is more data than a backup can hold (512 MB), so no copy was made. Nothing was changed. Texts take the most space: each keeps up to 20 earlier versions. Delete the texts you no longer need (Review → Texts) and make a backup again.</string>
@@ -884,9 +884,9 @@
     <string name="neutral_icon_hint">On the home screen, in Share and in reminders the app is called \"Notes\" with a plain icon. You may need to add the icon to the home screen again. Phone settings still show \"Mandat\", and Android may show it in the header of an expanded reminder too. If that matters, turn reminders off.</string>
     <string name="pin_only_failed">Could not change it. The key stays as it was.</string>
     <string name="matter_sensitive">Sensitive</string>
-    <string name="matter_sensitive_hint">Hidden from every screen while trip mode is on.</string>
+    <string name="matter_sensitive_hint">While trip mode is on, this matter is shown nowhere, not to you either; nothing is deleted. People known only through sensitive matters disappear with it. A person from ordinary matters and the address book are not hidden.</string>
     <string name="trip_mode">Trip mode</string>
-    <string name="trip_hint">Hides sensitive matters from the screens, for example before crossing a border.</string>
+    <string name="trip_hint">Takes sensitive matters off the screens for a while, away from a stranger\'s glance; nothing is deleted. It does not protect you if you are forced to open Mandat: it is turned off with the same fingerprint or PIN as the phone.</string>
     <string name="trip_on">On.</string>
     <string name="trip_how">How it works</string>
     <string name="trip_turn_on">Turn on</string>
@@ -1059,10 +1059,6 @@
     <string name="matters_dropped">Closed without result</string>
     <string name="matter_closed_line">closed %1$s · took %2$d days</string>
     <string name="matters_closed">Closed</string>
-    <string name="tpl_appeal_title" formatted="false">Letter to an authority</string>
-    <string name="tpl_appeal_body" formatted="false"># Letter\n\n[Position, name of the body]\n[Name of the official]\n\nDear [name],\n\nI have been contacted by [who: residents, an organisation] about [the matter].\n\n[A short account: facts, dates, what has been done.]\n\nI ask you to:\n- [request 1];\n- [request 2].\n\nPlease inform me of the outcome by [reply date].\n\nBasis: [basis — check the current wording of the relevant law].\n\nAttachments: [list or \"none\"].\n\n[Position]\n[Name]\n[Date]</string>
-    <string name="tpl_inquiry_title" formatted="false">Formal inquiry</string>
-    <string name="tpl_inquiry_body" formatted="false"># Formal inquiry\n\n[To: position, name of the body]\n\n[Name of the official]\n\n## The matter\n[What happened and why it matters.]\n\n## Circumstances\n[Facts, documents, dates.]\n\n## Requests\n- [what exactly should be done];\n- [provide information on…].\n\nPlease reply by [reply date].\n\nBasis: [basis — check the current wording of the law and rules of procedure].\n\n[Position]\n[Name]\n[Date]</string>
     <string name="tpl_reply_title" formatted="false">Reply to a resident</string>
     <string name="tpl_reply_body" formatted="false">Dear [name],\n\nThank you for your letter about [the matter] of [date].\n\n[What has been done: where the request went, what reply came.]\n\n[What happens next and when.]\n\nIf you have further questions, please contact [office contact].\n\nKind regards,\n[Name]\n[Date]</string>
     <string name="tpl_invite_title" formatted="false">Invitation to a meeting</string>
@@ -1483,4 +1479,16 @@
     <string name="type_INVESTIGATION_assistant">Investigation / oversight</string>
     <string name="event_committee_council">Standing commission</string>
     <string name="event_committee_assistant">Committee / commission</string>
+    <string name="tpl_dep_appeal_title" formatted="false">Deputy\'s appeal</string>
+    <string name="tpl_dep_inquiry_title" formatted="false">Deputy\'s inquiry</string>
+    <string name="tpl_for_mp_appeal_title" formatted="false">An MP\'s appeal (to be signed)</string>
+    <string name="tpl_for_mp_inquiry_title" formatted="false">An MP\'s inquiry (to be signed)</string>
+    <string name="tpl_for_councillor_appeal_title" formatted="false">A local councillor\'s appeal (to be signed)</string>
+    <string name="tpl_for_councillor_inquiry_title" formatted="false">A local councillor\'s inquiry (to be signed)</string>
+    <string name="tpl_for_deputy_lead" formatted="false">[A draft for the deputy to sign: only the deputy signs an appeal or an inquiry. Put the deputy\'s name in the signature and remove this line.]</string>
+    <string name="tpl_mp_appeal_body" formatted="false"># Deputy\'s appeal\n\n[Ref. No. and date]\n\n[Position, name of the body]\n[Name of the official]\n\nRe: [the matter in one line]\n\nDear [name],\n\nAs a People\'s Deputy of Ukraine I have been contacted by [who: residents, an organisation] about [the matter].\n\n[A short account: facts, dates, what has been done.]\n\nUnder Article 16 of the Law of Ukraine \"On the Status of the People\'s Deputy of Ukraine\" I ask you to:\n- [request 1];\n- [request 2].\n\nPlease reply in writing within 10 days of receiving this appeal (Article 16 of that Law).\n\n[Check the article and the term against the current wording of the law, then remove this line.]\n\nAttachments: [list or \"none\"].\n\nPeople\'s Deputy of Ukraine\n[Name]\n[Date]</string>
+    <string name="tpl_mp_inquiry_body" formatted="false"># Deputy\'s inquiry\n\nto [position, name of the body, name of the official]\nre: [the matter in one line]\n\n[An inquiry is submitted in writing and considered at a sitting of the Verkhovna Rada. Check the procedure in the Rules of Procedure, then remove this line.]\n\n## The matter\n[What happened and why it matters.]\n\n## Circumstances\n[Facts, documents, dates.]\n\n## Requests\n- [what exactly should be done];\n- [provide information on…].\n\nUnder Article 86 of the Constitution of Ukraine and Article 15 of the Law of Ukraine \"On the Status of the People\'s Deputy of Ukraine\" I ask that the Chairman of the Verkhovna Rada of Ukraine and I be informed in writing of the outcome within fifteen days of receiving this inquiry.\n\n[An inquiry to the President of Ukraine needs the prior support of at least one third of the constitutional membership of the Verkhovna Rada.]\n\n[Check the articles and the term against the current wording of the law, then remove these lines.]\n\nPeople\'s Deputy of Ukraine\n[Name]\n[Date]</string>
+    <string name="tpl_council_appeal_body" formatted="false"># Deputy\'s appeal\n\n[Ref. No. and date]\n\n[Position, name of the body, enterprise or institution on the council\'s territory]\n[Name]\n\nRe: [the matter in one line]\n\nDear [name],\n\nAs a deputy of the [name] council I have been contacted by [who: voters, an organisation] about [the matter].\n\n[A short account: facts, dates, what has been done.]\n\nUnder Article 13 of the Law of Ukraine \"On the Status of Deputies of Local Councils\" I ask you to:\n- [request 1];\n- [request 2].\n\nPlease reply within ten days or, if further study or a check is needed, within one month at the latest (Article 13 of that Law).\n\n[Check the article and the term against the current wording of the law, then remove this line.]\n\nAttachments: [list or \"none\"].\n\nDeputy of the [name] council\n[Name]\n[Date]</string>
+    <string name="tpl_council_inquiry_body" formatted="false"># Deputy\'s inquiry\n\nTo the [name] council\n\nto [position, body or enterprise among those named in Article 21]\nre: [the matter in one line]\n\nUnder Articles 21 and 22 of the Law of Ukraine \"On the Status of Deputies of Local Councils\" I submit this inquiry and ask the council to support it.\n\n## The matter\n[What happened and why it matters to the community.]\n\n## Circumstances\n[Facts, documents, dates.]\n\n## Requests\n- [what exactly should be done];\n- [provide information on…].\n\nI ask the council to set the term within which [who] must give an official written reply to the council and to me: [term].\n\n[Check the articles against the current wording of the law and your council\'s rules, then remove this line.]\n\nDeputy of the [name] council\n[Name]\n[Date]</string>
+    <string name="mode_assistant_hint">You run a deputy\'s matters: the district, appeals, inquiries, the report. The appeal and inquiry templates are for the deputy to sign. Put the deputy\'s surname into the role\'s name; for several deputies add a role for each.</string>
 </resources>
