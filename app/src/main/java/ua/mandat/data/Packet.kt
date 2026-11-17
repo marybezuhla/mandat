@@ -61,11 +61,11 @@ object Packet {
         } })
         put("delegations", JSONArray().apply { p.delegations.forEach { d -> put(JSONObject().apply {
             put("what", d.what); d.personId?.let(pId::get)?.let { put("person", it) }; d.matterId?.let(mId::get)?.let { put("matter", it) }; d.due?.let { put("due", it) }
-            put("status", d.status); put("purpose", d.purpose); put("doneMeans", d.doneMeans)
+            put("status", d.status); put("purpose", d.purpose); put("doneMeans", d.doneMeans); if (d.incoming) put("incoming", true)
         }) } })
         put("promises", JSONArray().apply { p.promises.forEach { x -> put(JSONObject().apply {
             put("what", x.what); x.personId?.let(pId::get)?.let { put("person", it) }; put("toWhom", x.toWhom); put("publicity", x.level.name)
-            x.matterId?.let(mId::get)?.let { put("matter", it) }; x.due?.let { put("due", it) }; put("status", x.status); put("source", x.source)
+            x.matterId?.let(mId::get)?.let { put("matter", it) }; x.due?.let { put("due", it) }; put("status", x.status); put("source", x.source); if (x.incoming) put("incoming", true)
         }) } })
         put("deadlines", JSONArray().apply { p.deadlines.forEach { d -> put(JSONObject().apply {
             put("title", d.title); put("day", d.day); put("kind", d.kind); put("basis", d.basis); d.matterId?.let(mId::get)?.let { put("matter", it) }; put("status", d.status)
@@ -74,6 +74,7 @@ object Packet {
             put("id", eId.getValue(e.id)); put("title", e.title); put("day", e.day); e.endDay?.let { put("endDay", it) }; e.startMin?.let { put("start", it) }
             e.endMin?.let { put("end", it) }; put("kind", e.kind); put("place", e.place); e.matterId?.let(mId::get)?.let { put("matter", it) }
             put("notes", e.notes); put("outcome", e.outcome)
+            Repeat.of(e.repeat)?.let { r -> put("repeat", r.name); e.repeatUntil?.let { put("repeatUntil", it) } }
         }) } })
         put("eventPeople", JSONArray().apply { p.eventPeople.forEach { l ->
             val ev = eId[l.eventId] ?: return@forEach
@@ -118,13 +119,13 @@ object Packet {
             delegations = arr("delegations").mapNotNull { d ->
                 Delegation(what = d.s("what", 2000), personId = d.l("person"), matterId = d.l("matter"), due = d.d("due"),
                     status = TaskStatus.of(d.optString("status")).name, createdAt = now, closedAt = closed(d.optString("status")),
-                    purpose = d.s("purpose", 2000), doneMeans = d.s("doneMeans", 2000)).takeIf { it.what.isNotBlank() }
+                    purpose = d.s("purpose", 2000), doneMeans = d.s("doneMeans", 2000), incoming = d.optBoolean("incoming", false)).takeIf { it.what.isNotBlank() }
             },
             promises = arr("promises").mapNotNull { x ->
                 val level = Publicity.of(x.optString("publicity"))
                 Promise(what = x.s("what", 2000), personId = x.l("person"), toWhom = x.s("toWhom", 300), isPublic = level == Publicity.PUBLIC,
                     matterId = x.l("matter"), due = x.d("due"), status = TaskStatus.of(x.optString("status")).name, createdAt = now, closedAt = closed(x.optString("status")),
-                    source = x.s("source", 1000), publicity = level.name).takeIf { it.what.isNotBlank() }
+                    source = x.s("source", 1000), publicity = level.name, incoming = x.optBoolean("incoming", false)).takeIf { it.what.isNotBlank() }
             },
             deadlines = arr("deadlines").mapNotNull { d ->
                 Deadline(title = d.s("title", 500), day = d.d("day") ?: return@mapNotNull null, kind = DeadlineKind.of(d.optString("kind")).name,
@@ -136,7 +137,7 @@ object Packet {
                     endDay = e.d("endDay")?.takeIf { end -> e.d("day")?.let { end >= it && end - it <= 366 } == true },
                     startMin = e.i("start")?.takeIf { it in 0..1439 }, endMin = e.i("end")?.takeIf { it in 0..1440 }, kind = EventKind.of(e.optString("kind")).name,
                     place = e.s("place", 500), matterId = e.l("matter"), notes = e.s("notes", 20_000), outcome = e.s("outcome", 20_000),
-                    createdAt = now, updatedAt = now).takeIf { it.title.isNotBlank() }
+                    createdAt = now, updatedAt = now, repeat = Repeat.of(e.optString("repeat"))?.name, repeatUntil = e.d("repeatUntil")).takeIf { it.title.isNotBlank() }
             }.distinctBy { it.id },
             eventPeople = arr("eventPeople").mapNotNull { l -> EventPerson(l.l("event") ?: return@mapNotNull null, l.l("person") ?: return@mapNotNull null) },
             roleNames = roles,

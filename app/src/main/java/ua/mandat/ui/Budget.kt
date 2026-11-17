@@ -391,7 +391,8 @@ fun MoneyDialog(db: MandatDb, session: Session, d: MoneyDraft) {
     var confirmDelete by remember { mutableStateOf(false) }
     val income = d.kind == MoneyKind.INCOME.name
     val own = decodeCategories(settings.firstOrNull { it.key == (if (income) SETTING_INCOME_CATEGORIES else SETTING_EXPENSE_CATEGORIES) }?.value)
-    val defaults = if (income) IncomeCategory.entries.map { it.name } else ExpenseCategory.entries.map { it.name }
+    // (an official is not offered income from a private practice; an entry that already has it keeps it)
+    val defaults = if (income) IncomeCategory.entries.filter { it != IncomeCategory.PRACTICE || AppMode.mode != ua.mandat.data.Mode.OFFICIAL }.map { it.name } else ExpenseCategory.entries.map { it.name }
     val categories = (defaults + own + listOf(d.category)).distinct()
     var otherCurrency by remember { mutableStateOf(d.currency !in listOf("UAH", "USD", "EUR")) }
 

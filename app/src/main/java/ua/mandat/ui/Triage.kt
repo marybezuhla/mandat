@@ -168,8 +168,8 @@ fun PeriodScreen(db: MandatDb, session: Session, kind: PeriodKind, span: Span) {
     val reviews by remember(db) { db.reviews().observeAll().hidingReviews(session) }.collectAsStateWithLifecycle(emptyList())
     val matters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val deadlines by remember(db) { db.deadlines().observeAll().hiding(session, ua.mandat.data.HideRules.DEADLINE) }.collectAsStateWithLifecycle(emptyList())
-    val delegations by remember(db) { db.delegations().observeAll().hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
-    val promises by remember(db) { db.promises().observeAll().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
+    val delegations by remember(db) { db.delegations().observeAll().own().hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
+    val promises by remember(db) { db.promises().observeAll().own().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
     val roles by remember(db) { db.roles().observeAll() }.collectAsStateWithLifecycle(emptyList())
     val roleNames = roles.associate { it.id to it.name }

@@ -67,7 +67,7 @@ fun RoleBuilder(session: Session? = null, onDraft: ((String?) -> Unit)? = null, 
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Picker(
-            label = stringResource(R.string.role_body),
+            label = stringResource(if (AppMode.mode.civic) R.string.role_body_civic else R.string.role_body),
             current = stringResource(body.name),
             options = roleBodies().map { it to context.getString(it.name) },
             onPick = {
@@ -78,7 +78,7 @@ fun RoleBuilder(session: Session? = null, onDraft: ((String?) -> Unit)? = null, 
         )
         position?.let { current ->
             Picker(
-                label = stringResource(R.string.role_position),
+                label = stringResource(if (AppMode.mode.civic) R.string.role_position_civic else R.string.role_position),
                 current = stringResource(current),
                 options = body.positions.map { it to context.getString(it) },
                 onPick = { position = it; touched = true },
@@ -108,14 +108,19 @@ fun composeRoleName(body: String, position: String?, name: String): String {
     return if (extra.isEmpty()) base else "$base «$extra»"
 }
 
-/** Shown once after the first unlock: build your roles; they can be changed later in Options. */
+/**
+ * Shown once after the first unlock: say who you are and build your roles; both can be changed
+ * later in Options. [modeAlreadyChosen] is for pictures of the screen as it looks after the choice.
+ */
 @Composable
-fun RolesSetup(session: Session) {
+fun RolesSetup(session: Session, modeAlreadyChosen: Boolean = false) {
     val added = remember { mutableStateListOf<String>() }
     var finished by remember { mutableStateOf(false) }
     // A role put together but not yet "added": "Done" asks about it, so that it is neither lost nor added unasked
     var draft by remember { mutableStateOf<String?>(null) }
     var asking by remember { mutableStateOf<String?>(null) }
+    // Who the owner is must be chosen here, never left as it came: the rest of this screen and of Mandat follows it
+    var modeChosen by remember { mutableStateOf(modeAlreadyChosen) }
 
     fun finish(save: Boolean) {
         if (finished) return
@@ -133,12 +138,19 @@ fun RolesSetup(session: Session) {
         Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(stringResource(R.string.roles_title), style = MaterialTheme.typography.titleLarge)
-        Text(stringResource(R.string.roles_text), style = MaterialTheme.typography.bodyLarge)
+        ModePicker(session, chosen = modeChosen) { mode ->
+            modeChosen = true
+            // A citizen starts with the simple view; anyone can turn it on or off in Options
+            session.write { it.settings().put(Setting(ua.mandat.data.SETTING_SIMPLE, if (mode == ua.mandat.data.Mode.CITIZEN) "1" else "0")) }
+        }
+        if (!modeChosen) Text(stringResource(R.string.mode_choose_first), style = MaterialTheme.typography.bodyLarge)
         Spacer(Modifier.height(8.dp))
-        ModePicker(session)
-        Spacer(Modifier.height(8.dp))
-        RoleBuilder(onDraft = { draft = it }, onAdd = { if (it !in added) added += it })
+        if (modeChosen) {
+            Text(stringResource(R.string.roles_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(if (AppMode.mode.civic) R.string.roles_text_civic else R.string.roles_text), style = MaterialTheme.typography.bodyLarge)
+            Spacer(Modifier.height(8.dp))
+            RoleBuilder(onDraft = { draft = it }, onAdd = { if (it !in added) added += it })
+        }
         if (added.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.roles_added), style = MaterialTheme.typography.titleMedium)
@@ -157,11 +169,11 @@ fun RolesSetup(session: Session) {
                 val pending = draft
                 if (pending != null && pending !in added) asking = pending else finish(save = true)
             },
-            enabled = !finished, modifier = Modifier.fillMaxWidth(),
+            enabled = !finished && modeChosen, modifier = Modifier.fillMaxWidth(),
         ) {
             Text(stringResource(R.string.roles_done))
         }
-        TextButton(onClick = { finish(save = false) }, enabled = !finished, modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = { finish(save = false) }, enabled = !finished && modeChosen, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.roles_skip))
         }
     }
@@ -287,21 +299,30 @@ OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true
     }
 }
 
-/** The owner's mode: changes the bodies, positions and some names. */
+/**
+ * The owner's mode: changes the bodies, positions and some names. On the very first screen nothing
+ * is marked as chosen ([chosen] false) until the owner taps one, and [onPick] hears the choice.
+ */
 @Composable
-fun ModePicker(session: Session) {
+fun ModePicker(session: Session, chosen: Boolean = true, onPick: ((ua.mandat.data.Mode) -> Unit)? = null) {
     Text(stringResource(R.string.mode_title), style = MaterialTheme.typography.titleMedium)
     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         ua.mandat.data.Mode.entries.forEach { mode ->
-            QuickChip(stringResource(mode.label()), AppMode.mode == mode) {
+            QuickChip(stringResource(mode.label()), chosen && AppMode.mode == mode) {
                 AppMode.mode = mode
                 session.write { it.settings().put(Setting(ua.mandat.data.SETTING_MODE, mode.name)) }
+                onPick?.invoke(mode)
             }
         }
     }
+    if (!chosen) return
     Text(stringResource(R.string.mode_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
-    // What this mode means for an assistant: the work is the deputy's, and so are the signatures
-    if (AppMode.mode == ua.mandat.data.Mode.ASSISTANT) {
-        Text(stringResource(R.string.mode_assistant_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
-    }
+    // What the mode means, where it is not plain from its name
+    when (AppMode.mode) {
+        // (for an assistant the work is the deputy's, and so are the signatures)
+        ua.mandat.data.Mode.ASSISTANT -> R.string.mode_assistant_hint
+        ua.mandat.data.Mode.ACTIVIST -> R.string.mode_activist_hint
+        ua.mandat.data.Mode.CITIZEN -> R.string.mode_citizen_hint
+        else -> null
+    }?.let { Text(stringResource(it), style = MaterialTheme.typography.labelSmall, color = Muted) }
 }

@@ -67,6 +67,7 @@ object Export {
 
     private val utc = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
     private val dateOnly = DateTimeFormatter.ofPattern("yyyyMMdd")
+    private val localTime = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss")
 
     fun ics(events: List<Event>, kindName: (String) -> String, zone: ZoneId = ZoneId.systemDefault(), now: Long = System.currentTimeMillis()): String = buildString {
         append("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//notes//EN\r\nCALSCALE:GREGORIAN\r\n")
@@ -75,14 +76,40 @@ object Export {
             // A random identifier: record numbers and creation times would show gaps and history
             append("UID:").append(java.util.UUID.randomUUID()).append("@local\r\n")
             append("DTSTAMP:").append(Instant.ofEpochMilli(now).atZone(ZoneOffset.UTC).format(utc)).append("\r\n")
+            val repeat = Repeat.of(e.repeat)
+            // A repeating event keeps its hour through summer and winter time only when written in its own time zone
+            val inZone = repeat != null && e.startMin != null && '/' in zone.id
+            fun stamp(local: LocalDateTime) = if (inZone) local.format(localTime) else local.atZone(zone).withZoneSameInstant(ZoneOffset.UTC).format(utc)
+            val tz = if (inZone) ";TZID=" + zone.id else ""
             if (e.startMin == null) {
                 append("DTSTART;VALUE=DATE:").append(LocalDate.ofEpochDay(e.day).format(dateOnly)).append("\r\n")
                 append("DTEND;VALUE=DATE:").append(LocalDate.ofEpochDay(e.lastDay + 1).format(dateOnly)).append("\r\n")
             } else {
                 val start = LocalDate.ofEpochDay(e.day).atStartOfDay().plusMinutes(e.startMin.toLong())
                 val end = LocalDate.ofEpochDay(e.lastDay).atStartOfDay().plusMinutes((e.endMin ?: (e.startMin + 60)).toLong())
-                append("DTSTART:").append(start.atZone(zone).withZoneSameInstant(ZoneOffset.UTC).format(utc)).append("\r\n")
-                append("DTEND:").append(maxOf(end, start.plusMinutes(15)).atZone(zone).withZoneSameInstant(ZoneOffset.UTC).format(utc)).append("\r\n")
+                append("DTSTART").append(tz).append(":").append(stamp(start)).append("\r\n")
+                append("DTEND").append(tz).append(":").append(stamp(maxOf(end, start.plusMinutes(15)))).append("\r\n")
+            }
+            if (repeat != null) {
+                val first = LocalDate.ofEpochDay(e.day)
+                append("RRULE:FREQ=").append(when (repeat) {
+                    Repeat.DAILY -> "DAILY"
+                    Repeat.WEEKLY -> "WEEKLY"
+                    Repeat.BIWEEKLY -> "WEEKLY;INTERVAL=2"
+                    // In a month without that day: its last day, as Mandat itself counts
+                    Repeat.MONTHLY -> "MONTHLY" + if (first.dayOfMonth > 28) ";BYMONTHDAY=" + (28..first.dayOfMonth).joinToString(",") + ";BYSETPOS=-1" else ""
+                    Repeat.YEARLY -> "YEARLY" + if (first.monthValue == 2 && first.dayOfMonth == 29) ";BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1" else ""
+                })
+                e.repeatUntil?.let { u ->
+                    append(";UNTIL=").append(if (e.startMin == null) LocalDate.ofEpochDay(u).format(dateOnly)
+                        else LocalDate.ofEpochDay(u).atTime(23, 59, 59).atZone(zone).withZoneSameInstant(ZoneOffset.UTC).format(utc))
+                }
+                append("\r\n")
+                val skipped = Repeats.skipped(e).filter { it >= e.day }.sorted()
+                if (skipped.isNotEmpty()) append(fold(
+                    if (e.startMin == null) "EXDATE;VALUE=DATE:" + skipped.joinToString(",") { LocalDate.ofEpochDay(it).format(dateOnly) }
+                    else "EXDATE" + tz + ":" + skipped.joinToString(",") { stamp(LocalDate.ofEpochDay(it).atStartOfDay().plusMinutes(e.startMin.toLong())) },
+                )).append("\r\n")
             }
             append(fold("SUMMARY:" + vEsc(e.title))).append("\r\n")
             if (e.place.isNotBlank()) append(fold("LOCATION:" + vEsc(e.place))).append("\r\n")
@@ -148,10 +175,15 @@ object Export {
 
 /**
  * Reads events from an .ics file: title, day and time (turned into this phone's time), place,
- * notes. Recurring rules are not expanded: only the first time is taken.
+ * notes. A rule of repeating is kept when it is one Mandat can keep (every day, every week or
+ * two, every month, every year; until a day; with days left out); with any other rule only the
+ * first time is taken.
  */
 object IcsReader {
-    data class Item(val title: String, val day: Long, val endDay: Long?, val startMin: Int?, val endMin: Int?, val place: String, val notes: String)
+    data class Item(
+        val title: String, val day: Long, val endDay: Long?, val startMin: Int?, val endMin: Int?, val place: String, val notes: String,
+        val repeat: String? = null, val repeatUntil: Long? = null, val skipDays: String = "",
+    )
 
     const val MAX_EVENTS = 5_000
 
@@ -228,8 +260,50 @@ object IcsReader {
         // Days beyond reason (a broken or hostile file) are not taken: no event, or only its first day
         if (start.first !in EVENT_MIN_DAY..EVENT_MAX_DAY) return null
         val span = endDay?.takeIf { it - start.first <= EVENT_MAX_SPAN }
+        val rule = repeatOf(p["RRULE"]?.second, start.first, zone)
+        val skip = if (rule == null) "" else p["EXDATE"]?.let { (h, v) -> v.split(',').take(MAX_SKIP_DAYS).mapNotNull { when_(h, it, zone)?.first } }.orEmpty().joinToString(",")
         return Item(title, start.first, span, start.second, if (start.second == null || span == null && endDay != null) null else endMin,
-            unescape(p["LOCATION"]?.second.orEmpty()).take(500), unescape(p["DESCRIPTION"]?.second.orEmpty()))
+            unescape(p["LOCATION"]?.second.orEmpty()).take(500), unescape(p["DESCRIPTION"]?.second.orEmpty()),
+            repeat = rule?.first?.name, repeatUntil = rule?.second, skipDays = skip)
+    }
+
+    /**
+     * A rule of repeating that Mandat can keep, with its last day if it has one; null for any other
+     * (a number of times, several weekdays, "the second Tuesday", every third week): then the
+     * event is taken once.
+     */
+    internal fun repeatOf(rule: String?, firstDay: Long, zone: ZoneId): Pair<Repeat, Long?>? = try {
+        val parts = rule.orEmpty().split(';').mapNotNull { x -> x.split('=', limit = 2).takeIf { it.size == 2 }?.let { it[0].trim().uppercase() to it[1].trim() } }.toMap()
+        val every = parts["INTERVAL"]?.toIntOrNull() ?: 1
+        val first = LocalDate.ofEpochDay(firstDay)
+        val known = setOf("FREQ", "INTERVAL", "UNTIL", "BYDAY", "BYMONTHDAY", "BYMONTH", "BYSETPOS", "WKST")
+        val byDay = parts["BYDAY"]
+        val monthDays = parts["BYMONTHDAY"]?.split(',')?.mapNotNull { it.trim().toIntOrNull() }
+        val lastOfMonth = parts["BYSETPOS"] == "-1" && monthDays != null && monthDays.max() == first.dayOfMonth && monthDays == (28..first.dayOfMonth).toList()
+        val repeat = when {
+            parts.keys.any { it !in known } -> null
+            // Several weekdays, or a numbered one: not a rhythm Mandat keeps. One weekday must be the event's own
+            byDay != null && byDay.uppercase() != first.dayOfWeek.name.take(2) -> null
+            parts["BYSETPOS"] != null && !lastOfMonth -> null
+            monthDays != null && !lastOfMonth && monthDays != listOf(first.dayOfMonth) -> null
+            parts["BYMONTH"] != null && parts["BYMONTH"] != first.monthValue.toString() -> null
+            else -> when (parts["FREQ"]?.uppercase()) {
+                "DAILY" -> if (byDay != null || monthDays != null) null else when (every) { 1 -> Repeat.DAILY; 7 -> Repeat.WEEKLY; 14 -> Repeat.BIWEEKLY; else -> null }
+                "WEEKLY" -> if (monthDays != null) null else when (every) { 1 -> Repeat.WEEKLY; 2 -> Repeat.BIWEEKLY; else -> null }
+                "MONTHLY" -> if (byDay != null) null else when (every) { 1 -> Repeat.MONTHLY; 12 -> Repeat.YEARLY; else -> null }
+                "YEARLY" -> if (byDay != null || every != 1) null else Repeat.YEARLY
+                else -> null
+            }
+        }
+        repeat?.let { r ->
+            val until = parts["UNTIL"]?.let { u ->
+                if (u.length >= 15 && u.endsWith("Z")) LocalDateTime.parse(u.take(15), DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss")).atZone(ZoneOffset.UTC).withZoneSameInstant(zone).toLocalDate().toEpochDay()
+                else LocalDate.parse(u.take(8), DateTimeFormatter.BASIC_ISO_DATE).toEpochDay()
+            }
+            r to until?.takeIf { it in EVENT_MIN_DAY..EVENT_MAX_DAY }
+        }
+    } catch (e: Exception) {
+        null
     }
 }
 

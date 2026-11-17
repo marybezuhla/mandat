@@ -245,6 +245,7 @@ fun Options(session: Session, onBack: () -> Unit) {
             openDb?.let { db ->
                 OptionGroup(stringResource(forMode(R.string.opt_work, R.string.opt_work_plain)), stringResource(forMode(R.string.opt_work_hint, R.string.opt_work_hint_plain)), Sym.badge, key = "work") {
                     ModePicker(session)
+                    SimpleSwitch(db, session)
                     DistrictSwitch(db, session)
                     RolesManager(db, session)
                 }
@@ -747,6 +748,21 @@ private fun LookSection(session: Session) {
             session.dynamicColors = it
             Appearance.setDynamic(context, it)
         })
+    }
+}
+
+/** The simple view: only what is needed every day stays on the screens; nothing stored changes. */
+@Composable
+private fun SimpleSwitch(db: ua.mandat.data.MandatDb, session: Session) {
+    val on by remember(db) { db.settings().observe(ua.mandat.data.SETTING_SIMPLE) }.collectAsStateWithLifecycle(null)
+    val checked = on?.value == "1"
+    fun set(v: Boolean) = session.write { it.settings().put(ua.mandat.data.Setting(ua.mandat.data.SETTING_SIMPLE, if (v) "1" else "0")) }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).switchRow(checked) { set(it) }) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.simple_view), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.simple_view_hint), style = MaterialTheme.typography.labelMedium, color = Muted)
+        }
+        androidx.compose.material3.Switch(checked = checked, onCheckedChange = null)
     }
 }
 

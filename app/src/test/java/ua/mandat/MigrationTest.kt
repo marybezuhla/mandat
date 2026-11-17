@@ -103,6 +103,9 @@ class MigrationTest {
 
     @Test fun fromVersion7() = migratesWithoutLoss(7)
 
+    // The last layout before 0.3.0: its promises, delegations, people and events get the new columns
+    @Test fun fromVersion16() = migratesWithoutLoss(16)
+
     @Test fun migrationKeepsMeaning() {
         val name = "meaning.db"
         oldDatabase(name, 7)

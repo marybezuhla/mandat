@@ -14,6 +14,13 @@ import ua.mandat.data.Mode
  */
 object AppMode {
     var mode by androidx.compose.runtime.mutableStateOf(Mode.RADA)
+
+    /**
+     * The simple view ([ua.mandat.data.SETTING_SIMPLE]): the ways into media, alliances, the influence
+     * map, the team, communities, statistics and the retrospective are not shown, and a few rarely
+     * needed fields of a person, a promise and a delegation are left out. Nothing stored changes.
+     */
+    var simple by androidx.compose.runtime.mutableStateOf(false)
 }
 
 fun Mode.label(): Int = when (this) {
@@ -21,6 +28,7 @@ fun Mode.label(): Int = when (this) {
     Mode.COUNCIL -> R.string.mode_council
     Mode.ASSISTANT -> R.string.mode_assistant
     Mode.OFFICIAL -> R.string.mode_official
+    Mode.ACTIVIST -> R.string.mode_activist
     Mode.CITIZEN -> R.string.mode_citizen
 }
 
@@ -31,9 +39,16 @@ fun Mode.label(): Int = when (this) {
 fun forMode(elected: Int, plain: Int): Int = if (AppMode.mode.elected) elected else plain
 
 /** Types that do not fit the chosen mode are not offered for new matters (old ones keep theirs). */
-fun matterTypesForMode(): List<MatterType> = when (AppMode.mode) {
-    Mode.COUNCIL, Mode.CITIZEN -> MatterType.entries.filter { it != MatterType.INTERNATIONAL }
-    Mode.RADA, Mode.ASSISTANT, Mode.OFFICIAL -> MatterType.entries
+fun matterTypesForMode(): List<MatterType> {
+    // A grant, a public action and a dispute belong to civic work and to a citizen's own affairs (a dispute also to an office)
+    val civic = setOf(MatterType.GRANT, MatterType.ACTION, MatterType.DISPUTE)
+    return when (AppMode.mode) {
+        Mode.COUNCIL -> MatterType.entries.filter { it != MatterType.INTERNATIONAL && it !in civic }
+        Mode.RADA, Mode.ASSISTANT -> MatterType.entries.filter { it !in civic }
+        Mode.OFFICIAL -> MatterType.entries.filter { it != MatterType.GRANT && it != MatterType.ACTION }
+        Mode.CITIZEN -> MatterType.entries.filter { it != MatterType.INTERNATIONAL && it != MatterType.GRANT }
+        Mode.ACTIVIST -> MatterType.entries
+    }
 }
 
 /** The stored type is the same in every mode; only the name shown follows the mode. */
@@ -44,29 +59,32 @@ fun MatterType.label(): Int = when (this) {
         Mode.ASSISTANT -> R.string.type_BILL_assistant
         Mode.COUNCIL -> R.string.type_BILL_council
         Mode.OFFICIAL -> R.string.type_BILL_official
-        Mode.CITIZEN -> R.string.type_BILL_citizen
+        Mode.CITIZEN, Mode.ACTIVIST -> R.string.type_BILL_citizen
     }
     MatterType.INVESTIGATION -> when (AppMode.mode) {
         Mode.RADA -> R.string.type_INVESTIGATION
         Mode.ASSISTANT -> R.string.type_INVESTIGATION_assistant
         Mode.COUNCIL -> R.string.type_INVESTIGATION_council
         Mode.OFFICIAL -> R.string.type_INVESTIGATION_official
-        Mode.CITIZEN -> R.string.type_INVESTIGATION_citizen
+        Mode.CITIZEN, Mode.ACTIVIST -> R.string.type_INVESTIGATION_citizen
     }
     MatterType.COURT -> R.string.type_COURT
     MatterType.DISTRICT -> when (AppMode.mode) {
         Mode.RADA, Mode.COUNCIL, Mode.ASSISTANT -> R.string.type_DISTRICT
-        Mode.OFFICIAL, Mode.CITIZEN -> R.string.type_DISTRICT_community
+        Mode.OFFICIAL, Mode.CITIZEN, Mode.ACTIVIST -> R.string.type_DISTRICT_community
     }
     MatterType.INTERNATIONAL -> R.string.type_INTERNATIONAL
     MatterType.WORKING_GROUP -> R.string.type_WORKING_GROUP
     MatterType.INQUIRY -> when (AppMode.mode) {
         Mode.RADA, Mode.COUNCIL, Mode.ASSISTANT -> R.string.type_INQUIRY
         Mode.OFFICIAL -> R.string.type_INQUIRY_official
-        Mode.CITIZEN -> R.string.type_INQUIRY_citizen
+        Mode.CITIZEN, Mode.ACTIVIST -> R.string.type_INQUIRY_citizen
     }
     MatterType.PUBLIC_COMMS -> R.string.type_PUBLIC_COMMS
     MatterType.AID -> R.string.type_AID
+    MatterType.GRANT -> R.string.type_GRANT
+    MatterType.ACTION -> R.string.type_ACTION
+    MatterType.DISPUTE -> R.string.type_DISPUTE
     MatterType.OTHER -> R.string.type_OTHER
 }
 
@@ -101,6 +119,7 @@ fun roleBodies(): List<RoleBody> = when (AppMode.mode) {
     Mode.COUNCIL -> COUNCIL_BODIES
     Mode.ASSISTANT -> ASSISTANT_BODIES
     Mode.OFFICIAL -> OFFICIAL_BODIES
+    Mode.ACTIVIST -> ACTIVIST_BODIES
     Mode.CITIZEN -> CITIZEN_BODIES
 }
 
@@ -130,6 +149,25 @@ val OFFICIAL_BODIES = listOf(
     RoleBody(R.string.office_body_commission, listOf(R.string.pos_chair, R.string.pos_deputy, R.string.pos_secretary, R.string.pos_member)),
     RoleBody(R.string.mode_body_working_group, listOf(R.string.pos_head, R.string.pos_member)),
     RoleBody(R.string.body_other_body, listOf(R.string.pos_representative, R.string.pos_member)),
+)
+
+/**
+ * Civic work: an organisation, a charity fund, a coalition, an initiative, a trade union, a party
+ * branch, a newsroom. Generic names only; the organisation's own name goes into the role's name.
+ */
+val ACTIVIST_BODIES = listOf(
+    RoleBody(R.string.act_body_ngo, listOf(R.string.pos_head, R.string.pos_deputy_head, R.string.civic_pos_board, R.string.act_pos_manager, R.string.pos_member, R.string.civic_pos_volunteer)),
+    RoleBody(R.string.act_body_fund, listOf(R.string.act_pos_director, R.string.act_pos_supervisory, R.string.act_pos_manager, R.string.civic_pos_coordinator, R.string.civic_pos_volunteer)),
+    RoleBody(R.string.act_body_coalition, listOf(R.string.civic_pos_coordinator, R.string.pos_representative, R.string.civic_pos_participant)),
+    RoleBody(R.string.civic_body_initiative, listOf(R.string.civic_pos_coordinator, R.string.civic_pos_participant)),
+    RoleBody(R.string.civic_body_volunteer, listOf(R.string.civic_pos_coordinator, R.string.civic_pos_volunteer)),
+    RoleBody(R.string.act_body_union, listOf(R.string.pos_chair, R.string.pos_deputy, R.string.act_pos_committee, R.string.pos_member)),
+    RoleBody(R.string.act_body_party, listOf(R.string.pos_head, R.string.pos_deputy_head, R.string.act_pos_council, R.string.pos_member)),
+    RoleBody(R.string.act_body_media, listOf(R.string.act_pos_editor, R.string.act_pos_journalist, R.string.act_pos_author)),
+    RoleBody(R.string.civic_body_public_council, listOf(R.string.pos_chair, R.string.pos_deputy, R.string.pos_secretary, R.string.pos_member)),
+    RoleBody(R.string.mode_body_working_group, listOf(R.string.pos_head, R.string.pos_member)),
+    RoleBody(R.string.civic_body_community, listOf()),
+    RoleBody(R.string.civic_body_personal, listOf()),
 )
 
 /** A citizen: organisations and groups people join by their own will, and their own affairs. */
@@ -179,9 +217,17 @@ val ROLE_BODIES = listOf(
 )
 
 fun ua.mandat.data.TeamRole.label(): Int = when (this) {
-    ua.mandat.data.TeamRole.ASSISTANT -> forMode(R.string.team_ASSISTANT, R.string.team_ASSISTANT_plain)
-    ua.mandat.data.TeamRole.VOLUNTEER_ASSISTANT -> R.string.team_VOLUNTEER_ASSISTANT
-    ua.mandat.data.TeamRole.OFFICE_HEAD -> R.string.team_OFFICE_HEAD
+    // The stored keys are those of a deputy's office; what they are called follows who the owner is
+    ua.mandat.data.TeamRole.ASSISTANT -> when (AppMode.mode) {
+        Mode.RADA, Mode.ASSISTANT -> R.string.team_ASSISTANT
+        // (a local councillor's assistants work without pay)
+        Mode.COUNCIL -> R.string.team_ASSISTANT_council
+        Mode.OFFICIAL -> R.string.team_ASSISTANT_office
+        Mode.ACTIVIST -> R.string.team_ASSISTANT_civic
+        Mode.CITIZEN -> R.string.team_ASSISTANT_plain
+    }
+    ua.mandat.data.TeamRole.VOLUNTEER_ASSISTANT -> if (AppMode.mode.elected) R.string.team_VOLUNTEER_ASSISTANT else if (AppMode.mode == Mode.OFFICIAL) R.string.team_VOLUNTEER_office else R.string.civic_pos_volunteer
+    ua.mandat.data.TeamRole.OFFICE_HEAD -> if (AppMode.mode == Mode.OFFICIAL) R.string.team_OFFICE_HEAD_office else R.string.team_OFFICE_HEAD
     ua.mandat.data.TeamRole.INTERN -> R.string.team_INTERN
     ua.mandat.data.TeamRole.SECRETARIAT -> forMode(R.string.team_SECRETARIAT, R.string.team_SECRETARIAT_plain)
     ua.mandat.data.TeamRole.LAWYER -> R.string.team_LAWYER
@@ -317,7 +363,7 @@ fun ua.mandat.data.IntegrityCheck.label(): Int = when (this) {
 fun ua.mandat.data.AllianceStatus.label(): Int = when (this) {
     ua.mandat.data.AllianceStatus.ACTIVE -> R.string.alliance_active
     ua.mandat.data.AllianceStatus.ENDED -> R.string.alliance_ended
-    ua.mandat.data.AllianceStatus.BROKEN -> R.string.alliance_broken
+    ua.mandat.data.AllianceStatus.BROKEN -> forMode(R.string.alliance_broken, R.string.alliance_broken_plain)
 }
 
 fun ua.mandat.data.RolePost.label(): Int = when (this) {

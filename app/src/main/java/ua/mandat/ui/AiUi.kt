@@ -523,19 +523,24 @@ fun InboxSortSheet(db: ua.mandat.data.MandatDb, session: Session, onClose: () ->
 suspend fun briefFacts(db: ua.mandat.data.MandatDb, session: Session, personId: Long): String {
     val hidden = session.hiddenMatters.value
     fun ok(id: Long?) = id == null || id !in hidden
-    val p = db.people().all().firstOrNull { it.id == personId } ?: return ""
+    val shown = session.hidden.value
+    val p = db.people().all().firstOrNull { it.id == personId && !shown.person(it) } ?: return ""
     val named = db.namesHidden(session)
     fun free(id: Long?, text: String) = ok(id) && !(id == null && named(text))
     val matters = db.people().observeMattersOf(personId).first().filter { ok(it.matterId) }
     val promises = db.promises().observeForPerson(personId).first().filter { free(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.OPEN }
     val asked = db.delegations().observeForPerson(personId).first().filter { free(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.OPEN }
-    val events = db.events().observeForPerson(personId).first().filter { free(it.matterId, ua.mandat.data.HideRules.EVENT.text(it)) }.sortedByDescending { it.day }.take(5)
+    // (a meeting that someone hidden also takes part in stays out)
+    val events = db.events().observeForPerson(personId).first().filter { !shown.tied(null, it.id) && free(it.matterId, ua.mandat.data.HideRules.EVENT.text(it)) }.map { ua.mandat.data.Repeats.near(it, Dates.today()) }.sortedByDescending { it.day }.take(5)
     return buildString {
         append("Людина: ").append(p.name).append(". ").append(listOf(p.jobTitle, p.organization).filter { it.isNotBlank() }.joinToString(", ")).append("\n")
         if (p.notes.isNotBlank() && !named(p.notes)) append("Нотатки: ").append(p.notes.take(800)).append("\n")
         if (matters.isNotEmpty()) append("Спільні справи: ").append(matters.joinToString("; ") { it.title + (it.stance?.let { s -> " (позиція: $s)" } ?: "") }).append("\n")
-        if (promises.isNotEmpty()) append("Ми обіцяли: ").append(promises.joinToString("; ") { it.what }).append("\n")
-        if (asked.isNotEmpty()) append("Ми доручили цій людині: ").append(asked.joinToString("; ") { it.what }).append("\n")
+        // Each direction under its own heading: who owes whom
+        promises.filter { !it.incoming }.takeIf { it.isNotEmpty() }?.let { l -> append("Ми обіцяли: ").append(l.joinToString("; ") { it.what }).append("\n") }
+        promises.filter { it.incoming }.takeIf { it.isNotEmpty() }?.let { l -> append("Ця людина обіцяла нам: ").append(l.joinToString("; ") { it.what }).append("\n") }
+        asked.filter { !it.incoming }.takeIf { it.isNotEmpty() }?.let { l -> append("Ми доручили цій людині: ").append(l.joinToString("; ") { it.what }).append("\n") }
+        asked.filter { it.incoming }.takeIf { it.isNotEmpty() }?.let { l -> append("Ця людина доручила нам: ").append(l.joinToString("; ") { it.what }).append("\n") }
         if (events.isNotEmpty()) append("Зустрічі: ").append(events.joinToString("; ") { factDate(it.day) + " " + it.title + (it.outcome.takeIf { o -> o.isNotBlank() }?.let { o -> " — $o" } ?: "") }).append("\n")
     }
 }

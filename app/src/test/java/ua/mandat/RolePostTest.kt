@@ -43,6 +43,9 @@ class RolePostTest {
         assertEquals(listOf(Mode.RADA, Mode.COUNCIL, Mode.ASSISTANT), Mode.entries.filter { it.elected })
         // ...but a deputy is not a colleague, and the assistant has no post in the deputy's bodies
         assertEquals(listOf(Mode.RADA, Mode.COUNCIL), Mode.entries.filter { it.deputy })
+        // Civic work and a citizen's own affairs: no office, no apparatus
+        assertEquals(listOf(Mode.ACTIVIST, Mode.CITIZEN), Mode.entries.filter { it.civic })
+        assertEquals(Mode.ACTIVIST, Mode.of("ACTIVIST"))
         assertEquals(null, RolePost.guess("Помічник-консультант — Народний депутат «Вигадане Прізвище»"))
         assertEquals(null, RolePost.guess("Assistant-consultant — People's Deputy of Ukraine"))
         assertEquals(null, RolePost.guess("Voluntary assistant-consultant — Local councillor"))

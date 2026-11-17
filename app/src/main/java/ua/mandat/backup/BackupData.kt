@@ -228,7 +228,7 @@ object BackupData {
     }
 
     /** Calendar days: about five centuries either way of 1970 (the screens show no others). */
-    private val DAY_COLUMNS = setOf("day", "due", "endDay", "untilDay", "checkIn", "lastContact", "stanceSince")
+    private val DAY_COLUMNS = setOf("day", "due", "endDay", "untilDay", "checkIn", "lastContact", "stanceSince", "repeatUntil")
     private const val MAX_DAY = 200_000L
     internal const val MAX_TEXT = 1_000_000
 

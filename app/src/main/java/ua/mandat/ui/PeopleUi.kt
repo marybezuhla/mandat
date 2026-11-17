@@ -69,8 +69,8 @@ import ua.mandat.data.isOverdue
 @Composable
 fun PeopleList(db: MandatDb, session: Session) {
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
-    val delegations by remember(db) { db.delegations().observeAll().hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
-    val links by remember(db) { db.people().observeLinks().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
+    val delegations by remember(db) { db.delegations().observeAll().own().hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
+    val links by remember(db) { db.people().observeLinks().hidingLinks(session) }.collectAsStateWithLifecycle(emptyList())
     var query by remember { mutableStateOf("") }
     var byTeam by rememberSaveable { mutableStateOf(false) }
     var pick by rememberSaveable { mutableStateOf<String?>(null) }
@@ -208,7 +208,7 @@ fun PeopleList(db: MandatDb, session: Session) {
         if (filtered) results()
         item(key = "map") {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { session.influenceFor = 0L }, modifier = Modifier.weight(1f)) {
+                if (!AppMode.simple) OutlinedButton(onClick = { session.influenceFor = 0L }, modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.influence_map_all), maxLines = 1)
                 }
                 OutlinedButton(onClick = { session.showDirectory = true }, modifier = Modifier.weight(1f)) {
@@ -220,7 +220,7 @@ fun PeopleList(db: MandatDb, session: Session) {
         if (uncategorized > 0) item(key = "categorize") {
             TextButton(onClick = { session.showCategorize = true }) { Text(stringResource(R.string.categorize_open_list, uncategorized)) }
         }
-        if (people.any { it.teamRole != null }) item(key = "team") { TeamCard(people, delegations, session) }
+        if (!AppMode.simple && people.any { it.teamRole != null }) item(key = "team") { TeamCard(people, delegations, session) }
         if (openD.isNotEmpty() || done30 > 0) {
             item(key = "delegations") {
                 SectionCard(Sym.checkCircle, stringResource(R.string.delegations), foldKey = "people:delegations") {
@@ -265,7 +265,7 @@ fun PeopleList(db: MandatDb, session: Session) {
                 }
             }
         }
-        if (links.any { it.stance != null }) {
+        if (!AppMode.simple && links.any { it.stance != null }) {
             item(key = "stances") {
                 SectionCard(Sym.group, stringResource(R.string.stances_title), foldKey = "people:stances") {
                     Spacer(Modifier.height(4.dp))
@@ -397,6 +397,9 @@ fun PersonEditor(db: MandatDb, session: Session, draft: PersonDraft) {
                 label = { Text(stringResource(R.string.person_contact)) }, modifier = Modifier.fillMaxWidth())
             ReachButtons(ua.mandat.data.phonesIn(draft.contact), ua.mandat.data.emailsIn(draft.contact))
             CategoryFields(db, draft, session)
+            // The simple view leaves out the team, influence and stance, unless this card already has them
+            val extras = !AppMode.simple || draft.person.teamRole != null || draft.person.influence != null || draft.person.stance != null || draft.person.isGroup
+            if (extras) {
             Picker(
                 label = stringResource(R.string.person_team),
                 current = draft.teamRole?.let { stringResource(it.label()) } ?: stringResource(R.string.not_team),
@@ -439,12 +442,21 @@ fun PersonEditor(db: MandatDb, session: Session, draft: PersonDraft) {
                     }
                 }
             }
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) { DueField(draft.lastContact, label = R.string.last_contact) { draft.lastContact = it } }
                 TextButton(onClick = { draft.lastContact = Dates.today() }) { Text(stringResource(R.string.talked_today)) }
             }
             OutlinedTextField(value = draft.notes, onValueChange = { draft.notes = it.take(ua.mandat.data.MAX_NOTE_LENGTH) },
                 label = { Text(stringResource(R.string.person_notes)) }, minLines = 3, modifier = Modifier.fillMaxWidth())
+            // Trip mode keeps this person off the screen, with what is tied to them
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().switchRow(draft.sensitive) { draft.sensitive = it }) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.person_sensitive), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.person_sensitive_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
+                }
+                androidx.compose.material3.Switch(checked = draft.sensitive, onCheckedChange = null)
+            }
 
             if (!draft.isNew) {
                 OutlinedButton(onClick = { session.savePersonDraft(); session.oneOnOne = id }, modifier = Modifier.fillMaxWidth()) {
@@ -463,7 +475,8 @@ fun PersonEditor(db: MandatDb, session: Session, draft: PersonDraft) {
     if (confirmDelete) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            text = { Text(stringResource(R.string.person_delete_confirm)) },
+            // What was tied to a sensitive person stays, and nothing hides it any more
+            text = { Text(stringResource(R.string.person_delete_confirm) + if (draft.person.sensitive) "\n\n" + stringResource(R.string.person_delete_sensitive) else "") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
@@ -517,13 +530,20 @@ private fun PersonLinks(db: MandatDb, session: Session, personId: Long) {
     val openD = delegations.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }
     val closedD = delegations - openD.toSet()
     openD.forEach { DelegationRow(it, null, it.matterId?.let(titleOf::get), session) }
-    TextButton(onClick = { session.delegationDraft = newDelegation(personId = personId) }) { Text("+ " + stringResource(R.string.add_delegation)) }
+    // (one under the other: two side by side do not fit a narrow phone)
+    Column {
+        TextButton(onClick = { session.delegationDraft = newDelegation(personId = personId) }) { Text("+ " + stringResource(R.string.add_delegation)) }
+        TextButton(onClick = { session.delegationDraft = newDelegation(personId = personId, incoming = true) }) { Text("+ " + stringResource(R.string.kind_delegation_in)) }
+    }
 
     LinkSection(stringResource(R.string.promises))
     val openP = promises.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }
     val closedP = promises - openP.toSet()
     openP.forEach { PromiseRow(it, null, it.matterId?.let(titleOf::get), session) }
-    TextButton(onClick = { session.promiseDraft = newPromise(personId = personId) }) { Text("+ " + stringResource(R.string.add_promise)) }
+    Column {
+        TextButton(onClick = { session.promiseDraft = newPromise(personId = personId) }) { Text("+ " + stringResource(R.string.add_promise)) }
+        TextButton(onClick = { session.promiseDraft = newPromise(personId = personId, incoming = true) }) { Text("+ " + stringResource(R.string.kind_promise_in)) }
+    }
 
     if (closedD.isNotEmpty() || closedP.isNotEmpty()) {
         TextButton(onClick = { showClosed = !showClosed }) {

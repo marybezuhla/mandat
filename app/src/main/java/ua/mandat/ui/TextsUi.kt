@@ -106,13 +106,30 @@ private val CITIZEN_TEMPLATES = listOf(
     TextTemplate("info_request", TextKind.LETTER, R.string.tpl_info_request_title, R.string.tpl_info_request_body),
 )
 
+/** A reply, a covering letter and an explanatory note as an office writes them (a deputy's own are in [TEXT_TEMPLATES]). */
+private val OFFICE_TEMPLATES = listOf(
+    TextTemplate("reply", TextKind.LETTER, R.string.tpl_office_reply_title, R.string.tpl_office_reply_body),
+    TextTemplate("cover", TextKind.LETTER, R.string.tpl_cover_title, R.string.tpl_office_cover_body),
+    TextTemplate("note", TextKind.NOTE, R.string.tpl_note_title, R.string.tpl_office_note_body),
+)
+
+/** What an organisation or a group writes together, next to a citizen's own letters. */
+private val CIVIC_TEMPLATES = listOf(
+    TextTemplate("joint_appeal", TextKind.LETTER, R.string.tpl_joint_appeal_title, R.string.tpl_joint_appeal_body),
+)
+
 /** The ready templates of the chosen mode: a deputy's letters only where the owner is a deputy. */
-fun textTemplates(): List<TextTemplate> = when (AppMode.mode) {
-    ua.mandat.data.Mode.RADA -> MP_LETTERS + TEXT_TEMPLATES
-    ua.mandat.data.Mode.COUNCIL -> COUNCIL_LETTERS + TEXT_TEMPLATES
-    ua.mandat.data.Mode.ASSISTANT -> ASSISTANT_LETTERS + TEXT_TEMPLATES
-    ua.mandat.data.Mode.OFFICIAL -> TEXT_TEMPLATES
-    ua.mandat.data.Mode.CITIZEN -> CITIZEN_TEMPLATES + TEXT_TEMPLATES.filter { it.key in setOf("thanks", "greeting", "speech", "column") }
+fun textTemplates(): List<TextTemplate> {
+    val own = setOf("thanks", "greeting", "speech", "column")
+    return when (AppMode.mode) {
+        ua.mandat.data.Mode.RADA -> MP_LETTERS + TEXT_TEMPLATES
+        ua.mandat.data.Mode.COUNCIL -> COUNCIL_LETTERS + TEXT_TEMPLATES
+        ua.mandat.data.Mode.ASSISTANT -> ASSISTANT_LETTERS + TEXT_TEMPLATES
+        // An office answers and forwards in its own name, not as a deputy does
+        ua.mandat.data.Mode.OFFICIAL -> OFFICE_TEMPLATES + TEXT_TEMPLATES.filter { it.key in own }
+        ua.mandat.data.Mode.ACTIVIST -> CITIZEN_TEMPLATES + CIVIC_TEMPLATES + TEXT_TEMPLATES.filter { it.key in own }
+        ua.mandat.data.Mode.CITIZEN -> CITIZEN_TEMPLATES + TEXT_TEMPLATES.filter { it.key in own }
+    }
 }
 
 /** Fields still to fill in: anything in square brackets. */

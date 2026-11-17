@@ -254,19 +254,22 @@ private fun Main(db: MandatDb, session: Session) {
     // The chosen mode follows the setting
     val modeSetting by remember(db) { db.settings().observe(ua.mandat.data.SETTING_MODE) }.collectAsStateWithLifecycle(null)
     androidx.compose.runtime.LaunchedEffect(modeSetting) { AppMode.mode = ua.mandat.data.Mode.of(modeSetting?.value) }
+    // So does the simple view
+    val simpleSetting by remember(db) { db.settings().observe(ua.mandat.data.SETTING_SIMPLE) }.collectAsStateWithLifecycle(null)
+    androidx.compose.runtime.LaunchedEffect(simpleSetting) { AppMode.simple = simpleSetting?.value == "1" }
     // Trip mode follows its setting and the marks on matters, while Mandat is open
     androidx.compose.runtime.LaunchedEffect(db) {
         val lensHidden = session.lensRole.flatMapLatest { r ->
             if (r == null) kotlinx.coroutines.flow.flowOf(emptyList()) else db.matters().observeOutsideRole(r)
         }
-        kotlinx.coroutines.flow.combine(db.settings().observe(SETTING_TRIP), db.settings().observe(SETTING_TRIP_SINCE), db.matters().observeSensitiveIds(), lensHidden) { trip, since, ids, lens ->
+        kotlinx.coroutines.flow.combine(db.settings().observe(SETTING_TRIP), db.settings().observe(SETTING_TRIP_SINCE), db.matters().observeSensitiveIds(), lensHidden, db.people().observeSensitiveIds()) { trip, since, ids, lens, people ->
             val on = trip?.value == "1"
             val trip = if (on) ids.toSet() else emptySet()
-            listOf(on, trip + lens, trip, tripSince(since?.value))
-        }.distinctUntilChanged().flatMapLatest { (on, matters, trip, since) ->
+            listOf(on, trip + lens, trip, tripSince(since?.value), if (on) people.toSet() else emptySet<Long>())
+        }.distinctUntilChanged().flatMapLatest { (on, matters, trip, since, marked) ->
             // People, diary days and communities tied only to them are worked out before anything shows
             @Suppress("UNCHECKED_CAST")
-            observeHidden(db, matters as Set<Long>, byName = trip as Set<Long>, since = since as Long).map { (on as Boolean) to it }
+            observeHidden(db, matters as Set<Long>, byName = trip as Set<Long>, since = since as Long, marked = marked as Set<Long>).map { (on as Boolean) to it }
         }.collect { (on, hidden) -> session.setHidden(on, hidden) }
     }
 
@@ -282,6 +285,7 @@ private fun Main(db: MandatDb, session: Session) {
     session.promiseDraft?.let { PromiseDialog(db, session, it) }
     session.deadlineDraft?.let { DeadlineDialog(db, session, it) }
     session.eventDraft?.let { EventDialog(db, session, it) }
+    session.eventChoice?.let { EventChoiceDialog(session, it) }
     session.infoDraft?.let { InfoDialog(db, session, it) }
     session.messageDraft?.let { MessageDialog(db, session, it) }
     session.allianceDraft?.let { AllianceDialog(db, session, it) }
@@ -607,7 +611,7 @@ internal fun Today(db: MandatDb, session: Session, onOpen: (Matter) -> Unit, onT
 
         // The day's one to three main things, chosen by the owner, first of all
         DayMainCard(db, session, focus, deadlines, delegations, promises, titleOf, nameOf, roleNames, onOpenMatter = onOpen)
-        SmartListChips(smartCounts(active, openD.size, openP.size, today)) { session.smartList = it }
+        SmartListChips(smartCounts(active, openD.count { !it.incoming } + openP.count { it.incoming }, openP.count { !it.incoming } + openD.count { it.incoming }, today)) { session.smartList = it }
         // The one AI moment on this screen, folded until asked (only with the model on the phone)
         AiRow(session, ua.mandat.ai.LocalAi.Task.MORNING, facts = { session.withOpenDb { todayFacts(it, session) }.orEmpty() })
         DayStrip(db, session)

@@ -5,7 +5,7 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Recognises a hidden matter's title in free text, also in other word forms: each word of the
+ * Recognises a hidden matter's title (or a hidden person's name) in free text, also in other word forms: each word of the
  * title is cut to its stem ("ремонт школи" → "ремо", "школ"), and the text names the matter when
  * every stem starts one of its words ("щодо ремонту школи"). Leaving out a little too much is
  * the safe side while something is hidden.
@@ -58,14 +58,21 @@ data class IdRef(val a: Long, val b: Long?)
 
 /** What is hidden besides the matters themselves: worked out from the links only. */
 object Hiding {
-    /** People every one of whose links (matters, tasks, events, media, alliances) leads to a hidden matter. */
-    fun people(hidden: Set<Long>, personMatter: List<IdRef>): Set<Long> =
-        if (hidden.isEmpty()) emptySet()
-        else personMatter.groupBy({ it.a }, { it.b }).filterValues { ms -> ms.all { it != null && it in hidden } }.keys
+    /**
+     * People every one of whose links (matters, tasks, events, media, alliances) leads to a hidden
+     * matter, and the people marked sensitive themselves ([marked], hidden by trip mode).
+     */
+    fun people(hidden: Set<Long>, personMatter: List<IdRef>, marked: Set<Long> = emptySet()): Set<Long> =
+        if (hidden.isEmpty()) marked
+        else personMatter.groupBy({ it.a }, { it.b }).filterValues { ms -> ms.all { it != null && it in hidden } }.keys + marked
+
+    /** Events a hidden person takes part in: the event would tell about the person. */
+    fun events(people: Set<Long>, links: List<EventPerson>): Set<Long> =
+        if (people.isEmpty()) emptySet() else links.filter { it.personId in people }.mapTo(HashSet()) { it.eventId }
 
     /** Diary days linked to a hidden matter or a hidden person, or whose text names a hidden matter. */
     fun reviews(hidden: Set<Long>, people: Set<Long>, names: HiddenNames, reviews: List<Review>, links: List<ReviewLink>, since: Long = Long.MAX_VALUE): Set<Long> {
-        if (hidden.isEmpty()) return emptySet()
+        if (hidden.isEmpty() && people.isEmpty()) return emptySet()
         val now = System.currentTimeMillis()
         val out = HashSet<Long>()
         links.forEach { l ->
@@ -76,12 +83,15 @@ object Hiding {
     }
 
     /** Communities every one of whose links leads to something hidden (the name could tell where). */
-    fun communities(hidden: Set<Long>, people: Set<Long>, links: List<CommunityLink>, eventMatter: Map<Long, Long?>, promiseMatter: Map<Long, Long?>): Set<Long> {
-        if (hidden.isEmpty()) return emptySet()
+    fun communities(
+        hidden: Set<Long>, people: Set<Long>, links: List<CommunityLink>, eventMatter: Map<Long, Long?>, promiseMatter: Map<Long, Long?>,
+        events: Set<Long> = emptySet(), promisePerson: Map<Long, Long?> = emptyMap(),
+    ): Set<Long> {
+        if (hidden.isEmpty() && people.isEmpty()) return emptySet()
         fun linkHidden(l: CommunityLink) = when (l.kind) {
             LinkKind.MATTER -> l.refId in hidden
-            LinkKind.EVENT -> eventMatter[l.refId]?.let { it in hidden } ?: false
-            LinkKind.PROMISE -> promiseMatter[l.refId]?.let { it in hidden } ?: false
+            LinkKind.EVENT -> l.refId in events || (eventMatter[l.refId]?.let { it in hidden } ?: false)
+            LinkKind.PROMISE -> (promiseMatter[l.refId]?.let { it in hidden } ?: false) || (promisePerson[l.refId]?.let { it in people } ?: false)
             LinkKind.PERSON -> l.refId in people
             else -> false
         }
@@ -107,4 +117,7 @@ interface HidingDao {
 
     @Query("SELECT id AS a, matterId AS b FROM promises")
     fun promiseMatter(): Flow<List<IdRef>>
+
+    @Query("SELECT id AS a, personId AS b FROM promises WHERE personId IS NOT NULL")
+    fun promisePerson(): Flow<List<IdRef>>
 }

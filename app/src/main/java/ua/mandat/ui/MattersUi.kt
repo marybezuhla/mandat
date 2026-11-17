@@ -164,7 +164,7 @@ fun MattersList(db: MandatDb, onOpen: (Matter) -> Unit, onTopics: () -> Unit = {
             return@LazyColumn
         }
         if (active.isNotEmpty()) {
-            item(key = "district") { DistrictEntry(db, session) }
+            if (!AppMode.simple) item(key = "district") { DistrictEntry(db, session) }
             item(key = "chart") {
                 MCard {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
@@ -554,7 +554,7 @@ fun <T> Picker(label: String, current: String, options: List<Pair<T, String>>, o
 /** People in a matter (with their position on it), and its delegations and promises. */
 @Composable
 private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: MatterDraft) {
-    val linkedFlow = remember(db, matterId) { db.people().observeForMatter(matterId) }
+    val linkedFlow = remember(db, matterId) { db.people().observeForMatter(matterId).hidingRows(session) }
     val peopleFlow = remember(db) { db.people().observeAll().hidingPeople(session) }
     val delegationsFlow = remember(db, matterId) { db.delegations().observeForMatter(matterId).hiding(session, ua.mandat.data.HideRules.DELEGATION) }
     val promisesFlow = remember(db, matterId) { db.promises().observeForMatter(matterId).hiding(session, ua.mandat.data.HideRules.PROMISE) }
@@ -592,7 +592,7 @@ private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: M
     }
     Row {
         TextButton(onClick = { adding = true }) { Text("+ " + stringResource(R.string.add_person)) }
-        if (linked.isNotEmpty()) TextButton(onClick = { session.saveDraft(); session.influenceFor = matterId }) {
+        if (linked.isNotEmpty() && !AppMode.simple) TextButton(onClick = { session.saveDraft(); session.influenceFor = matterId }) {
             Text(stringResource(R.string.influence_map))
         }
     }
@@ -678,7 +678,7 @@ private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: M
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun MatterStrip(db: MandatDb, matter: Matter, session: Session) {
-    val linked by remember(db, matter.id) { db.people().observeForMatter(matter.id) }.collectAsStateWithLifecycle(emptyList())
+    val linked by remember(db, matter.id) { db.people().observeForMatter(matter.id).hidingRows(session) }.collectAsStateWithLifecycle(emptyList())
     val deadlines by remember(db, matter.id) { db.deadlines().observeForMatter(matter.id).hiding(session, ua.mandat.data.HideRules.DEADLINE) }.collectAsStateWithLifecycle(emptyList())
     val delegations by remember(db, matter.id) { db.delegations().observeForMatter(matter.id).hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
     val topics = rememberTopics(db)
@@ -835,7 +835,7 @@ private fun MatterTime(db: MandatDb, matter: Matter, session: Session) {
     val events by remember(db, matter.id) { db.events().observeForMatter(matter.id) }.collectAsStateWithLifecycle(emptyList())
     val today = Dates.today()
     val span = ua.mandat.data.Span(today - 29, today)
-    val fromEvents = events.filter { it.day in span }.sumOf { ua.mandat.data.eventMinutes(it) }
+    val fromEvents = ua.mandat.data.Repeats.eachTime(events, span.from, span.to).filter { it.day in span }.sumOf { ua.mandat.data.eventMinutes(it) }
     val byHand = entries.filter { it.day in span }.sumOf { it.minutes }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
         Text(

@@ -68,4 +68,54 @@ class HideRulesTest {
         assertEquals("а б в", HideRules.DELEGATION.text(delegation("а", purpose = "б", doneMeans = "в")))
         assertEquals("а б в г", HideRules.PROMISE.text(promise("а", toWhom = "б", source = "в", statusNote = "г")))
     }
+
+    @Test fun whatIsTiedToASensitivePersonIsHiddenAlsoInAMatterThatStaysInView() {
+        // Person 5 is marked sensitive and takes part in event 9; no matter is hidden at all
+        val trip = Hidden(emptySet(), setOf(5L), emptySet(), emptySet(), HiddenNames(listOf("Вигадана Особа")), events = setOf(9L))
+        assertFalse(trip.isEmpty)
+        assertTrue(trip.hides(HideRules.DELEGATION, delegation("подзвонити", matterId = 8).copy(personId = 5)))
+        assertFalse(trip.hides(HideRules.DELEGATION, delegation("подзвонити", matterId = 8).copy(personId = 6)))
+        assertTrue(trip.hides(HideRules.PROMISE, promise("зустрітися").copy(personId = 5, incoming = true)))
+        val event = Event(id = 9, title = "нарада", day = 1, kind = "MEETING", matterId = 8, createdAt = 0, updatedAt = 0)
+        assertTrue(trip.hides(HideRules.EVENT, event))
+        assertFalse(trip.hides(HideRules.EVENT, event.copy(id = 10)))
+        // A note without a matter that names the person in full is hidden; the surname alone is not enough
+        assertTrue(trip.hides(HideRules.DELEGATION, delegation("передати Вигаданій Особі")))
+        assertFalse(trip.hides(HideRules.DELEGATION, delegation("передати Особі")))
+        // Search follows the same rule
+        val rows = listOf(
+            ua.mandat.data.SearchRow("delegation", 1, "a", "", "a", 8, personId = 5),
+            ua.mandat.data.SearchRow("delegation", 2, "b", "", "b", 8, personId = 6),
+            ua.mandat.data.SearchRow("event", 9, "c", "", "c", 8),
+            ua.mandat.data.SearchRow("event", 10, "d", "", "d", 8),
+            ua.mandat.data.SearchRow("person", 5, "e", "", "e", null),
+        )
+        assertEquals(listOf(2L, 10L), ua.mandat.ui.visibleRows(rows, trip).map { it.id })
+    }
+
+    @Test fun theReportLeavesOutUntickedMattersAndCountsVisitsByCommunity() {
+        fun matter(id: Long, title: String, sensitive: Boolean = false) = ua.mandat.data.Matter(id = id, title = title, type = "OTHER", roleId = null, attention = "FOCUS",
+            nextStep = "", goal = "", description = "", status = "ACTIVE", createdAt = 0, updatedAt = 0, sensitive = sensitive)
+        val heads = ua.mandat.ui.ReportHeads("T", "DONE", "KEPT", "MEET", "AID", "WORK", "receptions", "visits", "collected", "note", "uah")
+        val span = ua.mandat.data.Span(0, 100)
+        val day = 24L * 60 * 60 * 1000
+        fun kept(what: String, matterId: Long?, incoming: Boolean = false) = Promise(what = what, personId = null, toWhom = "", isPublic = !incoming, matterId = matterId, due = null,
+            status = "DONE", createdAt = 0, closedAt = 10 * day, incoming = incoming)
+        fun event(id: Long, kind: String, matterId: Long? = null) = Event(id = id, title = "x", day = 5, kind = kind, matterId = matterId, createdAt = 0, updatedAt = 0)
+        val matters = listOf(matter(1, "Перша"), matter(2, "Друга"), matter(3, "Третя", sensitive = true))
+        val promises = listOf(kept("обіцянка першої", 1), kept("обіцянка другої", 2), kept("обіцяли мені", 1, incoming = true))
+        val events = listOf(event(1, "MEETING"), event(2, "MEETING"), event(3, "CALL"), event(4, "TRIP"), event(5, "RECEPTION"), event(6, "MEETING", matterId = 2))
+        val text = ua.mandat.ui.voterReport(heads, span, matters, finished = setOf(1L), promises = promises, events = events, aid = emptyList(),
+            skip = setOf(2L), communityEvents = setOf(1L, 3L, 5L, 6L))
+        assertTrue(text.contains("- Перша"))
+        assertFalse(text.contains("Друга"))
+        assertFalse(text.contains("Третя"))
+        assertTrue(text.contains("обіцянка першої"))
+        assertFalse(text.contains("обіцянка другої"))
+        // What was promised to the owner is never among the owner's kept promises
+        assertFalse(text.contains("обіцяли мені"))
+        // Visits: the meeting in a community and the trip; not the call, not the reception (counted apart), not the unticked matter's event
+        assertTrue(text.contains("- visits: 2"))
+        assertTrue(text.contains("- receptions: 1"))
+    }
 }

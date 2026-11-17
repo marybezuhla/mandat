@@ -231,16 +231,46 @@ class Session(app: Application) : AndroidViewModel(app) {
         write(onFail = { if (eventDraft == null) eventDraft = d }) { d.persist(it) }
     }
 
-    /** Opens an event in its dialog, with the people taking part. */
-    fun openEvent(id: Long) {
+    /** A repeating event was tapped on one of its days: the owner is asked whether this time or every time is meant. */
+    class EventChoice(val event: ua.mandat.data.Event, val people: Set<Long>, val day: Long)
+    var eventChoice by mutableStateOf<EventChoice?>(null)
+
+    /**
+     * Opens an event in its dialog, with the people taking part. For a repeating event tapped on
+     * the [day] of one of its times, first asks what is meant: this time or all of them.
+     */
+    fun openEvent(id: Long, day: Long? = null) {
         val startedAt = generation
         background.launch {
             val found = withOpenDb { db -> db.events().get(id)?.let { it to db.events().peopleOf(id).toSet() } }
             withContext(Dispatchers.Main) {
                 if (found != null && startedAt == generation && state is LockState.Open && !isHidden(found.first.matterId) &&
-                    !hidden.value.hides(ua.mandat.data.HideRules.EVENT, found.first)) eventDraft = EventDraft(found.first, isNew = false, found.second)
+                    !hidden.value.hides(ua.mandat.data.HideRules.EVENT, found.first)) {
+                    val e = found.first
+                    if (day != null && e.repeats && ua.mandat.data.Repeats.starts(e, day, day).contains(day)) eventChoice = EventChoice(e, found.second, day)
+                    else eventDraft = EventDraft(e, isNew = false, found.second)
+                }
             }
         }
+    }
+
+    /** The whole repeating event, to change every time of it. */
+    fun openEventSeries(c: EventChoice) {
+        eventChoice = null
+        eventDraft = EventDraft(c.event, isNew = false, c.people)
+    }
+
+    /** One time of a repeating event as an event of its own (saved only when something in it is changed). */
+    fun openEventTime(c: EventChoice) {
+        eventChoice = null
+        val one = ua.mandat.data.Repeats.at(c.event, c.day).copy(id = 0, repeat = null, repeatUntil = null, skipDays = "", outcome = "")
+        eventDraft = EventDraft(one, isNew = true, c.people, detachFrom = c.event.id, detachDay = c.day)
+    }
+
+    /** A repeating event does not come on this one day. */
+    fun skipEventTime(c: EventChoice) {
+        eventChoice = null
+        write { db -> db.events().get(c.event.id)?.let { base -> ua.mandat.data.cleanEvent(ua.mandat.data.Repeats.skipping(base, c.day))?.let { db.events().update(it) } } }
     }
 
     /** Matters kept off the screen in trip mode (ids only); worked out before the screens open. */
@@ -255,9 +285,10 @@ class Session(app: Application) : AndroidViewModel(app) {
     private suspend fun computeHidden(db: MandatDb): Pair<Boolean, Hidden> {
         val on = db.settings().get(ua.mandat.ui.SETTING_TRIP)?.value == "1"
         val trip = if (on) db.matters().sensitiveIds().toSet() else emptySet()
+        val marked = if (on) db.people().sensitiveIds().toSet() else emptySet()
         val lens = lensRole.value?.let { db.matters().outsideRole(it).toSet() } ?: emptySet()
         val since = tripSince(db.settings().get(SETTING_TRIP_SINCE)?.value)
-        return on to observeHidden(db, trip + lens, byName = trip, since = since).first()
+        return on to observeHidden(db, trip + lens, byName = trip, since = since, marked = marked).first()
     }
 
     /** Sets what is hidden: the matters and everything worked out from them, in one step. */
@@ -445,10 +476,8 @@ class Session(app: Application) : AndroidViewModel(app) {
         val today = Dates.today()
         // What trip mode hides gives no reminder either: a reminder with nothing to show would tell.
         // Only trip mode counts here, never the lens: looking through one role keeps the others' reminders
-        val sensitive = if (tripNow) db.matters().sensitiveIds().toSet() else emptySet()
-        val names = if (sensitive.isEmpty()) ua.mandat.data.HiddenNames.NONE
-            else ua.mandat.data.HiddenNames(db.matters().observeAllTitles().first().filter { it.id in sensitive }.map { it.title })
-        val h = Hidden(sensitive, emptySet(), emptySet(), emptySet(), names)
+        val h = if (!tripNow) Hidden.NONE
+            else observeHidden(db, db.matters().sensitiveIds().toSet(), marked = db.people().sensitiveIds().toSet()).first()
         val days = reminderDays(
             db.deadlines().open().filterNot { h.hides(ua.mandat.data.HideRules.DEADLINE, it) },
             db.delegations().open().filterNot { h.hides(ua.mandat.data.HideRules.DELEGATION, it) },
@@ -1031,7 +1060,7 @@ class Session(app: Application) : AndroidViewModel(app) {
         // Titles of hidden matters are content: only the numbers stay while locked (worked out again on unlock)
         val hiddenAtLock = hidden.value
         val tripAtLock = tripOn.value
-        hidden.value = Hidden(hiddenAtLock.matters, hiddenAtLock.people, hiddenAtLock.reviews, hiddenAtLock.communities, ua.mandat.data.HiddenNames.NONE)
+        hidden.value = Hidden(hiddenAtLock.matters, hiddenAtLock.people, hiddenAtLock.reviews, hiddenAtLock.communities, ua.mandat.data.HiddenNames.NONE, events = hiddenAtLock.events)
         // Where the owner was: only the tab and the numbers of open cards (never their content),
         // so the same card opens again after unlocking
         // Only an open Mandat leaves a resume point; locking again (screen off after leaving) keeps the one there is
@@ -1054,6 +1083,7 @@ class Session(app: Application) : AndroidViewModel(app) {
         val openDeadline = deadlineDraft
         val openEvent = eventDraft
         eventDraft = null
+        eventChoice = null
         val openContact = contactDraft
         contactDraft = null
         val openInfo = infoDraft

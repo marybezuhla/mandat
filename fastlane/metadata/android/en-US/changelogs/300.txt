@@ -1,6 +1,8 @@
-• A backup is written in parts and has no size ceiling; backups made earlier still open.
-• A new mode: a deputy's assistant.
-• The app works better with a screen reader.
-• A colleague and a deputy are now separate categories of people.
-• Turning the phone no longer drops what was not saved.
+• A backup is written in parts and has no size ceiling; older backups still open.
+• New modes: a deputy's assistant and civic work; "Simple view" for everyday affairs.
+• "Promised to me" and "handed to me".
+• Repeating events.
+• Trip mode can hide a person too.
+• Better with a screen reader; turning the phone no longer drops unsaved text.
+• A colleague and a deputy are separate categories.
 • Options list the libraries and licences.

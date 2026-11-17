@@ -84,7 +84,7 @@ data class Setting(
 )
 
 enum class MatterType {
-    CAMPAIGN, BILL, INVESTIGATION, COURT, DISTRICT, INTERNATIONAL, WORKING_GROUP, INQUIRY, PUBLIC_COMMS, AID, OTHER;
+    CAMPAIGN, BILL, INVESTIGATION, COURT, DISTRICT, INTERNATIONAL, WORKING_GROUP, INQUIRY, PUBLIC_COMMS, AID, GRANT, ACTION, DISPUTE, OTHER;
 
     companion object {
         fun of(key: String) = entries.firstOrNull { it.name == key } ?: OTHER

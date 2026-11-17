@@ -187,7 +187,7 @@ fun InfoScreen(db: MandatDb, session: Session) {
             }
             item(key = "alliances") {
                 OutlinedButton(onClick = { session.showInfo = false; session.showAlliances = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.alliances_title))
+                    Text(stringResource(forMode(R.string.alliances_title, R.string.alliances_title_plain)))
                 }
             }
             if (closed.isNotEmpty()) item(key = "closed") {
@@ -424,13 +424,13 @@ fun AlliancesScreen(db: MandatDb, session: Session) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.alliances_title)) },
+                title = { Text(stringResource(forMode(R.string.alliances_title, R.string.alliances_title_plain))) },
                 navigationIcon = {
                     IconButton(onClick = { session.showAlliances = false }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
-                actions = { HowItWorks(R.string.how_alliances); TextButton(onClick = { session.allianceDraft = newAlliance() }) { Text("+ " + stringResource(R.string.alliance_new)) } },
+                actions = { HowItWorks(forMode(R.string.how_alliances, R.string.how_alliances_plain)); TextButton(onClick = { session.allianceDraft = newAlliance() }) { Text("+ " + stringResource(forMode(R.string.alliance_new, R.string.alliance_new_plain))) } },
             )
         },
     ) { padding ->
@@ -439,7 +439,7 @@ fun AlliancesScreen(db: MandatDb, session: Session) {
             contentPadding = PaddingValues(start = Space.screen, end = Space.screen, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(Space.gap),
         ) {
-            item(key = "hint") { Text(stringResource(R.string.alliances_hint), style = MaterialTheme.typography.bodyMedium, color = Muted) }
+            item(key = "hint") { Text(stringResource(forMode(R.string.alliances_hint, R.string.alliances_hint_plain)), style = MaterialTheme.typography.bodyMedium, color = Muted) }
             item(key = "summary") {
                 MCard {
                     Row(horizontalArrangement = Arrangement.spacedBy(Space.gap)) {
@@ -456,7 +456,7 @@ fun AlliancesScreen(db: MandatDb, session: Session) {
                     Paged(ending, page = 5) { a -> AllianceRow(a, a.personId?.let(nameOf::get), a.matterId?.let(titleOf::get), session) }
                 }
             }
-            if (all.isEmpty()) item(key = "empty") { EmptyHint(Sym.group, stringResource(R.string.alliances_empty)) }
+            if (all.isEmpty()) item(key = "empty") { EmptyHint(Sym.group, stringResource(forMode(R.string.alliances_empty, R.string.alliances_empty_plain))) }
             AllianceStatus.entries.filter { pick == null || it.name == pick }.forEach { s ->
                 val list = all.filter { it.status == s.name }
                 if (list.isNotEmpty()) item(key = "s$s") {
@@ -482,8 +482,8 @@ fun AllianceRow(a: Alliance, personName: String?, matterTitle: String?, session:
         if (a.gives.isNotBlank() || a.gets.isNotBlank()) {
             Text(
                 listOfNotNull(
-                    a.gives.ifBlank { null }?.let { stringResource(R.string.alliance_gives_short, it) },
-                    a.gets.ifBlank { null }?.let { stringResource(R.string.alliance_gets_short, it) },
+                    a.gives.ifBlank { null }?.let { stringResource(forMode(R.string.alliance_gives_short, R.string.alliance_gives_short_plain), it) },
+                    a.gets.ifBlank { null }?.let { stringResource(forMode(R.string.alliance_gets_short, R.string.alliance_gets_short_plain), it) },
                 ).joinToString("  ·  "),
                 style = MaterialTheme.typography.labelSmall, color = Muted, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp),
@@ -506,7 +506,7 @@ fun AllianceDialog(db: MandatDb, session: Session, d: AllianceDraft) {
     var confirmDelete by remember { mutableStateOf(false) }
     val none = stringResource(R.string.nobody)
     EditSheet(
-        title = stringResource(R.string.alliance_new),
+        title = stringResource(forMode(R.string.alliance_new, R.string.alliance_new_plain)),
         onDismiss = { session.allianceDraft = null },
         changed = d.changed(),
         onSave = { session.saveAllianceDraft() },
@@ -524,8 +524,8 @@ fun AllianceDialog(db: MandatDb, session: Session, d: AllianceDraft) {
                 )
                 MatterPicker(matters, allMatters, d.matterId) { d.matterId = it }
                 DueField(d.untilDay, label = R.string.alliance_until) { d.untilDay = it }
-                OutlinedTextField(d.gives, { d.gives = it }, label = { Text(stringResource(R.string.alliance_gives)) }, minLines = 1, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(d.gets, { d.gets = it }, label = { Text(stringResource(R.string.alliance_gets)) }, minLines = 1, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(d.gives, { d.gives = it }, label = { Text(stringResource(forMode(R.string.alliance_gives, R.string.alliance_gives_plain))) }, minLines = 1, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(d.gets, { d.gets = it }, label = { Text(stringResource(forMode(R.string.alliance_gets, R.string.alliance_gets_plain))) }, minLines = 1, modifier = Modifier.fillMaxWidth())
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     AllianceStatus.entries.forEach { s -> QuickChip(stringResource(s.label()), d.status == s) { d.status = s } }
                 }
@@ -550,7 +550,7 @@ fun MatterInfoLinks(db: MandatDb, session: Session, matterId: Long) {
     LinkSection(stringResource(R.string.info_title) + if (items.isEmpty()) "" else " · ${items.size}")
     items.take(5).forEachIndexed { i, it -> if (i > 0) RowDivider(); InfoRow(it, null, null, session) }
     TextButton(onClick = { session.infoDraft = newInfo(matterId = matterId) }) { Text("+ " + stringResource(R.string.info_new)) }
-    LinkSection(stringResource(R.string.alliances_title) + if (alliances.isEmpty()) "" else " · ${alliances.size}")
+    LinkSection(stringResource(forMode(R.string.alliances_title, R.string.alliances_title_plain)) + if (alliances.isEmpty()) "" else " · ${alliances.size}")
     alliances.take(5).forEachIndexed { i, a -> if (i > 0) RowDivider(); AllianceRow(a, null, null, session) }
-    TextButton(onClick = { session.allianceDraft = newAlliance(matterId = matterId) }) { Text("+ " + stringResource(R.string.alliance_new)) }
+    TextButton(onClick = { session.allianceDraft = newAlliance(matterId = matterId) }) { Text("+ " + stringResource(forMode(R.string.alliance_new, R.string.alliance_new_plain))) }
 }

@@ -41,6 +41,8 @@ data class Person(
     val lastContact: Long? = null,
     /** Other categories the person also belongs to: keys, or "OTHER:" plus the owner's own word, one per line. */
     @ColumnInfo(defaultValue = "") val moreCategories: String = "",
+    /** Kept off the screen in trip mode, with every record tied to this person and every note that names them. */
+    @ColumnInfo(defaultValue = "0") val sensitive: Boolean = false,
 ) {
     /** The main category as a key: a [PersonCategory] name, "OTHER:word" for the owner's own, or null. */
     val categoryKey: String?
@@ -91,7 +93,10 @@ data class MatterPerson(
     val previousStance: String? = null,
 )
 
-/** Something the owner handed to someone: what, to whom, by when. Seen from the owner's side. */
+/**
+ * Something the owner handed to someone: what, to whom, by when. Seen from the owner's side.
+ * With [incoming] it is the other way round: something that person handed to the owner.
+ */
 @Entity(tableName = "delegations")
 data class Delegation(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -116,9 +121,14 @@ data class Delegation(
     @ColumnInfo(defaultValue = "0") val returned: Boolean = false,
     /** The owner has thanked the person for it. */
     @ColumnInfo(defaultValue = "0") val thanked: Boolean = false,
+    /** Handed to the owner by [personId] (or by someone not named), not by the owner to them. */
+    @ColumnInfo(defaultValue = "0") val incoming: Boolean = false,
 )
 
-/** Something the owner promised: to whom, what, public or personal, by when. */
+/**
+ * Something the owner promised: to whom, what, public or personal, by when. With [incoming] it is
+ * the other way round: something promised to the owner, by [personId] or by whoever [toWhom] names.
+ */
 @Entity(tableName = "promises")
 data class Promise(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -144,6 +154,8 @@ data class Promise(
     val origin: String? = null,
     /** How risky it is to keep (or to fail): 1 low, 2 medium, 3 high; null unknown. */
     val risk: Int? = null,
+    /** Promised to the owner, not by the owner. Such a promise is never counted among the owner's own. */
+    @ColumnInfo(defaultValue = "0") val incoming: Boolean = false,
 ) {
     /** The level of publicity; the older yes/no field wins for PUBLIC, so old records stay right. */
     val level: Publicity get() = if (isPublic) Publicity.PUBLIC else Publicity.of(publicity).let { if (it == Publicity.PUBLIC) Publicity.PERSONAL else it }
@@ -267,6 +279,12 @@ interface PersonDao {
 
     @Query("SELECT * FROM people")
     suspend fun all(): List<Person>
+
+    @Query("SELECT id FROM people WHERE sensitive = 1")
+    fun observeSensitiveIds(): Flow<List<Long>>
+
+    @Query("SELECT id FROM people WHERE sensitive = 1")
+    suspend fun sensitiveIds(): List<Long>
 
     @Insert
     suspend fun insert(person: Person): Long

@@ -47,21 +47,26 @@ internal suspend fun obsidianVault(
     val matters = db.matters().observeAll().first().filter { m ->
         visible(m.id) && (span == null || msIn(m.createdAt) || msIn(m.updatedAt) || m.id in movedIds)
     }
+    // What is tied to a hidden person (handed or promised to them, about them, an event they take part in) stays out too
+    val allEventPeople = db.events().observeLinks().first()
+    val hiddenEvents = ua.mandat.data.Hiding.events(onlyHidden, allEventPeople)
+    fun untied(personId: Long?) = personId == null || personId !in onlyHidden
     val events = db.events().observeAll().first().filter { e ->
-        visible(e.matterId) && free(e.matterId, ua.mandat.data.HideRules.EVENT.text(e)) && when {
-            span != null -> e.day <= span.to && e.lastDay >= span.from
+        visible(e.matterId) && e.id !in hiddenEvents && free(e.matterId, ua.mandat.data.HideRules.EVENT.text(e)) && when {
+            // (a repeating event is one note; it goes in when any of its times falls into the period)
+            span != null -> ua.mandat.data.Repeats.starts(e, span.from, span.to).isNotEmpty()
             full -> true
-            else -> e.lastDay >= today - 365 && e.day <= today + 365
+            else -> ua.mandat.data.Repeats.starts(e, today - 365, today + 365).isNotEmpty()
         }
     }
     fun taskIn(created: Long, closed: Long?, due: Long?) = span == null || msIn(created) || msIn(closed) || (due != null && inSpan(due))
-    val delegations = db.delegations().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && taskIn(it.createdAt, it.closedAt, it.due) }
-    val promises = db.promises().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) && taskIn(it.createdAt, it.closedAt, it.due) }
+    val delegations = db.delegations().observeAll().first().filter { visible(it.matterId) && untied(it.personId) && free(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && taskIn(it.createdAt, it.closedAt, it.due) }
+    val promises = db.promises().observeAll().first().filter { visible(it.matterId) && untied(it.personId) && free(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) && taskIn(it.createdAt, it.closedAt, it.due) }
     val deadlines = db.deadlines().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.DEADLINE.text(it)) && taskIn(it.createdAt, it.closedAt, it.day) }
-    val eventPeople = db.events().observeLinks().first().groupBy({ it.eventId }, { it.personId })
-    val links = db.people().observeLinks().first().filter { visible(it.matterId) }
-    val info = if (full) db.info().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.INFO.text(it)) && (inSpan(it.day) || msIn(it.updatedAt)) } else emptyList()
-    val alliances = if (full) db.info().observeAlliances().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.ALLIANCE.text(it)) && (span == null || msIn(it.createdAt) || msIn(it.updatedAt)) } else emptyList()
+    val eventPeople = allEventPeople.groupBy({ it.eventId }, { it.personId })
+    val links = db.people().observeLinks().first().filter { visible(it.matterId) && untied(it.personId) }
+    val info = if (full) db.info().observeAll().first().filter { visible(it.matterId) && untied(it.personId) && free(it.matterId, ua.mandat.data.HideRules.INFO.text(it)) && (inSpan(it.day) || msIn(it.updatedAt)) } else emptyList()
+    val alliances = if (full) db.info().observeAlliances().first().filter { visible(it.matterId) && untied(it.personId) && free(it.matterId, ua.mandat.data.HideRules.ALLIANCE.text(it)) && (span == null || msIn(it.createdAt) || msIn(it.updatedAt)) } else emptyList()
     val messages = if (full) db.info().observeMessages().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.MESSAGE.text(it)) && (span == null || msIn(it.createdAt) || msIn(it.updatedAt)) } else emptyList()
     val money = if (full) db.money().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.MONEY.text(it)) && inSpan(it.day) } else emptyList()
     val texts = if (full) db.texts().observeAll().first().filter { visible(it.matterId) && free(it.matterId, ua.mandat.data.HideRules.TEXT.text(it)) && (span == null || msIn(it.createdAt) || msIn(it.updatedAt)) } else emptyList()
@@ -87,6 +92,7 @@ internal suspend fun obsidianVault(
     val hiddenOnlyCommunities = ua.mandat.data.Hiding.communities(
         hidden, onlyHidden, communityLinks,
         db.events().observeAll().first().associate { it.id to it.matterId }, db.promises().observeAll().first().associate { it.id to it.matterId },
+        hiddenEvents, db.promises().observeAll().first().associate { it.id to it.personId },
     )
     val communities = if (full) db.communities().observeAll().first().filter { it.id !in hiddenOnlyCommunities && free(null, communityText(it)) }.let { cs ->
         if (span == null) cs else cs.filter { c ->
@@ -145,8 +151,8 @@ internal suspend fun obsidianVault(
                     section(fProm, promises.filter { it.matterId == m.id }.map { lk(fProm, prName[it.id])!! })
                 } else {
                     section(fDead, deadlines.filter { it.matterId == m.id }.map { Export.day(it.day) + " " + it.title + " (" + status(it.status) + ")" })
-                    section(fDeleg, delegations.filter { it.matterId == m.id }.map { d -> d.what + (pl(d.personId)?.let { " → $it" } ?: "") + (d.due?.let { " · " + Export.day(it) } ?: "") + " (" + status(d.status) + ")" })
-                    section(fProm, promises.filter { it.matterId == m.id }.map { p -> p.what + (pl(p.personId)?.let { " → $it" } ?: p.toWhom.takeIf { it.isNotBlank() }?.let { " → $it" } ?: "") + " (" + status(p.status) + ")" })
+                    section(fDeleg, delegations.filter { it.matterId == m.id }.map { d -> d.what + (pl(d.personId)?.let { (if (d.incoming) " ← " else " → ") + it } ?: if (d.incoming) " ←" else "") + (d.due?.let { " · " + Export.day(it) } ?: "") + " (" + status(d.status) + ")" })
+                    section(fProm, promises.filter { it.matterId == m.id }.map { p -> p.what + ((pl(p.personId) ?: p.toWhom.takeIf { it.isNotBlank() })?.let { (if (p.incoming) " ← " else " → ") + it } ?: if (p.incoming) " ←" else "") + " (" + status(p.status) + ")" })
                 }
                 section(fEvents, events.filter { it.matterId == m.id }.sortedBy { it.day }.map { el(it.id)!! })
                 if (full) {
@@ -172,7 +178,8 @@ internal suspend fun obsidianVault(
     }
     events.forEach { e ->
         note(fEvents, eName.getValue(e.id), "event",
-            "date: ${Export.day(e.day)}\n" + yamlLine("kind", s(ua.mandat.data.EventKind.of(e.kind).label())) + yamlLine("place", e.place),
+            "date: ${Export.day(e.day)}\n" + yamlLine("kind", s(ua.mandat.data.EventKind.of(e.kind).label())) + yamlLine("place", e.place) +
+                (ua.mandat.data.Repeat.of(e.repeat)?.let { r -> yamlLine("repeat", s(r.label())) + (e.repeatUntil?.let { "until: ${Export.day(it)}\n" } ?: "") } ?: ""),
             buildString {
                 ml(e.matterId)?.let { append("**").append(s(R.string.obs_matter)).append(":** ").append(it).append("\n\n") }
                 val who = eventPeople[e.id].orEmpty().mapNotNull { pl(it) }
@@ -190,20 +197,24 @@ internal suspend fun obsidianVault(
 
     if (full) {
         delegations.forEach { d ->
-            note(fDeleg, dgName.getValue(d.id), "delegation", yamlLine("status", status(d.status)) + (d.due?.let { "due: ${Export.day(it)}\n" } ?: ""),
+            // (handed to the owner: said in the note's properties and in the line about the person)
+            note(fDeleg, dgName.getValue(d.id), "delegation", yamlLine("status", status(d.status)) + (d.due?.let { "due: ${Export.day(it)}\n" } ?: "") + (if (d.incoming) "direction: to-me\n" else ""),
                 buildString {
                     append(d.what).append("\n\n")
-                    pl(d.personId)?.let { append("**").append(s(R.string.obs_to_whom)).append(":** ").append(it).append("\n") }
+                    if (d.incoming && d.personId == null) append("**").append(s(R.string.kind_delegation_in)).append("**\n")
+                    pl(d.personId)?.let { append("**").append(s(if (d.incoming) R.string.from_whom else R.string.obs_to_whom)).append(":** ").append(it).append("\n") }
                     ml(d.matterId)?.let { append("**").append(s(R.string.obs_matter)).append(":** ").append(it).append("\n") }
                     if (d.purpose.isNotBlank()) append("\n").append(d.purpose).append("\n")
                     if (d.doneMeans.isNotBlank()) append("\n").append(d.doneMeans).append("\n")
                 })
         }
         promises.forEach { p ->
-            note(fProm, prName.getValue(p.id), "promise", yamlLine("status", status(p.status)) + (p.due?.let { "due: ${Export.day(it)}\n" } ?: "") + yamlLine("publicity", p.level.name.lowercase()),
+            note(fProm, prName.getValue(p.id), "promise", yamlLine("status", status(p.status)) + (p.due?.let { "due: ${Export.day(it)}\n" } ?: "") + (if (p.incoming) "direction: to-me\n" else yamlLine("publicity", p.level.name.lowercase())),
                 buildString {
                     append(p.what).append("\n\n")
-                    (pl(p.personId) ?: p.toWhom.takeIf { it.isNotBlank() })?.let { append("**").append(s(R.string.obs_to_whom)).append(":** ").append(it).append("\n") }
+                    val who = pl(p.personId) ?: p.toWhom.takeIf { it.isNotBlank() }
+                    if (p.incoming && who == null) append("**").append(s(R.string.kind_promise_in)).append("**\n")
+                    who?.let { append("**").append(s(if (p.incoming) R.string.from_whom else R.string.obs_to_whom)).append(":** ").append(it).append("\n") }
                     ml(p.matterId)?.let { append("**").append(s(R.string.obs_matter)).append(":** ").append(it).append("\n") }
                     if (p.source.isNotBlank()) append("\n").append(p.source).append("\n")
                     if (p.statusNote.isNotBlank()) append("\n").append(p.statusNote).append("\n")

@@ -280,7 +280,8 @@ fun ReviewScreen(db: MandatDb, session: Session) {
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item(key = "dash") { Dashboard(db, session) }
+        // The simple view keeps the evening, the budget, the diary and the texts; the numbers and what stands behind them step aside
+        if (!AppMode.simple) item(key = "dash") { Dashboard(db, session) }
         item(key = "evening") {
             MCard {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -324,7 +325,7 @@ fun ReviewScreen(db: MandatDb, session: Session) {
                 }
             }
         }
-        item(key = "promises") { ReputationTiles(db, session) }
+        if (!AppMode.simple) item(key = "promises") { ReputationTiles(db, session) }
         item(key = "budget") { BudgetCard(db, session) }
         item(key = "diary") {
             Row(horizontalArrangement = Arrangement.spacedBy(Space.gap)) {
@@ -410,7 +411,7 @@ fun kindLabel(kind: String): Int = when (kind) {
     "contact" -> R.string.directory
     "info" -> R.string.info_title
     "message" -> R.string.message_box
-    "alliance" -> R.string.alliances_title
+    "alliance" -> forMode(R.string.alliances_title, R.string.alliances_title_plain)
     "money" -> R.string.budget_title
     "community" -> forMode(R.string.district_title, R.string.district_title_plain)
     else -> R.string.tab_review
@@ -450,6 +451,6 @@ fun ReputationTiles(db: MandatDb, session: Session) {
     Row(horizontalArrangement = Arrangement.spacedBy(Space.gap)) {
         StatTile(risky, stringResource(R.string.tile_risky_promises), attention = true) { session.showPromises = true }
         StatTile(attacks, stringResource(R.string.tile_attacks), attention = true) { session.showInfo = true }
-        StatTile(active, stringResource(R.string.tile_alliances)) { session.showAlliances = true }
+        StatTile(active, stringResource(forMode(R.string.tile_alliances, R.string.tile_alliances_plain))) { session.showAlliances = true }
     }
 }

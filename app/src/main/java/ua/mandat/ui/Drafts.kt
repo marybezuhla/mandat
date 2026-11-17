@@ -96,13 +96,14 @@ class PersonDraft(val person: ua.mandat.data.Person, val isNew: Boolean) {
     var isGroup by mutableStateOf(person.isGroup)
     var reportsToId by mutableStateOf(person.reportsToId)
     var lastContact by mutableStateOf(person.lastContact)
+    var sensitive by mutableStateOf(person.sensitive)
     var more by mutableStateOf(person.moreCategories.lines().filter { it.isNotBlank() }.toSet())
 
     /** Something was typed or chosen since the card opened: Back asks before throwing that away. */
     fun changed(): Boolean = name != person.name || organization != person.organization || jobTitle != person.jobTitle ||
         contact != person.contact || notes != person.notes || teamRole?.name != person.teamRole || category?.name != person.category ||
         categoryCustom != person.categoryCustom || teamCustom != person.teamCustom || influence != person.influence ||
-        stance?.name != person.stance || isGroup != person.isGroup || reportsToId != person.reportsToId || lastContact != person.lastContact ||
+        stance?.name != person.stance || isGroup != person.isGroup || reportsToId != person.reportsToId || lastContact != person.lastContact || sensitive != person.sensitive ||
         more != person.moreCategories.lines().filter { it.isNotBlank() }.toSet()
 
     suspend fun persist(db: MandatDb) {
@@ -114,7 +115,7 @@ class PersonDraft(val person: ua.mandat.data.Person, val isNew: Boolean) {
                 notes = notes, teamRole = teamRole?.name, updatedAt = now,
                 category = category?.name, categoryCustom = categoryCustom, teamCustom = teamCustom,
                 influence = influence, stance = stance?.name, isGroup = isGroup,
-                reportsToId = reportsToId, lastContact = lastContact, moreCategories = more.joinToString("\n"),
+                reportsToId = reportsToId, lastContact = lastContact, moreCategories = more.joinToString("\n"), sensitive = sensitive,
             ),
         ) ?: return keepInInbox(db, null, name, organization, jobTitle, contact, notes)
         if (isNew) db.people().insert(edited.copy(id = 0, createdAt = now)) else db.people().update(edited)
@@ -125,6 +126,9 @@ class PersonDraft(val person: ua.mandat.data.Person, val isNew: Boolean) {
 class DelegationDraft(val delegation: ua.mandat.data.Delegation, val isNew: Boolean) {
     /** Something was typed or chosen since the sheet opened: closing it asks before throwing that away. */
     fun changed(): Boolean = what != delegation.what || purpose != delegation.purpose || doneMeans != delegation.doneMeans || personId != delegation.personId || matterId != delegation.matterId || due != delegation.due || status.name != delegation.status || freedom?.name != delegation.freedom || extra() != initialExtra
+
+    /** Handed to the owner (by [personId]) instead of by the owner. */
+    var incoming by mutableStateOf(delegation.incoming)
 
     var what by mutableStateOf(delegation.what)
     var personId by mutableStateOf(delegation.personId)
@@ -139,7 +143,7 @@ class DelegationDraft(val delegation: ua.mandat.data.Delegation, val isNew: Bool
 
     /** The remaining choices as they were when the sheet opened: changing only one of them still counts. */
     private val initialExtra = extra()
-    private fun extra(): List<Any?> = listOf(checkIn, returned)
+    private fun extra(): List<Any?> = listOf(checkIn, returned, incoming)
 
     suspend fun persist(db: MandatDb) {
         if (!isNew && !changed()) return
@@ -149,8 +153,10 @@ class DelegationDraft(val delegation: ua.mandat.data.Delegation, val isNew: Bool
         val closed = if (status == ua.mandat.data.TaskStatus.OPEN) null else (delegation.closedAt ?: now)
         val edited = delegation.copy(
             what = text, personId = personId, matterId = matterId, due = due, status = status.name, closedAt = closed,
-            purpose = purpose.trim().take(2_000), doneMeans = doneMeans.trim().take(2_000), freedom = freedom?.name,
-            checkIn = checkIn, returned = returned,
+            purpose = purpose.trim().take(2_000), doneMeans = doneMeans.trim().take(2_000),
+            // How much freedom was given, a check-in and "it came back" belong only to what the owner handed out
+            freedom = if (incoming) null else freedom?.name, checkIn = if (incoming) null else checkIn, returned = !incoming && returned,
+            incoming = incoming,
         )
         if (isNew) db.delegations().insert(edited.copy(id = 0, createdAt = now)) else db.delegations().update(edited)
     }
@@ -174,10 +180,12 @@ class PromiseDraft(val promise: ua.mandat.data.Promise, val isNew: Boolean) {
     var statusNote by mutableStateOf(promise.statusNote)
     /** The day it was promised; old promises can be written down later with their real date. */
     var madeOn by mutableStateOf(if (promise.createdAt == 0L) Dates.today() else Dates.dayOf(promise.createdAt))
+    /** Promised to the owner (by [personId] or by whoever [toWhom] names) instead of by the owner. */
+    var incoming by mutableStateOf(promise.incoming)
 
     /** The remaining choices as they were when the sheet opened: changing only one of them still counts. */
     private val initialExtra = extra()
-    private fun extra(): List<Any?> = listOf(madeOn, status)
+    private fun extra(): List<Any?> = listOf(madeOn, status, incoming)
 
     suspend fun persist(db: MandatDb) {
         if (!isNew && !changed()) return
@@ -187,7 +195,9 @@ class PromiseDraft(val promise: ua.mandat.data.Promise, val isNew: Boolean) {
         val closed = if (status == ua.mandat.data.TaskStatus.OPEN) null else (promise.closedAt ?: now)
         val edited = promise.copy(
             what = text, personId = personId, toWhom = if (personId != null) "" else toWhom.trim().take(300),
-            isPublic = publicity == ua.mandat.data.Publicity.PUBLIC, publicity = publicity.name, origin = origin?.name, risk = risk?.coerceIn(1, 3),
+            // How widely, where from and how risky are about the owner's own word: someone else's promise carries none of them
+            isPublic = !incoming && publicity == ua.mandat.data.Publicity.PUBLIC, publicity = if (incoming) ua.mandat.data.Publicity.PERSONAL.name else publicity.name,
+            origin = if (incoming) null else origin?.name, risk = if (incoming) null else risk?.coerceIn(1, 3), incoming = incoming,
             matterId = matterId, due = due, status = status.name, closedAt = closed,
             source = source.trim().take(1_000),
             statusNote = if (status == ua.mandat.data.TaskStatus.OPEN || status == ua.mandat.data.TaskStatus.DONE) "" else statusNote.trim().take(2_000),
@@ -199,18 +209,18 @@ class PromiseDraft(val promise: ua.mandat.data.Promise, val isNew: Boolean) {
     }
 }
 
-fun newDelegation(personId: Long? = null, matterId: Long? = null) = DelegationDraft(
+fun newDelegation(personId: Long? = null, matterId: Long? = null, incoming: Boolean = false) = DelegationDraft(
     ua.mandat.data.Delegation(
         what = "", personId = personId, matterId = matterId, due = null,
-        status = ua.mandat.data.TaskStatus.OPEN.name, createdAt = 0, closedAt = null,
+        status = ua.mandat.data.TaskStatus.OPEN.name, createdAt = 0, closedAt = null, incoming = incoming,
     ),
     isNew = true,
 )
 
-fun newPromise(personId: Long? = null, matterId: Long? = null) = PromiseDraft(
+fun newPromise(personId: Long? = null, matterId: Long? = null, incoming: Boolean = false) = PromiseDraft(
     ua.mandat.data.Promise(
         what = "", personId = personId, toWhom = "", isPublic = false, matterId = matterId, due = null,
-        status = ua.mandat.data.TaskStatus.OPEN.name, createdAt = 0, closedAt = null,
+        status = ua.mandat.data.TaskStatus.OPEN.name, createdAt = 0, closedAt = null, incoming = incoming,
     ),
     isNew = true,
 )
@@ -284,11 +294,20 @@ suspend fun persistReview(db: MandatDb, text: String?, append: Boolean = false, 
     }
 }
 
-/** An event being edited in its dialog; the people taking part are saved with it. */
-class EventDraft(val event: ua.mandat.data.Event, val isNew: Boolean, people: Set<Long> = emptySet(), val communityId: Long? = null) {
+/**
+ * An event being edited in its dialog; the people taking part are saved with it.
+ *
+ * One time of a repeating event changed on its own ([detachFrom], [detachDay]) is a new event of
+ * that one day: saving it leaves that day out of the repeating one, so the two never show together.
+ */
+class EventDraft(
+    val event: ua.mandat.data.Event, val isNew: Boolean, people: Set<Long> = emptySet(), val communityId: Long? = null,
+    val detachFrom: Long? = null, val detachDay: Long? = null,
+) {
     private val initialPeople = people
+    val detached: Boolean get() = detachFrom != null && detachDay != null
     /** Something was typed or chosen since the sheet opened: closing it asks before throwing that away. */
-    fun changed(): Boolean = title != event.title || notes != event.notes || outcome != event.outcome || place != event.place || day != event.day || startMin != event.startMin || matterId != event.matterId || endDay != event.endDay || endMin != event.endMin || kind.name != event.kind || remind != event.remind || people != initialPeople
+    fun changed(): Boolean = repeat?.name != event.repeat || repeatUntil != event.repeatUntil || title != event.title || notes != event.notes || outcome != event.outcome || place != event.place || day != event.day || startMin != event.startMin || matterId != event.matterId || endDay != event.endDay || endMin != event.endMin || kind.name != event.kind || remind != event.remind || people != initialPeople
 
     var title by mutableStateOf(event.title)
     var day by mutableStateOf(event.day)
@@ -302,24 +321,35 @@ class EventDraft(val event: ua.mandat.data.Event, val isNew: Boolean, people: Se
     var outcome by mutableStateOf(event.outcome)
     var remind by mutableStateOf(event.remind)
     var people by mutableStateOf(people)
+    var repeat by mutableStateOf(ua.mandat.data.Repeat.of(event.repeat))
+    var repeatUntil by mutableStateOf(event.repeatUntil)
 
     fun valid() = title.isNotBlank()
 
     fun current(now: Long) = event.copy(
         title = title, day = day, endDay = endDay, startMin = startMin, endMin = endMin, kind = kind.name,
         place = place, matterId = matterId, notes = notes, outcome = outcome, remind = remind, updatedAt = now,
+        repeat = repeat?.name, repeatUntil = if (repeat == null) null else repeatUntil,
     )
 
     suspend fun persist(db: MandatDb) {
-        if (!isNew && !changed()) return
+        // One time opened on its own and left as it was stays a part of the repeating event
+        if ((!isNew || detached) && !changed()) return
         val now = System.currentTimeMillis()
         val edited = ua.mandat.data.cleanEvent(current(now)) ?: return keepInInbox(db, matterId, title, place, notes, outcome)
         db.withTransaction {
             val id = if (isNew) db.events().insert(edited.copy(id = 0, createdAt = now)) else edited.id.also { db.events().update(edited) }
             db.events().setPeople(id, people)
             communityId?.let { db.communities().link(ua.mandat.data.CommunityLink(it, ua.mandat.data.LinkKind.EVENT, id)) }
-            // A meeting that has happened is the last contact with the people in it
-            if (edited.day <= Dates.today()) people.forEach { db.people().touchLastContact(it, edited.day) }
+            if (detachFrom != null && detachDay != null) {
+                // The new event stays in the communities of the repeating one, and that one no longer comes on this day
+                db.communities().communitiesOf(ua.mandat.data.LinkKind.EVENT, detachFrom).forEach { c -> db.communities().link(ua.mandat.data.CommunityLink(c, ua.mandat.data.LinkKind.EVENT, id)) }
+                db.events().get(detachFrom)?.let { base -> ua.mandat.data.cleanEvent(ua.mandat.data.Repeats.skipping(base, detachDay))?.let { db.events().update(it) } }
+            }
+            // A meeting that has happened is the last contact with the people in it (for a repeating one, its last time so far)
+            val today = Dates.today()
+            val held = if (edited.repeats) ua.mandat.data.Repeats.starts(edited, today - 400, today).lastOrNull { it <= today } else edited.day.takeIf { it <= today }
+            if (held != null) people.forEach { db.people().touchLastContact(it, held) }
         }
     }
 }

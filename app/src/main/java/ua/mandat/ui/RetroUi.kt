@@ -90,15 +90,15 @@ fun RetroScreen(db: MandatDb, session: Session) {
     val matters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val history by remember(db) { db.history().observeAll().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
     val deadlines by remember(db) { db.deadlines().observeAll().hiding(session, ua.mandat.data.HideRules.DEADLINE) }.collectAsStateWithLifecycle(emptyList())
-    val events by remember(db) { db.events().observeAll().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
+    val events by remember(db) { db.events().observeAll().eachTime().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
     val eventLinks by remember(db) { db.events().observeLinks() }.collectAsStateWithLifecycle(emptyList())
     val entries by remember(db) { db.time().observeAll().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
-    val promises by remember(db) { db.promises().observeAll().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
-    val delegations by remember(db) { db.delegations().observeAll().hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
+    val promises by remember(db) { db.promises().observeAll().own().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
+    val delegations by remember(db) { db.delegations().observeAll().own().hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
     val aid by remember(db) { db.money().observeAid().hiding(session, ua.mandat.data.HideRules.AID) }.collectAsStateWithLifecycle(emptyList())
     val roles by remember(db) { db.roles().observeAll() }.collectAsStateWithLifecycle(emptyList())
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
-    val links by remember(db) { db.people().observeLinks().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
+    val links by remember(db) { db.people().observeLinks().hidingLinks(session) }.collectAsStateWithLifecycle(emptyList())
     val cadence by remember(db) { db.settings().observe(SETTING_CADENCE_START) }.collectAsStateWithLifecycle(null)
     // Diary entries tied to something hidden, or naming it, stay out while it is hidden
     val reviews by remember(db) { db.reviews().observeAll().hidingReviews(session) }.collectAsStateWithLifecycle(emptyList())
@@ -110,6 +110,10 @@ fun RetroScreen(db: MandatDb, session: Session) {
     var reporting by remember { mutableStateOf(false) }
     var reportFrom by remember { mutableStateOf(start) }
     var reportTo by remember { mutableStateOf(today) }
+    // Matters the owner unticked for the report: they and what is tied to them stay out of it
+    var reportSkip by remember { mutableStateOf(emptySet<Long>()) }
+    // A visit is an event tied to a community (the district knows which)
+    val communityLinks by remember(db) { db.communities().observeLinks() }.collectAsStateWithLifecycle(emptyList())
     val span = Span(start, today)
     val titleOf = matters.associate { it.id to it.title }
     val nameOf = people.associate { it.id to it.name }
@@ -165,14 +169,20 @@ fun RetroScreen(db: MandatDb, session: Session) {
                             title = stringResource(R.string.report_title, Dates.format(rs.from), Dates.format(rs.to)),
                             done = stringResource(R.string.report_done), kept = stringResource(R.string.report_kept),
                             meetings = stringResource(R.string.report_meetings), aid = stringResource(R.string.report_aid),
-                            inWork = stringResource(R.string.report_in_work), receptions = stringResource(if (AppMode.mode == ua.mandat.data.Mode.CITIZEN) R.string.report_receptions_citizen else R.string.report_receptions),
+                            inWork = stringResource(R.string.report_in_work), receptions = stringResource(if (AppMode.mode.civic) R.string.report_receptions_citizen else R.string.report_receptions),
                             visits = stringResource(R.string.report_visits), collected = stringResource(R.string.report_collected),
                             note = stringResource(R.string.report_note), currency = stringResource(R.string.currency_uah),
                         )
-                        EditSheet(title = stringResource(forMode(R.string.report_make_title, R.string.report_make_title_plain)), onDismiss = { reporting = false }, onSave = {
+                        // What the report would name: finished in the period, and in focus now (never a sensitive matter)
+                        val reportFinished = remember(rs, matters, history) {
                             val byMatter = history.groupBy { it.matterId }
-                            val finished = matters.filter { m -> Retro.finishedOn(m, byMatter[m.id].orEmpty())?.let { it in rs } == true }.map { it.id }.toSet()
-                            val body = voterReport(heads, rs, matters, finished, promises, events, aid)
+                            matters.filter { m -> Retro.finishedOn(m, byMatter[m.id].orEmpty())?.let { it in rs } == true }.map { it.id }.toSet()
+                        }
+                        val reportDone = matters.filter { !it.sensitive && it.id in reportFinished }
+                        val reportFocus = matters.filter { !it.sensitive && it.id !in reportFinished && ua.mandat.data.MatterStatus.of(it.status) == ua.mandat.data.MatterStatus.ACTIVE && it.attention == ua.mandat.data.Attention.FOCUS.name }
+                        EditSheet(title = stringResource(forMode(R.string.report_make_title, R.string.report_make_title_plain)), onDismiss = { reporting = false }, onSave = {
+                            val tied = communityLinks.filter { it.kind == ua.mandat.data.LinkKind.EVENT }.mapTo(HashSet()) { it.refId }
+                            val body = voterReport(heads, rs, matters, reportFinished, promises, events, aid, skip = reportSkip, communityEvents = tied)
                             reporting = false
                             session.showRetro = false
                             session.showTexts = true
@@ -189,6 +199,18 @@ fun RetroScreen(db: MandatDb, session: Session) {
                                 DueField(reportTo, allowClear = false, label = R.string.report_to) { if (it != null) reportTo = it }
                                 Text(stringResource(R.string.report_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                             }
+                            // Each matter can be left out: with it go its promises, events and aid
+                            listOf(R.string.report_done to reportDone, R.string.report_in_work to reportFocus).forEach { (head, list) ->
+                                if (list.isNotEmpty()) SheetGroup(stringResource(head)) {
+                                    list.forEach { m ->
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().checkRow(m.id !in reportSkip) { on -> reportSkip = if (on) reportSkip - m.id else reportSkip + m.id }) {
+                                            CheckMark(m.id !in reportSkip)
+                                            Text(m.title, style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                    }
+                                }
+                            }
+                            if (reportDone.isNotEmpty() || reportFocus.isNotEmpty()) Text(stringResource(R.string.report_pick_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                         }
                     }
                 }
@@ -309,7 +331,7 @@ fun RetroScreen(db: MandatDb, session: Session) {
                         // Free text naming a hidden matter is left out while it is hidden
                         val hiddenTitles = hidden.names
                         val texts = matters.filter { Dates.dayOf(it.updatedAt) in span || Dates.dayOf(it.createdAt) in span }.map { it.title + " " + it.goal } +
-                            events.filter { it.day in span && !(it.matterId == null && namesAny(ua.mandat.data.HideRules.EVENT.text(it), hiddenTitles)) }.map { it.title + " " + it.outcome } +
+                            events.filter { it.day in span && !hidden.tied(null, it.id) && !(it.matterId == null && namesAny(ua.mandat.data.HideRules.EVENT.text(it), hiddenTitles)) }.map { it.title + " " + it.outcome } +
                             reviews.filter { it.day in span }.map { it.progress }.filter { p -> !namesAny(p, hiddenTitles) } +
                             infoItems.filter { it.day in span && !(it.matterId == null && namesAny(ua.mandat.data.HideRules.INFO.text(it), hiddenTitles)) }.map { it.title }
                         ua.mandat.data.Words.top(texts, 30)
@@ -450,13 +472,16 @@ class ReportHeads(val title: String, val done: String, val kept: String, val mee
  * A first draft of a report to voters for [span]: titles of matters completed, public promises
  * kept, receptions and visits, aid organised, and what is in focus now. Sensitive matters and
  * everything tied to them, private promises and working notes (goals, next steps) are left out;
- * promise texts are the owner's own words, so the draft asks to check them before sharing.
+ * so are the matters the owner unticked ([skip]) with what is tied to them. A visit is an event
+ * tied to a community ([communityEvents]) other than a reception or a phone call, or a trip.
+ * Promise texts are the owner's own words, so the draft asks to check them before sharing.
  */
 fun voterReport(h: ReportHeads, span: Span, matters: List<ua.mandat.data.Matter>, finished: Set<Long>, promises: List<ua.mandat.data.Promise>,
-                events: List<ua.mandat.data.Event>, aid: List<ua.mandat.data.AidRecord>): String = buildString {
-    val sensitive = matters.filter { it.sensitive }.map { it.id }.toSet()
+                events: List<ua.mandat.data.Event>, aid: List<ua.mandat.data.AidRecord>,
+                skip: Set<Long> = emptySet(), communityEvents: Set<Long> = emptySet()): String = buildString {
+    val sensitive = matters.filter { it.sensitive }.map { it.id }.toSet() + skip
     fun ok(matterId: Long?) = matterId == null || matterId !in sensitive
-    val open = matters.filter { !it.sensitive }
+    val open = matters.filter { it.id !in sensitive }
     append("# ").append(h.title).append("\n\n")
     append("[").append(h.note).append("]\n\n")
     val done = open.filter { it.id in finished }
@@ -465,7 +490,7 @@ fun voterReport(h: ReportHeads, span: Span, matters: List<ua.mandat.data.Matter>
         done.forEach { m -> append("- ").append(m.title).append("\n") }
         append("\n")
     }
-    val kept = promises.filter { it.isPublic && ok(it.matterId) && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.DONE && it.closedAt != null && Dates.dayOf(it.closedAt) in span }
+    val kept = promises.filter { it.isPublic && !it.incoming && ok(it.matterId) && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.DONE && it.closedAt != null && Dates.dayOf(it.closedAt) in span }
     if (kept.isNotEmpty()) {
         append("## ").append(h.kept).append("\n")
         kept.forEach { append("- ").append(it.what).append("\n") }
@@ -473,7 +498,7 @@ fun voterReport(h: ReportHeads, span: Span, matters: List<ua.mandat.data.Matter>
     }
     val inSpan = events.filter { it.day in span && ok(it.matterId) }
     val receptions = inSpan.count { it.kind == ua.mandat.data.EventKind.RECEPTION.name }
-    val visits = inSpan.count { it.kind == ua.mandat.data.EventKind.TRIP.name }
+    val visits = inSpan.count { it.kind != ua.mandat.data.EventKind.RECEPTION.name && (it.kind == ua.mandat.data.EventKind.TRIP.name || (it.id in communityEvents && it.kind != ua.mandat.data.EventKind.CALL.name)) }
     if (receptions + visits > 0) {
         append("## ").append(h.meetings).append("\n")
         if (receptions > 0) append("- ").append(h.receptions).append(": ").append(receptions).append("\n")
