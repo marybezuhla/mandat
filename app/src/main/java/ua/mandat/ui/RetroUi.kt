@@ -184,7 +184,8 @@ fun RetroScreen(db: MandatDb, session: Session) {
                         val reportOther = remember(rs, matters, promises, events, aid, reportDone, reportFocus) {
                             val listed = (reportDone + reportFocus).mapTo(HashSet()) { it.id }
                             val giving = promises.filter { it.isPublic && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.DONE && it.closedAt != null && Dates.dayOf(it.closedAt) in rs }.mapNotNull { it.matterId } +
-                                events.filter { it.day in rs }.mapNotNull { it.matterId } + aid.filter { it.day in rs && it.collected }.map { it.matterId }
+                                // (only what has happened: the report counts no date still ahead)
+                                events.filter { it.day in rs && it.day <= today }.mapNotNull { it.matterId } + aid.filter { it.day in rs && it.collected }.map { it.matterId }
                             matters.filter { !it.sensitive && it.id !in listed && it.id in giving }
                         }
                         // People trip mode would hide never get into a text meant for everyone, whether it is on or not
