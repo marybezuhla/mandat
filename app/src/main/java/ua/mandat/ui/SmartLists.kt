@@ -113,20 +113,22 @@ fun SmartListScreen(db: MandatDb, session: Session, list: SmartList) {
     val otherMatters = stringResource(R.string.other_matters)
     fun open(m: Matter) { session.draft = MatterDraft(EditRequest(m, isNew = false)) }
 
+    // What others owe the owner: what the owner handed out and what was promised to the owner.
+    // What the owner owes: the owner's own promises and what was handed to the owner.
+    class Owed(val matterId: Long?, val due: Long?, val row: @Composable () -> Unit)
+    fun owed(toOwner: Boolean): List<Owed> =
+        delegations.filter { TaskStatus.of(it.status) == TaskStatus.OPEN && it.incoming != toOwner }
+            .map { d -> Owed(d.matterId, d.due) { DelegationRow(d, d.personId?.let(nameOf::get), null, session) } } +
+            promises.filter { TaskStatus.of(it.status) == TaskStatus.OPEN && it.incoming == toOwner }
+                .map { p -> Owed(p.matterId, p.due) { PromiseRow(p, p.personId?.let(nameOf::get), null, session) } }
+    fun byMatter(items: List<Owed>): List<Pair<String, List<@Composable () -> Unit>>> =
+        items.groupBy { it.matterId }.toList().sortedBy { (id, _) -> id == null }
+            .map { (id, rows) -> (id?.let(titleOf::get) ?: noMatter) to rows.sortedWith(compareBy({ it.due == null }, { it.due })).map { it.row } }
+
     // (title, rows) groups for this list
     val groups: List<Pair<String, List<@Composable () -> Unit>>> = when (list) {
-        SmartList.WAITING -> delegations.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }
-            .groupBy { it.matterId }.toList().sortedBy { (id, _) -> id == null }
-            .map { (id, ds) ->
-                (id?.let(titleOf::get) ?: noMatter) to ds.sortedWith(compareBy({ it.due == null }, { it.due }))
-                    .map { d -> @Composable { DelegationRow(d, d.personId?.let(nameOf::get), null, session) } }
-            }
-        SmartList.PROMISES -> promises.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }
-            .groupBy { it.matterId }.toList().sortedBy { (id, _) -> id == null }
-            .map { (id, ps) ->
-                (id?.let(titleOf::get) ?: noMatter) to ps.sortedWith(compareBy({ it.due == null }, { it.due }))
-                    .map { p -> @Composable { PromiseRow(p, p.personId?.let(nameOf::get), null, session) } }
-            }
+        SmartList.WAITING -> byMatter(owed(toOwner = true))
+        SmartList.PROMISES -> byMatter(owed(toOwner = false))
         SmartList.NEXT -> listOf(Attention.FOCUS, Attention.BACKGROUND).map { a ->
             stringResource(a.label()) to active.filter { it.attention == a.name && it.nextStep.isNotBlank() }
                 .map { m -> @Composable { MatterLine(m, roleNames[m.roleId]) { open(m) } } }

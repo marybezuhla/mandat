@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -101,8 +100,8 @@ fun AiSection(session: Session) {
                 androidx.compose.material3.Button(onClick = { open(ModelStore.E2B_DOWNLOAD) }) { Text(stringResource(R.string.ai_download)) }
                 OutlinedButton(onClick = { session.pickingFile = true; picker.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.ai_import)) }
                 TextButton(onClick = { open(ModelStore.E2B_PAGE) }) { Text(stringResource(R.string.ai_open_page)) }
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { deleteOriginal = !deleteOriginal }) {
-                    Checkbox(checked = deleteOriginal, onCheckedChange = { deleteOriginal = it })
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.checkRow(deleteOriginal) { deleteOriginal = it }) {
+                    CheckMark(deleteOriginal)
                     Text(stringResource(R.string.ai_delete_original), style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -323,7 +322,7 @@ fun AiRow(session: Session, task: LocalAi.Task, facts: suspend () -> String, onU
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("$AI_MARK $name", style = MaterialTheme.typography.labelLarge, color = AiViolet, modifier = Modifier.weight(1f))
-            Text("›", style = MaterialTheme.typography.titleMedium, color = AiViolet)
+            Text("›", style = MaterialTheme.typography.titleMedium, color = AiViolet, modifier = Modifier.decorative())
         }
         AiResult(run, onUse, useText)
     }
@@ -389,8 +388,8 @@ private fun PickList(picks: List<Pick>, matcher: Matcher, source: ((Pick) -> Str
     QuickChip(stringResource(R.string.ai_tick_all), false) { picks.forEach { it.on = true } }
     picks.forEach { p ->
         val f = p.found
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { p.on = !p.on }) {
-            Checkbox(checked = p.on, onCheckedChange = { p.on = it })
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().checkRow(p.on) { p.on = it }) {
+            CheckMark(p.on)
             Column(Modifier.weight(1f)) {
                 source?.invoke(p)?.let { Text("«$it»", style = MaterialTheme.typography.labelSmall, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 Text(f.text, style = MaterialTheme.typography.bodyMedium)
@@ -524,19 +523,25 @@ fun InboxSortSheet(db: ua.mandat.data.MandatDb, session: Session, onClose: () ->
 suspend fun briefFacts(db: ua.mandat.data.MandatDb, session: Session, personId: Long): String {
     val hidden = session.hiddenMatters.value
     fun ok(id: Long?) = id == null || id !in hidden
-    val p = db.people().all().firstOrNull { it.id == personId } ?: return ""
+    val shown = session.hidden.value
+    val p = db.people().all().firstOrNull { it.id == personId && !shown.person(it) } ?: return ""
     val named = db.namesHidden(session)
-    fun free(id: Long?, text: String) = ok(id) && !(id == null && named(text))
+    // (a record that names a hidden person in its words stays out, whatever matter it belongs to)
+    fun free(id: Long?, text: String) = ok(id) && !(id == null && named(text)) && !shown.personWords.named(text)
     val matters = db.people().observeMattersOf(personId).first().filter { ok(it.matterId) }
     val promises = db.promises().observeForPerson(personId).first().filter { free(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.OPEN }
     val asked = db.delegations().observeForPerson(personId).first().filter { free(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.OPEN }
-    val events = db.events().observeForPerson(personId).first().filter { free(it.matterId, ua.mandat.data.HideRules.EVENT.text(it)) }.sortedByDescending { it.day }.take(5)
+    // (a meeting that someone hidden also takes part in stays out)
+    val events = db.events().observeForPerson(personId).first().filter { !shown.tied(null, it.id) && free(it.matterId, ua.mandat.data.HideRules.EVENT.text(it)) }.map { ua.mandat.data.Repeats.near(it, Dates.today()) }.sortedByDescending { it.day }.take(5)
     return buildString {
         append("Людина: ").append(p.name).append(". ").append(listOf(p.jobTitle, p.organization).filter { it.isNotBlank() }.joinToString(", ")).append("\n")
         if (p.notes.isNotBlank() && !named(p.notes)) append("Нотатки: ").append(p.notes.take(800)).append("\n")
         if (matters.isNotEmpty()) append("Спільні справи: ").append(matters.joinToString("; ") { it.title + (it.stance?.let { s -> " (позиція: $s)" } ?: "") }).append("\n")
-        if (promises.isNotEmpty()) append("Ми обіцяли: ").append(promises.joinToString("; ") { it.what }).append("\n")
-        if (asked.isNotEmpty()) append("Ми доручили цій людині: ").append(asked.joinToString("; ") { it.what }).append("\n")
+        // Each direction under its own heading: who owes whom
+        promises.filter { !it.incoming }.takeIf { it.isNotEmpty() }?.let { l -> append("Ми обіцяли: ").append(l.joinToString("; ") { it.what }).append("\n") }
+        promises.filter { it.incoming }.takeIf { it.isNotEmpty() }?.let { l -> append("Ця людина обіцяла нам: ").append(l.joinToString("; ") { it.what }).append("\n") }
+        asked.filter { !it.incoming }.takeIf { it.isNotEmpty() }?.let { l -> append("Ми доручили цій людині: ").append(l.joinToString("; ") { it.what }).append("\n") }
+        asked.filter { it.incoming }.takeIf { it.isNotEmpty() }?.let { l -> append("Ця людина доручила нам: ").append(l.joinToString("; ") { it.what }).append("\n") }
         if (events.isNotEmpty()) append("Зустрічі: ").append(events.joinToString("; ") { factDate(it.day) + " " + it.title + (it.outcome.takeIf { o -> o.isNotBlank() }?.let { o -> " — $o" } ?: "") }).append("\n")
     }
 }

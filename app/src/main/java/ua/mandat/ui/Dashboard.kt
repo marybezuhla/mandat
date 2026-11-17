@@ -63,8 +63,8 @@ import java.time.format.DateTimeFormatter
 fun Dashboard(db: MandatDb, session: Session) {
     val roles by remember(db) { db.roles().observeAll() }.collectAsStateWithLifecycle(emptyList())
     val matters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
-    val promises by remember(db) { db.promises().observeAll().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
-    val delegations by remember(db) { db.delegations().observeAll().hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
+    val promises by remember(db) { db.promises().observeAll().own().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
+    val delegations by remember(db) { db.delegations().observeAll().own().hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
     val deadlines by remember(db) { db.deadlines().observeAll().hiding(session, ua.mandat.data.HideRules.DEADLINE) }.collectAsStateWithLifecycle(emptyList())
     val reviews by remember(db) { db.reviews().observeAll().hidingReviews(session) }.collectAsStateWithLifecycle(emptyList())
     val cadenceSetting by remember(db) { db.settings().observe(SETTING_CADENCE_START) }.collectAsStateWithLifecycle(null)
@@ -131,7 +131,7 @@ fun Dashboard(db: MandatDb, session: Session) {
                     Text(stringResource(R.string.graph_title), style = MaterialTheme.typography.titleSmall)
                     Text(stringResource(R.string.graph_card_hint), style = MaterialTheme.typography.labelMedium, color = Muted)
                 }
-                Text("→", color = MaterialTheme.colorScheme.primary)
+                Text("→", color = MaterialTheme.colorScheme.primary, modifier = Modifier.decorative())
             }
         }
         MCard(onClick = { session.showRetro = true }) {
@@ -140,7 +140,7 @@ fun Dashboard(db: MandatDb, session: Session) {
                     Text(stringResource(R.string.retro_title), style = MaterialTheme.typography.titleSmall)
                     Text(stringResource(R.string.retro_card_hint), style = MaterialTheme.typography.labelMedium, color = Muted)
                 }
-                Text("→", color = MaterialTheme.colorScheme.primary)
+                Text("→", color = MaterialTheme.colorScheme.primary, modifier = Modifier.decorative())
             }
         }
         // A short summary of the period by the on-device AI, from the same numbers and titles (only a suggestion)

@@ -4,9 +4,11 @@ on:
   push:
     branches: [main]
     # Only documents changed: nothing to build or release.
-    paths-ignore: ["**.md", "LICENSE"]
+    # (texts and pictures for app catalogues are not part of the app: changing them is not a release)
+    paths-ignore: ["**.md", "LICENSE", "fastlane/**"]
   pull_request:
-    paths-ignore: ["**.md", "LICENSE"]
+    # (texts and pictures for app catalogues are not part of the app: changing them is not a release)
+    paths-ignore: ["**.md", "LICENSE", "fastlane/**"]
   workflow_dispatch:
 
 # Nothing gets write access unless a job asks for it below

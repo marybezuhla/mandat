@@ -181,11 +181,13 @@ object PhoneCalendar {
      * Hands an event to the phone's calendar app to add (no permission needed). Only the title,
      * time and place leave Mandat; notes, people and the outcome stay inside.
      */
-    fun addToPhone(context: Context, title: String, day: Long, endDay: Long?, startMin: Int?, endMin: Int?, place: String) {
+    fun addToPhone(context: Context, title: String, day: Long, endDay: Long?, startMin: Int?, endMin: Int?, place: String, rrule: String? = null) {
         val zone = ZoneId.systemDefault()
         val intent = Intent(Intent.ACTION_INSERT, CalendarContract.Events.CONTENT_URI)
             .putExtra(CalendarContract.Events.TITLE, title)
         if (place.isNotBlank()) intent.putExtra(CalendarContract.Events.EVENT_LOCATION, place)
+        // How it repeats, as calendars write it
+        if (rrule != null) intent.putExtra(CalendarContract.Events.RRULE, rrule)
         if (startMin == null) {
             intent.putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, true)
             intent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, LocalDate.ofEpochDay(day).atStartOfDay(zone).toInstant().toEpochMilli())

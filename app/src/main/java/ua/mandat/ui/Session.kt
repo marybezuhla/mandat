@@ -231,16 +231,49 @@ class Session(app: Application) : AndroidViewModel(app) {
         write(onFail = { if (eventDraft == null) eventDraft = d }) { d.persist(it) }
     }
 
-    /** Opens an event in its dialog, with the people taking part. */
-    fun openEvent(id: Long) {
+    /** At the first start the owner has already said who they are (kept here, so a lock in between does not ask again). */
+    var firstModeChosen by mutableStateOf(false)
+
+    /** A repeating event was tapped on one of its days: the owner is asked whether this time or every time is meant. */
+    class EventChoice(val event: ua.mandat.data.Event, val people: Set<Long>, val day: Long)
+    var eventChoice by mutableStateOf<EventChoice?>(null)
+
+    /**
+     * Opens an event in its dialog, with the people taking part. For a repeating event tapped on
+     * the [day] of one of its times, first asks what is meant: this time or all of them.
+     */
+    fun openEvent(id: Long, day: Long? = null) {
         val startedAt = generation
         background.launch {
             val found = withOpenDb { db -> db.events().get(id)?.let { it to db.events().peopleOf(id).toSet() } }
             withContext(Dispatchers.Main) {
                 if (found != null && startedAt == generation && state is LockState.Open && !isHidden(found.first.matterId) &&
-                    !hidden.value.hides(ua.mandat.data.HideRules.EVENT, found.first)) eventDraft = EventDraft(found.first, isNew = false, found.second)
+                    !hidden.value.hides(ua.mandat.data.HideRules.EVENT, found.first)) {
+                    val e = found.first
+                    if (day != null && e.repeats && ua.mandat.data.Repeats.starts(e, day, day).contains(day)) eventChoice = EventChoice(e, found.second, day)
+                    else eventDraft = EventDraft(e, isNew = false, found.second)
+                }
             }
         }
+    }
+
+    /** The whole repeating event, to change every time of it. */
+    fun openEventSeries(c: EventChoice) {
+        eventChoice = null
+        eventDraft = EventDraft(c.event, isNew = false, c.people)
+    }
+
+    /** One time of a repeating event as an event of its own (saved only when something in it is changed). */
+    fun openEventTime(c: EventChoice) {
+        eventChoice = null
+        val one = ua.mandat.data.Repeats.at(c.event, c.day).copy(id = 0, repeat = null, repeatUntil = null, skipDays = "", outcome = "")
+        eventDraft = EventDraft(one, isNew = true, c.people, detachFrom = c.event.id, detachDay = c.day)
+    }
+
+    /** A repeating event does not come on this one day. */
+    fun skipEventTime(c: EventChoice) {
+        eventChoice = null
+        write { db -> db.events().get(c.event.id)?.let { base -> ua.mandat.data.cleanEvent(ua.mandat.data.Repeats.skipping(base, c.day))?.let { db.events().update(it) } } }
     }
 
     /** Matters kept off the screen in trip mode (ids only); worked out before the screens open. */
@@ -255,9 +288,10 @@ class Session(app: Application) : AndroidViewModel(app) {
     private suspend fun computeHidden(db: MandatDb): Pair<Boolean, Hidden> {
         val on = db.settings().get(ua.mandat.ui.SETTING_TRIP)?.value == "1"
         val trip = if (on) db.matters().sensitiveIds().toSet() else emptySet()
+        val marked = if (on) db.people().sensitiveIds().toSet() else emptySet()
         val lens = lensRole.value?.let { db.matters().outsideRole(it).toSet() } ?: emptySet()
         val since = tripSince(db.settings().get(SETTING_TRIP_SINCE)?.value)
-        return on to observeHidden(db, trip + lens, byName = trip, since = since).first()
+        return on to observeHidden(db, trip + lens, byName = trip, since = since, marked = marked).first()
     }
 
     /** Sets what is hidden: the matters and everything worked out from them, in one step. */
@@ -445,10 +479,8 @@ class Session(app: Application) : AndroidViewModel(app) {
         val today = Dates.today()
         // What trip mode hides gives no reminder either: a reminder with nothing to show would tell.
         // Only trip mode counts here, never the lens: looking through one role keeps the others' reminders
-        val sensitive = if (tripNow) db.matters().sensitiveIds().toSet() else emptySet()
-        val names = if (sensitive.isEmpty()) ua.mandat.data.HiddenNames.NONE
-            else ua.mandat.data.HiddenNames(db.matters().observeAllTitles().first().filter { it.id in sensitive }.map { it.title })
-        val h = Hidden(sensitive, emptySet(), emptySet(), emptySet(), names)
+        val h = if (!tripNow) Hidden.NONE
+            else observeHidden(db, db.matters().sensitiveIds().toSet(), marked = db.people().sensitiveIds().toSet()).first()
         val days = reminderDays(
             db.deadlines().open().filterNot { h.hides(ua.mandat.data.HideRules.DEADLINE, it) },
             db.delegations().open().filterNot { h.hides(ua.mandat.data.HideRules.DELEGATION, it) },
@@ -623,46 +655,105 @@ class Session(app: Application) : AndroidViewModel(app) {
     // generation (the owner already left the app) is closed straight away.
     @Volatile private var generation = 0
     private val writes = Mutex()
-    /** The automatic copy being written (or written last), shared by closing and "copy now". */
-    @Volatile private var autoJob: kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result>? = null
-
-    /** Writes prepared encrypted bytes to the folder, without the database. */
+    /** Sends a prepared encrypted copy to the folder, without the database. */
     fun startAutoWrite(p: ua.mandat.backup.AutoBackup.Prepared, lazy: Boolean = false): kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result> =
         background.async(start = if (lazy) kotlinx.coroutines.CoroutineStart.LAZY else kotlinx.coroutines.CoroutineStart.DEFAULT) {
             ua.mandat.backup.AutoBackup.writePrepared(getApplication(), p)
-        }.also { autoJob = it }
+        }.also {
+            autoJob = it
+            // (for a copy picked up again after a stop: when it was first picked up, see AutoBackup.waiting)
+            autoStartedAt = if (p.resumed) p.file.lastModified() else 0L
+        }
 
     /**
      * Records a pending automatic copy. Folder work happens outside the lock and is bounded in
      * time, so a stuck folder never holds the database. Returns true if a copy was accepted,
      * false if it failed, null if it is still being written (tried again next time).
      */
-    suspend fun reconcileAuto(db: MandatDb): Boolean? {
+    suspend fun reconcileAuto(db: MandatDb): Boolean? = autoSettling.withLock { settleAuto(db) }
+
+    /** One at a time in the whole process ([autoSettling]): two callers must never send or record the same copy. */
+    private suspend fun settleAuto(db: MandatDb): Boolean? {
         val auto = ua.mandat.backup.AutoBackup
         val app = getApplication<Application>()
+        // "Stuck for a day" counts from when the copy was prepared or, for one that waited through a
+        // stop of Mandat, from when it was first picked up again: a copy that waited over a weekend
+        // is not stuck the moment it is sent at last, and a folder that never answers is still said
+        fun stuck(info: ua.mandat.backup.AutoBackup.PendingInfo) =
+            System.currentTimeMillis() - maxOf(info.createdAt, autoStartedAt) > AUTO_STUCK_MS
+        // (once a copy is recorded either way, what waited under its name is of no use)
+        fun dropWaiting(info: ua.mandat.backup.AutoBackup.PendingInfo) {
+            try { ua.mandat.backup.BackupFile.waiting(app, info.name).delete() } catch (e: Exception) { }
+        }
         // Old copies that were chosen for removal but not yet removed (Mandat stopped meanwhile)
         val leftovers = writes.withLock { if (db.isOpen) try { auto.toDelete(db) } catch (e: Exception) { null } else null }
         if (!leftovers.isNullOrEmpty()) finishDeleting(db, leftovers)
         val info = writes.withLock { if (db.isOpen) try { auto.pendingInfo(db) } catch (e: Exception) { null } else null } ?: return null
         val job = autoJob
-        val result = if (job == null) null else withTimeoutOrNull(AUTO_WAIT_MS) { job.await() }
+        var result = if (job == null) null else withTimeoutOrNull(AUTO_WAIT_MS) { job.await() }
         if (job != null && result == null) {
-            info.key?.fill(0)
+            info.key?.wipe()
             // Still being written: try again next time, unless the folder has not answered for a day
-            if (System.currentTimeMillis() - info.createdAt > AUTO_STUCK_MS) {
+            if (stuck(info)) {
                 writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
+                dropWaiting(info)
                 return false
             }
             return null
         }
+        if (result?.name != info.name && auto.inHand(info.name)) {
+            // This process holds the copy, but its sending is not the one known here: tried again next time
+            info.key?.wipe()
+            if (stuck(info)) {
+                writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
+                dropWaiting(info)
+                return false
+            }
+            return null
+        }
+        if (result?.name != info.name) {
+            // No sending of this copy is known here: Mandat was stopped before it left for the folder.
+            // If it still waits whole in Mandat's own storage, it is sent now. (Only Mandat's own
+            // storage is read here, so there is nothing to wait for and no time limit.)
+            val waiting = try {
+                kotlinx.coroutines.withContext(Dispatchers.IO) { auto.waiting(app, info) }
+            } catch (e: Exception) {
+                null
+            }
+            if (waiting != null) {
+                val sending = startAutoWrite(waiting)
+                result = withTimeoutOrNull(AUTO_WAIT_MS) { sending.await() }
+                if (result == null) {
+                    // Still on its way: recorded next time, or said after a day
+                    info.key?.wipe()
+                    if (stuck(info)) {
+                        writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
+                        dropWaiting(info)
+                        return false
+                    }
+                    return null
+                }
+            }
+        }
+        val known = result
         val checked = withTimeoutOrNull(AUTO_WAIT_MS) {
-            background.async { auto.check(app, info, result) }.await()
-        } ?: return null
+            background.async { auto.check(app, info, known) }.await()
+        }
+        if (checked == null) {
+            // The folder did not answer in time: tried again next time, and said after a day like the cases above
+            if (stuck(info)) {
+                writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
+                dropWaiting(info)
+                return false
+            }
+            return null
+        }
         // The file could not be read just now: leave it pending (never delete a copy for that),
         // but after a day say so, so that automatic backups never stop silently
         if (checked.unknown) {
-            if (System.currentTimeMillis() - info.createdAt > AUTO_STUCK_MS) {
+            if (stuck(info)) {
                 writes.withLock { if (db.isOpen) try { auto.record(db, info, null, auto.REASON_STUCK) } catch (e: Exception) { null } }
+                dropWaiting(info)
                 return false
             }
             return null
@@ -670,6 +761,7 @@ class Session(app: Application) : AndroidViewModel(app) {
         val toDelete = writes.withLock {
             if (db.isOpen) try { auto.record(db, info, checked.accepted) } catch (e: Exception) { null } else null
         } ?: return null
+        dropWaiting(info)
         if (toDelete.isNotEmpty()) finishDeleting(db, toDelete)
         return checked.accepted != null
     }
@@ -932,6 +1024,8 @@ class Session(app: Application) : AndroidViewModel(app) {
         resume = null
         lensRole.value = null
         lastTab = null
+        // The empty Mandat asks again who its owner is
+        firstModeChosen = false
         val closingNow = closing
         background.launch {
             closingNow?.join()
@@ -971,7 +1065,7 @@ class Session(app: Application) : AndroidViewModel(app) {
         // Titles of hidden matters are content: only the numbers stay while locked (worked out again on unlock)
         val hiddenAtLock = hidden.value
         val tripAtLock = tripOn.value
-        hidden.value = Hidden(hiddenAtLock.matters, hiddenAtLock.people, hiddenAtLock.reviews, hiddenAtLock.communities, ua.mandat.data.HiddenNames.NONE)
+        hidden.value = Hidden(hiddenAtLock.matters, hiddenAtLock.people, hiddenAtLock.reviews, hiddenAtLock.communities, ua.mandat.data.HiddenNames.NONE, events = hiddenAtLock.events)
         // Where the owner was: only the tab and the numbers of open cards (never their content),
         // so the same card opens again after unlocking
         // Only an open Mandat leaves a resume point; locking again (screen off after leaving) keeps the one there is
@@ -994,6 +1088,7 @@ class Session(app: Application) : AndroidViewModel(app) {
         val openDeadline = deadlineDraft
         val openEvent = eventDraft
         eventDraft = null
+        eventChoice = null
         val openContact = contactDraft
         contactDraft = null
         val openInfo = infoDraft
@@ -1078,9 +1173,9 @@ class Session(app: Application) : AndroidViewModel(app) {
                                 // Not saved; nothing about the content is logged
                             }
                         }
-                        // Automatic backup, if turned on and due: only encrypted here, written after closing
+                        // Automatic backup, if turned on and due: only encrypted here (into Mandat's own storage), sent to the folder after closing
                         prepared = if (!backup) null else try {
-                            ua.mandat.backup.AutoBackup.prepareIfDue(current.db)
+                            ua.mandat.backup.AutoBackup.prepareIfDue(getApplication(), current.db)
                         } catch (e: Throwable) {
                             null
                         }
@@ -1113,6 +1208,15 @@ class Session(app: Application) : AndroidViewModel(app) {
         /** A larger .vcf is refused (6 000 contacts without photos are a few MB; with photos tens of MB). */
         const val MAX_VCF_BYTES = 50L * 1024 * 1024
         private const val AUTO_WAIT_MS = 30 * 1000L
+        /**
+         * The automatic copy being written (or written last), shared by closing and "copy now".
+         * One for the whole process: the screen may be opened anew while a copy is still on its way.
+         */
+        @Volatile private var autoJob: kotlinx.coroutines.Deferred<ua.mandat.backup.AutoBackup.Result>? = null
+        /** For a copy picked up again after a stop of Mandat: when it was first picked up (0 for any other). */
+        @Volatile private var autoStartedAt = 0L
+        /** Pending copies are settled one at a time, whoever asks (the unlock, "copy now", a restore). */
+        private val autoSettling = Mutex()
         private const val AUTO_STUCK_MS = 24 * 60 * 60 * 1000L
     }
 

@@ -3,6 +3,7 @@ package ua.mandat.ui
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import ua.mandat.data.MandatDb
+import ua.mandat.data.observeRange
 import ua.mandat.data.MatterStatus
 import ua.mandat.data.TaskStatus
 
@@ -11,6 +12,13 @@ import ua.mandat.data.TaskStatus
  * hidden matters (trip mode, lens) and everything tied to them, so nothing hidden ever reaches a
  * prompt. The text stays in memory only.
  */
+
+/**
+ * Tied to a hidden person (trip mode hides the people marked sensitive), or naming one in its own
+ * words, whatever matter it belongs to: such a record reaches no prompt either.
+ */
+private fun <T> Session.tied(rule: ua.mandat.data.HideRule<T>, item: T): Boolean =
+    hidden.value.let { h -> h.tied(rule, item) || h.personWords.named(rule.text(item)) }
 
 private fun MandatDb.hiddenOk(session: Session): (Long?) -> Boolean {
     val hidden = session.hiddenMatters.value
@@ -73,11 +81,11 @@ suspend fun todayFacts(db: MandatDb, session: Session): String {
     val ok = { id: Long?, text: String -> okId(id) && !(id == null && named(text)) }
     val today = Dates.today()
     val names = db.shownNames(session)
-    val dl = db.deadlines().observeOpen().first().filter { ok(it.matterId, ua.mandat.data.HideRules.DEADLINE.text(it)) && it.day <= today + 1 }
-    val dg = db.delegations().observeOpen().first().filter { ok(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && it.due != null && it.due <= today + 1 }
-    val pr = db.promises().observeOpen().first().filter { ok(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) }
+    val dl = db.deadlines().observeOpen().first().filter { !session.tied(ua.mandat.data.HideRules.DEADLINE, it) && ok(it.matterId, ua.mandat.data.HideRules.DEADLINE.text(it)) && it.day <= today + 1 }
+    val dg = db.delegations().observeOpen().first().filter { !session.tied(ua.mandat.data.HideRules.DELEGATION, it) && ok(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && it.due != null && it.due <= today + 1 }
+    val pr = db.promises().observeOpen().first().filter { !session.tied(ua.mandat.data.HideRules.PROMISE, it) && ok(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) }
     val focus = db.matters().observeAll().first().filter { okId(it.id) && it.attention == "FOCUS" && MatterStatus.of(it.status) == MatterStatus.ACTIVE }
-    val events = db.events().observeRange(today, today).first().filter { ok(it.matterId, ua.mandat.data.HideRules.EVENT.text(it)) }.sortedBy { it.startMin ?: -1 }
+    val events = db.events().observeRange(today, today).first().filter { !session.tied(ua.mandat.data.HideRules.EVENT, it) && ok(it.matterId, ua.mandat.data.HideRules.EVENT.text(it)) }.sortedBy { it.startMin ?: -1 }
     val roleOf = db.roleLines()
     val matterRole = db.matters().observeAll().first().associate { it.id to it.roleId }
     return buildString {
@@ -93,15 +101,23 @@ suspend fun todayFacts(db: MandatDb, session: Session): String {
                 if (who.isNotEmpty()) append(" (з: ").append(who.joinToString(", ")).append(")")
                 append("\n")
                 who.forEach { n ->
-                    val promised = pr.filter { p -> p.personId != null && names[p.personId] == n }.take(3)
+                    val promised = pr.filter { p -> !p.incoming && p.personId != null && names[p.personId] == n }.take(3)
                     if (promised.isNotEmpty()) append("  ми обіцяли ").append(n).append(": ").append(promised.joinToString("; ") { it.what }).append("\n")
+                    val owed = pr.filter { p -> p.incoming && p.personId != null && names[p.personId] == n }.take(3)
+                    if (owed.isNotEmpty()) append("  нам обіцяно (").append(n).append("): ").append(owed.joinToString("; ") { it.what }).append("\n")
                 }
             }
         }
         if (dl.isNotEmpty()) append("Строки (сьогодні, завтра чи прострочені): ").append(dl.take(10).joinToString("; ") { it.title + " — " + factDate(it.day) }).append("\n")
-        if (dg.isNotEmpty()) append("Доручення до перевірки: ").append(dg.take(10).joinToString("; ") { it.what + (it.personId?.let(names::get)?.let { n -> " ($n)" } ?: "") }).append("\n")
-        val duePr = pr.filter { it.due != null && it.due <= today + 1 }
-        if (duePr.isNotEmpty()) append("Обіцянки зі строком: ").append(duePr.take(10).joinToString("; ") { it.what }).append("\n")
+        // What the owner handed out and promised, apart from what was handed and promised to the owner
+        val dgOut = dg.filter { !it.incoming }
+        if (dgOut.isNotEmpty()) append("Доручення до перевірки: ").append(dgOut.take(10).joinToString("; ") { it.what + (it.personId?.let(names::get)?.let { n -> " ($n)" } ?: "") }).append("\n")
+        val dgIn = dg.filter { it.incoming }
+        if (dgIn.isNotEmpty()) append("Доручено власникові (виконати самому): ").append(dgIn.take(10).joinToString("; ") { it.what + (it.personId?.let(names::get)?.let { n -> " (доручив(ла): $n)" } ?: "") }).append("\n")
+        val duePr = pr.filter { !it.incoming && it.due != null && it.due <= today + 1 }
+        if (duePr.isNotEmpty()) append("Обіцянки власника зі строком: ").append(duePr.take(10).joinToString("; ") { it.what }).append("\n")
+        val duePrIn = pr.filter { it.incoming && it.due != null && it.due <= today + 1 }
+        if (duePrIn.isNotEmpty()) append("Обіцяно власникові (чекає від інших): ").append(duePrIn.take(10).joinToString("; ") { it.what + (it.personId?.let(names::get)?.let { n -> " ($n)" } ?: "") }).append("\n")
         if (focus.isNotEmpty()) append("У фокусі: ").append(focus.joinToString("; ") { it.title + (it.nextStep.takeIf { n -> n.isNotBlank() }?.let { n -> " (далі: $n)" } ?: "") }).append("\n")
     }
 }
@@ -113,17 +129,17 @@ suspend fun eveningFacts(db: MandatDb, session: Session): String {
     val ok = { id: Long?, text: String -> okId(id) && !(id == null && named(text)) }
     val today = Dates.today()
     fun closedToday(ms: Long?) = ms != null && Dates.dayOf(ms) == today
-    val events = db.events().observeRange(today, today).first().filter { ok(it.matterId, ua.mandat.data.HideRules.EVENT.text(it)) }
-    val dl = db.deadlines().observeAll().first().filter { ok(it.matterId, ua.mandat.data.HideRules.DEADLINE.text(it)) && TaskStatus.of(it.status) == TaskStatus.DONE && closedToday(it.closedAt) }
-    val dg = db.delegations().observeAll().first().filter { ok(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && (closedToday(it.closedAt) || closedToday(it.createdAt)) }
-    val pr = db.promises().observeAll().first().filter { ok(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) && (closedToday(it.closedAt) || closedToday(it.createdAt)) }
+    val events = db.events().observeRange(today, today).first().filter { !session.tied(ua.mandat.data.HideRules.EVENT, it) && ok(it.matterId, ua.mandat.data.HideRules.EVENT.text(it)) }
+    val dl = db.deadlines().observeAll().first().filter { !session.tied(ua.mandat.data.HideRules.DEADLINE, it) && ok(it.matterId, ua.mandat.data.HideRules.DEADLINE.text(it)) && TaskStatus.of(it.status) == TaskStatus.DONE && closedToday(it.closedAt) }
+    val dg = db.delegations().observeAll().first().filter { !session.tied(ua.mandat.data.HideRules.DELEGATION, it) && ok(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && (closedToday(it.closedAt) || closedToday(it.createdAt)) }
+    val pr = db.promises().observeAll().first().filter { !session.tied(ua.mandat.data.HideRules.PROMISE, it) && ok(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) && (closedToday(it.closedAt) || closedToday(it.createdAt)) }
     val moved = db.matters().observeAll().first().filter { okId(it.id) && Dates.dayOf(it.updatedAt) == today }
     return buildString {
         append("День ").append(factDate(today)).append(".\n")
         if (events.isNotEmpty()) append("Події: ").append(events.joinToString("; ") { it.title + (it.outcome.takeIf { o -> o.isNotBlank() }?.let { o -> " — $o" } ?: "") }).append("\n")
         if (dl.isNotEmpty()) append("Виконані строки: ").append(dl.joinToString("; ") { it.title }).append("\n")
-        if (dg.isNotEmpty()) append("Доручення (дано чи виконано): ").append(dg.joinToString("; ") { it.what }).append("\n")
-        if (pr.isNotEmpty()) append("Обіцянки (дано чи виконано): ").append(pr.joinToString("; ") { it.what }).append("\n")
+        if (dg.isNotEmpty()) append("Доручення (дано чи виконано): ").append(dg.joinToString("; ") { it.what + if (it.incoming) " (доручено власникові)" else "" }).append("\n")
+        if (pr.isNotEmpty()) append("Обіцянки (дано чи виконано): ").append(pr.joinToString("; ") { it.what + if (it.incoming) " (обіцяно власникові)" else "" }).append("\n")
         if (moved.isNotEmpty()) append("Справи, що рухались: ").append(moved.joinToString("; ") { it.title }).append("\n")
     }
 }
@@ -134,10 +150,11 @@ suspend fun matterFacts(db: MandatDb, session: Session, matterId: Long): String 
     val m = db.matters().get(matterId) ?: return ""
     val names = db.shownNames(session)
     val people = db.people().observeForMatter(matterId).first().filter { it.personId in names }
-    val dl = db.deadlines().observeForMatter(matterId).first()
-    val dg = db.delegations().observeForMatter(matterId).first()
-    val pr = db.promises().observeForMatter(matterId).first()
-    val ev = db.events().observeForMatter(matterId).first().sortedByDescending { it.day }.take(6)
+    val dl = db.deadlines().observeForMatter(matterId).first().filterNot { session.tied(ua.mandat.data.HideRules.DEADLINE, it) }
+    // What is tied to a hidden person stays out, also in a matter that is in view
+    val dg = db.delegations().observeForMatter(matterId).first().filterNot { session.tied(ua.mandat.data.HideRules.DELEGATION, it) }
+    val pr = db.promises().observeForMatter(matterId).first().filterNot { session.tied(ua.mandat.data.HideRules.PROMISE, it) }
+    val ev = db.events().observeForMatter(matterId).first().filterNot { session.tied(ua.mandat.data.HideRules.EVENT, it) }.map { ua.mandat.data.Repeats.near(it, Dates.today()) }.sortedByDescending { it.day }.take(6)
     return buildString {
         append("Справа: ").append(m.title).append("\n")
         m.roleId?.let { db.roleLines()[it] }?.let { append("Роль: ").append(it).append("\n") }
@@ -147,8 +164,8 @@ suspend fun matterFacts(db: MandatDb, session: Session, matterId: Long): String 
         append("У роботі днів: ").append((Dates.today() - Dates.dayOf(m.createdAt)).coerceAtLeast(0)).append("\n")
         if (people.isNotEmpty()) append("Люди: ").append(people.joinToString("; ") { it.name + (it.stance?.let { s -> " ($s)" } ?: "") }).append("\n")
         if (dl.isNotEmpty()) append("Строки: ").append(dl.joinToString("; ") { it.title + " " + factDate(it.day) + " " + it.status }).append("\n")
-        if (dg.isNotEmpty()) append("Доручення: ").append(dg.joinToString("; ") { it.what + (it.personId?.let(names::get)?.let { n -> " — $n" } ?: "") + " " + it.status }).append("\n")
-        if (pr.isNotEmpty()) append("Обіцянки: ").append(pr.joinToString("; ") { it.what + " " + it.status }).append("\n")
+        if (dg.isNotEmpty()) append("Доручення: ").append(dg.joinToString("; ") { it.what + (it.personId?.let(names::get)?.let { n -> " — $n" } ?: "") + (if (it.incoming) " (доручено власникові)" else "") + " " + it.status }).append("\n")
+        if (pr.isNotEmpty()) append("Обіцянки: ").append(pr.joinToString("; ") { it.what + (if (it.incoming) " (обіцяно власникові)" else "") + " " + it.status }).append("\n")
         if (ev.isNotEmpty()) append("Останні події: ").append(ev.joinToString("; ") { factDate(it.day) + " " + it.title + (it.outcome.takeIf { o -> o.isNotBlank() }?.let { o -> " — $o" } ?: "") }).append("\n")
     }
 }
@@ -157,7 +174,7 @@ suspend fun matterFacts(db: MandatDb, session: Session, matterId: Long): String 
 suspend fun attackFacts(db: MandatDb, session: Session, infoId: Long): String {
     val ok = db.hiddenOk(session)
     val named = db.namesHidden(session)
-    val item = db.info().observeAll().first().firstOrNull { it.id == infoId && ok(it.matterId) && !(it.matterId == null && named(ua.mandat.data.HideRules.INFO.text(it))) } ?: return ""
+    val item = db.info().observeAll().first().firstOrNull { it.id == infoId && !session.tied(ua.mandat.data.HideRules.INFO, it) && ok(it.matterId) && !(it.matterId == null && named(ua.mandat.data.HideRules.INFO.text(it))) } ?: return ""
     return buildString {
         append("Що сталося: ").append(item.title).append("\n")
         if (item.source.isNotBlank()) append("Джерело: ").append(item.source).append("\n")
@@ -176,7 +193,7 @@ suspend fun weekFacts(db: MandatDb, session: Session): String {
     val done = matters.filter { MatterStatus.of(it.status) == MatterStatus.DONE && Dates.dayOf(it.updatedAt) in span }
     val stuck = matters.filter { ua.mandat.data.isStale(it, today) }
     val named = db.namesHidden(session)
-    val due = db.deadlines().observeAll().first().filter { ok(it.matterId) && !(it.matterId == null && named(ua.mandat.data.HideRules.DEADLINE.text(it))) && it.day in span }
+    val due = db.deadlines().observeAll().first().filter { !session.tied(ua.mandat.data.HideRules.DEADLINE, it) && ok(it.matterId) && !(it.matterId == null && named(ua.mandat.data.HideRules.DEADLINE.text(it))) && it.day in span }
     return buildString {
         append("Тиждень ").append(factDate(span.from)).append(" – ").append(factDate(span.to)).append("\n")
         if (moved.isNotEmpty()) append("Рухались: ").append(moved.take(12).joinToString("; ") { it.title + (it.nextStep.takeIf { n -> n.isNotBlank() }?.let { n -> " (далі: $n)" } ?: "") }).append("\n")
@@ -226,10 +243,12 @@ suspend fun meetingFacts(db: MandatDb, session: Session, title: String, day: Lon
             listOf(p.jobTitle, p.organization).filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let { append(" (").append(it.joinToString(", ")).append(")") }
             append("\n")
             matterId?.let { m -> db.people().observeForMatter(m).first().firstOrNull { it.personId == p.id }?.stance?.let { append("  позиція у справі: ").append(it).append("\n") } }
-            val promised = db.promises().observeForPerson(p.id).first().filter { ok(it.matterId) && open(it.status) && !(it.matterId == null && named(ua.mandat.data.HideRules.PROMISE.text(it))) }
-            if (promised.isNotEmpty()) append("  ви обіцяли: ").append(promised.take(4).joinToString("; ") { it.what }).append("\n")
-            val asked = db.delegations().observeForPerson(p.id).first().filter { ok(it.matterId) && open(it.status) && !(it.matterId == null && named(ua.mandat.data.HideRules.DELEGATION.text(it))) }
-            if (asked.isNotEmpty()) append("  чекаєте від людини: ").append(asked.take(4).joinToString("; ") { it.what }).append("\n")
+            val promised = db.promises().observeForPerson(p.id).first().filter { !session.tied(ua.mandat.data.HideRules.PROMISE, it) && ok(it.matterId) && open(it.status) && !(it.matterId == null && named(ua.mandat.data.HideRules.PROMISE.text(it))) }
+            promised.filter { !it.incoming }.takeIf { it.isNotEmpty() }?.let { own -> append("  ви обіцяли: ").append(own.take(4).joinToString("; ") { it.what }).append("\n") }
+            promised.filter { it.incoming }.takeIf { it.isNotEmpty() }?.let { theirs -> append("  вам обіцяно: ").append(theirs.take(4).joinToString("; ") { it.what }).append("\n") }
+            val asked = db.delegations().observeForPerson(p.id).first().filter { !session.tied(ua.mandat.data.HideRules.DELEGATION, it) && ok(it.matterId) && open(it.status) && !(it.matterId == null && named(ua.mandat.data.HideRules.DELEGATION.text(it))) }
+            asked.filter { !it.incoming }.takeIf { it.isNotEmpty() }?.let { own -> append("  чекаєте від людини: ").append(own.take(4).joinToString("; ") { it.what }).append("\n") }
+            asked.filter { it.incoming }.takeIf { it.isNotEmpty() }?.let { theirs -> append("  людина доручила вам: ").append(theirs.take(4).joinToString("; ") { it.what }).append("\n") }
         }
     }
 }
@@ -240,7 +259,7 @@ suspend fun riskFacts(db: MandatDb, session: Session): String {
     val named = db.namesHidden(session)
     val today = Dates.today()
     val names = db.shownNames(session)
-    val risky = db.promises().observeAll().first().filter { ok(it.matterId) && !(it.matterId == null && named(ua.mandat.data.HideRules.PROMISE.text(it))) && isRisky(it, today) }
+    val risky = db.promises().observeAll().first().filter { !session.tied(ua.mandat.data.HideRules.PROMISE, it) && ok(it.matterId) && !(it.matterId == null && named(ua.mandat.data.HideRules.PROMISE.text(it))) && isRisky(it, today) }
         .sortedWith(compareBy({ it.due == null }, { it.due })).take(10)
     if (risky.isEmpty()) return ""
     return buildString {
@@ -264,7 +283,8 @@ suspend fun planFacts(db: MandatDb, session: Session): String {
     val today = Dates.today()
     val span = ua.mandat.data.Span(today - 29, today)
     val matters = db.matters().observeAll().first().filter { ok(it.id) }
-    val events = db.events().observeAll().first().filter { ok(it.matterId) }
+    // (each time of a repeating event counts)
+    val events = ua.mandat.data.Repeats.eachTime(db.events().observeAll().first().filter { ok(it.matterId) && !session.tied(ua.mandat.data.HideRules.EVENT, it) }, span.from, span.to)
     val entries = db.time().observeAll().first().filter { ok(it.matterId) }
     val byRole = ua.mandat.data.minutesByRole(span, events, entries, matters.associate { it.id to it.roleId })
     val total = byRole.values.sum().coerceAtLeast(1)
@@ -286,7 +306,8 @@ suspend fun planFacts(db: MandatDb, session: Session): String {
 
 /** A delegation to remind someone of: what, by when, what it is for. */
 suspend fun reminderFacts(db: MandatDb, session: Session, delegationId: Long): String {
-    val d = db.delegations().get(delegationId) ?: return ""
+    // A reminder is written only about what the owner handed to someone
+    val d = db.delegations().get(delegationId)?.takeIf { !it.incoming && !session.tied(ua.mandat.data.HideRules.DELEGATION, it) } ?: return ""
     if (!db.hiddenOk(session)(d.matterId)) return ""
     if (d.matterId == null && db.namesHidden(session)(ua.mandat.data.HideRules.DELEGATION.text(d))) return ""
     val name = d.personId?.let { db.people().get(it) }?.takeIf { !session.hidden.value.person(it) }?.name

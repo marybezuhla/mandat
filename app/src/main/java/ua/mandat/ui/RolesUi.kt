@@ -46,32 +46,42 @@ import ua.mandat.data.Role
 import ua.mandat.data.SETTING_ROLES_ASKED
 import ua.mandat.data.Setting
 
-/** Builds a role from a body, a position and an optional name: "Secretary — Committee «…»". */
+/**
+ * Builds a role from a body, a position and an optional name: "Secretary — Committee «…»".
+ * [onDraft] hears the role as it stands once the owner has chosen or typed something, and null
+ * after it is added: so a role that was put together but not "added" is not lost.
+ */
 @Composable
-fun RoleBuilder(session: Session? = null, onAdd: (String) -> Unit) {
+fun RoleBuilder(session: Session? = null, onDraft: ((String?) -> Unit)? = null, onAdd: (String) -> Unit) {
     val context = LocalContext.current
     var body by remember(AppMode.mode) { mutableStateOf(roleBodies().first()) }
     var position by remember(AppMode.mode) { mutableStateOf(roleBodies().first().positions.firstOrNull()) }
     var name by remember { mutableStateOf("") }
+    var touched by remember(AppMode.mode) { mutableStateOf(false) }
+    if (onDraft != null) {
+        val draft = if (touched || name.isNotBlank()) composeRoleName(stringResource(body.name), position?.let { stringResource(it) }, name) else null
+        androidx.compose.runtime.LaunchedEffect(draft) { onDraft(draft) }
+    }
     // A name typed for a new role is kept in the Inbox if Mandat locks before it is added
     if (session != null && name.isNotBlank()) SaveOnLock(session, "role-name") { db -> persistInboxDraft(db, name) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Picker(
-            label = stringResource(R.string.role_body),
+            label = stringResource(if (AppMode.mode.civic) R.string.role_body_civic else R.string.role_body),
             current = stringResource(body.name),
             options = roleBodies().map { it to context.getString(it.name) },
             onPick = {
                 body = it
                 position = it.positions.firstOrNull()
+                touched = true
             },
         )
         position?.let { current ->
             Picker(
-                label = stringResource(R.string.role_position),
+                label = stringResource(if (AppMode.mode.civic) R.string.role_position_civic else R.string.role_position),
                 current = stringResource(current),
                 options = body.positions.map { it to context.getString(it) },
-                onPick = { position = it },
+                onPick = { position = it; touched = true },
             )
         }
         OutlinedTextField(
@@ -84,6 +94,7 @@ fun RoleBuilder(session: Session? = null, onAdd: (String) -> Unit) {
             onClick = {
                 onAdd(composeRoleName(context.getString(body.name), position?.let { context.getString(it) }, name))
                 name = ""
+                touched = false
             },
             modifier = Modifier.fillMaxWidth(),
         ) { Text(stringResource(R.string.role_add_button)) }
@@ -97,11 +108,20 @@ fun composeRoleName(body: String, position: String?, name: String): String {
     return if (extra.isEmpty()) base else "$base «$extra»"
 }
 
-/** Shown once after the first unlock: build your roles; they can be changed later in Options. */
+/**
+ * Shown once after the first unlock: say who you are and build your roles; both can be changed
+ * later in Options. [modeAlreadyChosen] is for pictures of the screen as it looks after the choice.
+ */
 @Composable
-fun RolesSetup(session: Session) {
+fun RolesSetup(session: Session, modeAlreadyChosen: Boolean = false) {
     val added = remember { mutableStateListOf<String>() }
     var finished by remember { mutableStateOf(false) }
+    // A role put together but not yet "added": "Done" asks about it, so that it is neither lost nor added unasked
+    var draft by remember { mutableStateOf<String?>(null) }
+    var asking by remember { mutableStateOf<String?>(null) }
+    // Who the owner is must be chosen here, never left as it came: the rest of this screen and of Mandat follows it
+    // (kept in the session too: Mandat locking in the middle of this screen must not ask again)
+    var modeChosen by remember { mutableStateOf(modeAlreadyChosen || session.firstModeChosen) }
 
     fun finish(save: Boolean) {
         if (finished) return
@@ -119,12 +139,20 @@ fun RolesSetup(session: Session) {
         Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(stringResource(R.string.roles_title), style = MaterialTheme.typography.titleLarge)
-        Text(stringResource(R.string.roles_text), style = MaterialTheme.typography.bodyLarge)
+        if (!modeChosen) Text(stringResource(R.string.mode_choose_first), style = MaterialTheme.typography.bodyLarge)
+        // A citizen starts with the simple view (written together with the mode); anyone can turn it on or off in Options
+        ModePicker(session, chosen = modeChosen, firstRun = true) {
+            modeChosen = true
+            session.firstModeChosen = true
+        }
+        if (modeChosen && AppMode.mode == ua.mandat.data.Mode.CITIZEN) Text(stringResource(R.string.mode_citizen_first), style = MaterialTheme.typography.labelMedium, color = Muted)
         Spacer(Modifier.height(8.dp))
-        ModePicker(session)
-        Spacer(Modifier.height(8.dp))
-        RoleBuilder(onAdd = { if (it !in added) added += it })
+        if (modeChosen) {
+            Text(stringResource(R.string.roles_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(if (AppMode.mode.civic) R.string.roles_text_civic else R.string.roles_text), style = MaterialTheme.typography.bodyLarge)
+            Spacer(Modifier.height(8.dp))
+            RoleBuilder(onDraft = { draft = it }, onAdd = { if (it !in added) added += it })
+        }
         if (added.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.roles_added), style = MaterialTheme.typography.titleMedium)
@@ -138,13 +166,38 @@ fun RolesSetup(session: Session) {
             }
         }
         Spacer(Modifier.height(16.dp))
-        Button(onClick = { finish(save = true) }, enabled = !finished, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = {
+                val pending = draft
+                if (pending != null && pending !in added) asking = pending else finish(save = true)
+            },
+            enabled = !finished && modeChosen, modifier = Modifier.fillMaxWidth(),
+        ) {
             Text(stringResource(R.string.roles_done))
         }
-        TextButton(onClick = { finish(save = false) }, enabled = !finished, modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = { finish(save = false) }, enabled = !finished && modeChosen, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.roles_skip))
         }
     }
+    asking?.let { role ->
+        DraftRoleQuestion(
+            role,
+            onAdd = { asking = null; if (role !in added) added += role; finish(save = true) },
+            onSkip = { asking = null; finish(save = true) },
+            onBack = { asking = null },
+        )
+    }
+}
+
+/** "Done" with a role put together but not added: add it as well, or leave it out. Closing the question goes back to the screen. */
+@Composable
+private fun DraftRoleQuestion(role: String, onAdd: () -> Unit, onSkip: () -> Unit, onBack: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onBack,
+        text = { Text(stringResource(R.string.roles_draft_question, role)) },
+        confirmButton = { TextButton(onClick = onAdd) { Text(stringResource(R.string.roles_draft_add)) } },
+        dismissButton = { TextButton(onClick = onSkip) { Text(stringResource(R.string.roles_draft_skip)) } },
+    )
 }
 
 /** The roles section in Options: add, rename and delete. */
@@ -248,17 +301,38 @@ OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true
     }
 }
 
-/** The owner's mode: changes the bodies, positions and some names. */
+/**
+ * The owner's mode: changes the bodies, positions and some names. On the very first screen nothing
+ * is marked as chosen ([chosen] false) until the owner taps one, [onPick] hears the choice, and
+ * ([firstRun]) the simple view is set together with it.
+ */
 @Composable
-fun ModePicker(session: Session) {
+fun ModePicker(session: Session, chosen: Boolean = true, firstRun: Boolean = false, onPick: ((ua.mandat.data.Mode) -> Unit)? = null) {
     Text(stringResource(R.string.mode_title), style = MaterialTheme.typography.titleMedium)
     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         ua.mandat.data.Mode.entries.forEach { mode ->
-            QuickChip(stringResource(mode.label()), AppMode.mode == mode) {
+            QuickChip(stringResource(mode.label()), chosen && AppMode.mode == mode) {
                 AppMode.mode = mode
-                session.write { it.settings().put(Setting(ua.mandat.data.SETTING_MODE, mode.name)) }
+                session.write { db ->
+                    db.withTransaction {
+                        db.settings().put(Setting(ua.mandat.data.SETTING_MODE, mode.name))
+                        // At the first start the simple view goes with the choice, in the same step: on for a citizen, off for the rest
+                        if (firstRun) db.settings().put(Setting(ua.mandat.data.SETTING_SIMPLE, if (mode == ua.mandat.data.Mode.CITIZEN) "1" else "0"))
+                    }
+                }
+                onPick?.invoke(mode)
             }
         }
     }
+    if (!chosen) return
     Text(stringResource(R.string.mode_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
+    // What the mode means, where it is not plain from its name
+    when (AppMode.mode) {
+        // (for an assistant the work is the deputy's, and so are the signatures)
+        ua.mandat.data.Mode.ASSISTANT -> R.string.mode_assistant_hint
+        ua.mandat.data.Mode.OFFICIAL -> R.string.mode_official_hint
+        ua.mandat.data.Mode.ACTIVIST -> R.string.mode_activist_hint
+        ua.mandat.data.Mode.CITIZEN -> R.string.mode_citizen_hint
+        else -> null
+    }?.let { Text(stringResource(it), style = MaterialTheme.typography.labelSmall, color = Muted) }
 }

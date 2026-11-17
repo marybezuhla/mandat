@@ -390,10 +390,24 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
     }
 }
 
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // What was promised and handed to the owner, next to what the owner promised and handed out
+        db.execSQL("ALTER TABLE `promises` ADD COLUMN `incoming` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `delegations` ADD COLUMN `incoming` INTEGER NOT NULL DEFAULT 0")
+        // Trip mode: a person kept off the screen, not only a matter
+        db.execSQL("ALTER TABLE `people` ADD COLUMN `sensitive` INTEGER NOT NULL DEFAULT 0")
+        // Events that come again and again
+        db.execSQL("ALTER TABLE `events` ADD COLUMN `repeat` TEXT")
+        db.execSQL("ALTER TABLE `events` ADD COLUMN `repeatUntil` INTEGER")
+        db.execSQL("ALTER TABLE `events` ADD COLUMN `skipDays` TEXT NOT NULL DEFAULT ''")
+    }
+}
+
 val MIGRATIONS = arrayOf(
     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16,
+    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
 )
 
 /** The current database layout version; raise it together with a new migration. */
-const val DB_VERSION = 16
+const val DB_VERSION = 17

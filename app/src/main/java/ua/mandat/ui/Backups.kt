@@ -14,7 +14,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import ua.mandat.backup.BackupCrypto
 import ua.mandat.backup.BackupData
-import java.io.ByteArrayOutputStream
+import ua.mandat.backup.BackupFile
+import ua.mandat.backup.BackupStream
+import java.io.File
 
 /** What the owner sees after a backup or restore attempt. */
 sealed interface BackupNotice {
@@ -63,8 +65,24 @@ private fun sizeIsZero(context: Context, uri: Uri): Boolean = try {
     false
 }
 
-/** A decrypted backup waiting for the owner's "Replace" confirmation. Kept in memory only. */
-class PendingRestore(val summary: BackupData.Summary, val json: ByteArray)
+/**
+ * A backup that opened with the password and was checked to its end, waiting for the owner's
+ * "Replace". A copy written in parts waits as it came, encrypted, in [file] inside Mandat's own
+ * storage, with its [key] in memory; a one-piece copy (made before 0.3.0) waits decrypted in
+ * memory ([json]). Nothing unencrypted is written anywhere.
+ */
+class PendingRestore internal constructor(
+    val summary: BackupData.Summary,
+    internal val json: ByteArray? = null,
+    internal val file: File? = null,
+    internal val key: BackupStream.Key? = null,
+) {
+    internal fun drop() {
+        json?.fill(0)
+        key?.wipe()
+        file?.delete()
+    }
+}
 
 class Backups(private val context: Context, private val session: Session) {
 
@@ -75,6 +93,19 @@ class Backups(private val context: Context, private val session: Session) {
         private set
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    init {
+        // A copy left on its way out or in when Mandat was stopped (encrypted, inside Mandat's own storage).
+        // At the first start of the process nothing can be on its way, so everything goes; later only what is old
+        val first = firstInProcess.compareAndSet(true, false)
+        // (an automatic copy that waits to be sent stays: it is sent after the next unlock)
+        scope.launch {
+            try {
+                if (first) BackupFile.clear(context, olderThanMs = 0, keepWaiting = true) else BackupFile.clear(context, keepWaiting = true)
+            } catch (e: Exception) {
+            }
+        }
+    }
 
     /** Automatic backups: on or off, and when the last one worked or failed. */
     var auto by mutableStateOf<ua.mandat.backup.AutoBackup.Status?>(null)
@@ -93,7 +124,7 @@ class Backups(private val context: Context, private val session: Session) {
         val db = (session.state as? LockState.Open)?.db ?: return@run BackupNotice.AutoFailed
         val prepared = session.withRealDb {
             auto.setUp(context, it, folder, password)
-            auto.prepareIfDue(it, force = true)
+            auto.prepareIfDue(context, it, force = true)
         }
         if (prepared == null) {
             val tooBig = session.withRealDb { auto.status(it).failReason == auto.REASON_TOO_BIG } == true
@@ -102,17 +133,21 @@ class Backups(private val context: Context, private val session: Session) {
             return@run if (tooBig) BackupNotice.AutoTooBig else BackupNotice.AutoFailed
         }
         // Written without the database, then checked with the password the owner typed
+        val wait = waitMs(prepared)
         val job = session.startAutoWrite(prepared)
-        val result = withTimeoutOrNull(60_000) { job.await() }
+        val result = withTimeoutOrNull(wait) { job.await() }
         val ok = result?.ok == true && result.uri != null && auto.opensWith(context, result.uri, password)
         if (ok) {
             session.reconcileAuto(db)
         } else {
             // Off first, so nothing counts the discarded file as a good copy
-            session.withRealDb { auto.disable(context, it) }
-            if (result != null) result.uri?.let { auto.discard(context, it) }
-            // Still writing after a minute: remove the file once it is finished
-            else scope.launch { job.await().uri?.let { auto.discard(context, it) } }
+            val off = session.withRealDb { auto.disable(context, it); true } == true
+            // (locked meanwhile, so it could not be turned off: then the copy stays and is recorded at the next unlock)
+            if (off) {
+                if (result != null) result.uri?.let { auto.discard(context, it) }
+                // Still writing after a minute: remove the file once it is finished
+                else scope.launch { job.await().uri?.let { auto.discard(context, it) } }
+            }
         }
         refreshAuto()
         if (ok) BackupNotice.AutoOn else BackupNotice.AutoFailed
@@ -130,13 +165,14 @@ class Backups(private val context: Context, private val session: Session) {
         val db = (session.state as? LockState.Open)?.db ?: return@run BackupNotice.AutoFailed
         // An earlier copy still waiting to be recorded comes first
         session.reconcileAuto(db)
-        val prepared = session.withRealDb { auto.prepareIfDue(it, force = true) }
+        val prepared = session.withRealDb { auto.prepareIfDue(context, it, force = true) }
         if (prepared == null) {
             refreshAuto()
             val tooBig = session.withRealDb { auto.status(it).failReason == auto.REASON_TOO_BIG } == true
             return@run if (tooBig) BackupNotice.AutoTooBig else BackupNotice.AutoFailed
         }
-        withTimeoutOrNull(60_000) { session.startAutoWrite(prepared).await() }
+        val wait = waitMs(prepared)
+        withTimeoutOrNull(wait) { session.startAutoWrite(prepared).await() }
         val ok = session.reconcileAuto(db) == true
         refreshAuto()
         if (ok) BackupNotice.AutoSaved else BackupNotice.AutoFailed
@@ -151,98 +187,169 @@ class Backups(private val context: Context, private val session: Session) {
     fun save(uri: Uri, password: String) {
         // Only a new, empty file is written; a file Mandat started writing into is removed after a failure
         var touched = false
-        run(onCrash = { if (touched) deleteQuietly(uri); BackupNotice.SaveFailed }) {
-        if (!isNewDocument(context, uri)) return@run BackupNotice.ExistingFile
-        val json = try {
-            session.withRealDb { BackupData.dump(it) }
-        } catch (e: Exception) {
-            null
-        }
-        if (json == null) return@run BackupNotice.SaveFailed
-        // Remembered (only the number, on this phone), so the owner is warned before copies stop fitting
-        try {
-            session.withRealDb { it.settings().put(ua.mandat.data.Setting(ua.mandat.backup.AutoBackup.KEY_SIZE, json.size.toString())) }
-        } catch (e: Exception) {
-            // Only the warning depends on it; the copy itself must still be made (say, with the phone's storage full)
-        }
-        // Said plainly before anything is written, rather than a copy that could not be opened again
-        if (json.size > BackupCrypto.MAX_PLAIN_BYTES) {
-            json.fill(0)
-            deleteQuietly(uri)
-            return@run BackupNotice.TooBig
-        }
-        try {
-            val rows = BackupData.summary(json).rows
-            val file = BackupCrypto.encrypt(json, password)
-            context.contentResolver.openOutputStream(uri, "wt")!!.use {
-                touched = true
-                it.write(file)
-            }
-            // Check what actually landed on the storage, not what we meant to write
-            val check = BackupCrypto.decrypt(read(uri), password)
-            val ok = check.contentEquals(json)
-            check.fill(0)
-            if (ok) {
-                // Remembered for the reminder to make a copy (only the time, on this phone)
-                try {
-                    session.withRealDb { it.settings().put(ua.mandat.data.Setting(ua.mandat.backup.AutoBackup.KEY_MANUAL, System.currentTimeMillis().toString())) }
+        var temp: File? = null
+        // (once the file is known to be the new empty one, any failure removes it: no empty "backup" stays behind)
+        var ours = false
+        run(onCrash = { temp?.delete(); if (ours || touched) deleteQuietly(uri); BackupNotice.SaveFailed }) {
+            if (!isNewDocument(context, uri)) return@run BackupNotice.ExistingFile
+            ours = true
+            val chars = password.toCharArray()
+            val key = try { BackupStream.newKey(chars) } finally { chars.fill(' ') }
+            try {
+                val file = BackupFile.temp(context, "out").also { temp = it }
+                // First written, already encrypted, inside Mandat's own storage: the database never waits for a slow folder
+                val written = try {
+                    session.withRealDb { BackupFile.write(it, key, file) }
+                } catch (e: BackupStream.TooBig) {
+                    // Said plainly before anything is sent, rather than a copy that could not be opened again
+                    deleteQuietly(uri)
+                    return@run BackupNotice.TooBig
                 } catch (e: Exception) {
-                    // The copy is written and checked: failing to note the time must not remove it
+                    null
                 }
-                BackupNotice.Saved(rows)
-            } else {
+                if (written == null) {
+                    deleteQuietly(uri)
+                    return@run BackupNotice.SaveFailed
+                }
+                context.contentResolver.openOutputStream(uri, "wt")!!.use { out ->
+                    touched = true
+                    file.inputStream().use { BackupFile.copy(it, out) }
+                }
+                // Check what actually landed on the storage, not what we meant to write: it must open
+                // with this password, be whole to its last row, and hold exactly what was written
+                val back = context.contentResolver.openInputStream(uri)!!.use { BackupFile.read(it, key) }
+                if (back.same(written)) {
+                    // Remembered for the reminder to make a copy (only the time, on this phone)
+                    try {
+                        session.withRealDb { it.settings().put(ua.mandat.data.Setting(ua.mandat.backup.AutoBackup.KEY_MANUAL, System.currentTimeMillis().toString())) }
+                    } catch (e: Exception) {
+                        // The copy is written and checked: failing to note the time must not remove it
+                    }
+                    BackupNotice.Saved(written.rows)
+                } else {
+                    deleteQuietly(uri)
+                    BackupNotice.SaveFailed
+                }
+            } catch (e: Exception) {
+                // Neither a half-written file nor an empty one stays behind looking like a backup
                 deleteQuietly(uri)
                 BackupNotice.SaveFailed
+            } finally {
+                key.wipe()
+                temp?.delete()
             }
-        } catch (e: Exception) {
-            // A half-written file must not stay behind looking like a backup
-            if (touched) deleteQuietly(uri)
-            BackupNotice.SaveFailed
-        } finally {
-            json.fill(0)
-        }
         }
     }
 
-    /** Opens a backup and shows what is in it; nothing is changed yet. */
-    /** [startedAt]: the lock generation read on the main thread when the owner chose the file. */
-    fun open(uri: Uri, password: String, startedAt: Int) = run(onCrash = { BackupNotice.NotABackup }) {
-        try {
-            val json = BackupCrypto.decrypt(read(uri), password)
-            if (BackupCrypto.startsWithExportMark(json)) {
-                json.fill(0)
-                return@run BackupNotice.IsExport
-            }
-            val summary = try {
-                BackupData.summary(json)
+    /**
+     * Opens a backup and shows what is in it; nothing is changed yet. The file is first taken,
+     * as it is (encrypted), into Mandat's own storage, then read to its end: every part, every
+     * row and every value is checked before the owner is asked anything.
+     * [startedAt]: the lock generation read on the main thread when the owner chose the file.
+     */
+    fun open(uri: Uri, password: String, startedAt: Int) {
+        var temp: File? = null
+        // (a failure of Mandat itself says nothing about the file: it is not called "not a backup")
+        run(onCrash = { temp?.delete(); BackupNotice.RestoreFailed }) {
+            var key: BackupStream.Key? = null
+            var kept = false
+            try {
+                val file = BackupFile.temp(context, "in").also { temp = it }
+                try {
+                    fetch(uri, file)
+                } catch (e: BackupCrypto.NotABackup) {
+                    throw e
+                } catch (e: Exception) {
+                    // The folder or the phone's storage failed: nothing is known about the file itself
+                    return@run BackupNotice.RestoreFailed
+                }
+                if (file.length() < BackupCrypto.MIN_FILE_BYTES) return@run BackupNotice.NotABackup
+                val layout = session.withRealDb { BackupData.layout(it) } ?: return@run BackupNotice.RestoreFailed
+                val salt = file.inputStream().use { BackupStream.readSalt(it) }
+                val chars = password.toCharArray()
+                val k = try { BackupStream.keyFor(salt, chars) } finally { chars.fill(' ') }
+                key = k
+                val summary = try {
+                    file.inputStream().use { BackupFile.read(it, k, BackupData.Checker(layout)) }
+                } catch (e: BackupCrypto.WrongPasswordOrDamaged) {
+                    // Not a copy written in parts. One piece, then: an export, or a backup made before 0.3.0
+                    return@run openOnePiece(file, k, startedAt)
+                }
+                withContext(Dispatchers.Main) {
+                    // Locked meanwhile: drop it instead of keeping the key in memory
+                    if (startedAt == session.generationNow()) {
+                        pending = PendingRestore(summary, file = file, key = k)
+                        kept = true
+                    }
+                }
+                null
+            } catch (e: BackupCrypto.WrongPasswordOrDamaged) {
+                BackupNotice.WrongPassword
+            } catch (e: BackupCrypto.NotABackup) {
+                BackupNotice.NotABackup
+            } catch (e: BackupData.FromNewer) {
+                // Said before asking to replace anything: a newer copy needs a newer Mandat
+                BackupNotice.FromNewer
+            } catch (e: BackupData.Incompatible) {
+                BackupNotice.Incompatible
             } catch (e: Exception) {
-                json.fill(0)
-                return@run BackupNotice.Incompatible
+                BackupNotice.RestoreFailed
+            } finally {
+                if (!kept) {
+                    key?.wipe()
+                    temp?.delete()
+                }
             }
-            // Said before asking to replace anything: a newer copy needs a newer Mandat
-            if (summary.schema > ua.mandat.data.DB_VERSION) {
-                json.fill(0)
-                return@run BackupNotice.FromNewer
-            }
-            withContext(Dispatchers.Main) {
-                // Locked meanwhile: drop the decrypted data instead of keeping it in memory
-                if (startedAt == session.generationNow()) pending = PendingRestore(summary, json) else json.fill(0)
-            }
-            null
-        } catch (e: BackupCrypto.WrongPasswordOrDamaged) {
-            BackupNotice.WrongPassword
-        } catch (e: BackupCrypto.NotABackup) {
-            BackupNotice.NotABackup
-        } catch (e: Exception) {
-            BackupNotice.NotABackup
         }
+    }
+
+    /**
+     * A one-piece file (it has the same salt at its start, so the key is the same): an export is
+     * said to be one; a backup made before 0.3.0 waits, decrypted in memory, for the owner's "Replace".
+     */
+    private suspend fun openOnePiece(file: File, key: BackupStream.Key, startedAt: Int): BackupNotice? {
+        if (file.length() > BackupCrypto.MAX_FILE_BYTES) return BackupNotice.WrongPassword
+        val json = BackupCrypto.decryptWithKey(file.readBytes(), key.ikm)
+        if (BackupCrypto.startsWithExportMark(json)) {
+            json.fill(0)
+            return BackupNotice.IsExport
+        }
+        val summary = try {
+            BackupData.summary(json)
+        } catch (e: Exception) {
+            json.fill(0)
+            return BackupNotice.Incompatible
+        }
+        if (summary.schema > ua.mandat.data.DB_VERSION) {
+            json.fill(0)
+            return BackupNotice.FromNewer
+        }
+        withContext(Dispatchers.Main) {
+            if (startedAt == session.generationNow()) pending = PendingRestore(summary, json = json) else json.fill(0)
+        }
+        return null
+    }
+
+    /** Takes the chosen file into [to], refusing anything larger than a backup can be. */
+    private fun fetch(uri: Uri, to: File) {
+        // Check the size first when the file app tells it, before reading anything
+        try {
+            context.contentResolver.openFileDescriptor(uri, "r")?.use {
+                if (it.statSize > BackupStream.MAX_FILE_BYTES) throw BackupCrypto.NotABackup()
+            }
+        } catch (e: BackupCrypto.NotABackup) {
+            throw e
+        } catch (e: Exception) {
+            // Size unknown; the limit still applies while reading
+        }
+        context.contentResolver.openInputStream(uri)!!.use { input -> to.outputStream().use { BackupFile.copy(input, it) } }
     }
 
     /** The owner confirmed: replace all current data with the pending backup. */
     fun confirmRestore() {
         val restore = pending ?: return
         pending = null
-        run(onCrash = { restore.json.fill(0); BackupNotice.RestoreFailed }) {
+        run(onCrash = { restore.drop(); BackupNotice.RestoreFailed }) {
             try {
                 // With automatic copies on, the current data is copied first (encrypted, to that folder),
                 // so replacing it can be undone; if that copy fails, nothing is replaced
@@ -251,13 +358,13 @@ class Backups(private val context: Context, private val session: Session) {
                 if (session.withRealDb { auto.status(it).enabled } == true) {
                     session.reconcileAuto(db)
                     val tried = System.currentTimeMillis()
-                    val prepared = session.withRealDb { auto.prepareIfDue(it, force = true) }
+                    val prepared = session.withRealDb { auto.prepareIfDue(context, it, force = true) }
                     // "Too big" only if this very attempt found it so, not an old failure
                     if (prepared == null && session.withRealDb { st -> auto.status(st).let { it.failReason == auto.REASON_TOO_BIG && (it.lastFail ?: 0L) >= tried } } == true) {
                         refreshAuto()
                         return@run BackupNotice.RestoreTooBigForSafety
                     }
-                    val written = if (prepared == null) null else withTimeoutOrNull(60_000) { session.startAutoWrite(prepared).await() }
+                    val written = if (prepared == null) null else withTimeoutOrNull(waitMs(prepared)) { session.startAutoWrite(prepared).await() }
                     val ok = written?.ok == true && written.uri != null && session.reconcileAuto(db) == true
                     // Kept a month even if more copies are made today (another restore, "copy now")
                     if (ok) session.withRealDb { auto.keepAsSafety(it, written!!.uri!!, prepared!!.createdAt) }
@@ -265,8 +372,18 @@ class Backups(private val context: Context, private val session: Session) {
                     if (!ok) return@run BackupNotice.RestoreNoSafetyCopy
                 }
                 session.withRealDb { db ->
-                    BackupData.restore(db, restore.json)
-                    noteRestoredCopy(db, restore.summary.createdAt, restore.json.size)
+                    val json = restore.json
+                    val file = restore.file
+                    val key = restore.key
+                    if (json != null) {
+                        BackupData.restore(db, json)
+                    } else if (file != null && key != null) {
+                        // Read again from Mandat's own storage; it replaces anything only if it is still what was shown
+                        file.inputStream().use { input -> BackupFile.open(input, key).use { BackupData.restore(db, it, restore.summary) } }
+                    } else {
+                        throw IllegalStateException()
+                    }
+                    noteRestoredCopy(db, restore.summary.createdAt)
                 }
                     ?.let { BackupNotice.Restored(restore.summary.rows) }
                     ?: BackupNotice.RestoreFailed
@@ -275,20 +392,18 @@ class Backups(private val context: Context, private val session: Session) {
             } catch (e: Exception) {
                 BackupNotice.RestoreFailed
             } finally {
-                restore.json.fill(0)
+                restore.drop()
             }
         }
     }
 
     /**
-     * The file just restored is a copy of this data, made at [createdAt] and holding [bytes]: noted as
-     * the last copy made by hand, so the first tab does not say there is none (on a new phone nothing
-     * else is known), and as the size the warnings go by.
+     * The file just restored is a copy of this data, made at [createdAt]: noted as the last copy
+     * made by hand, so the first tab does not say there is none (on a new phone nothing else is known).
      */
-    private suspend fun noteRestoredCopy(db: ua.mandat.data.MandatDb, createdAt: Long, bytes: Int) {
+    private suspend fun noteRestoredCopy(db: ua.mandat.data.MandatDb, createdAt: Long) {
         try {
             val s = db.settings()
-            s.put(ua.mandat.data.Setting(ua.mandat.backup.AutoBackup.KEY_SIZE, bytes.toString()))
             // (a time from the file is never trusted beyond now)
             val made = minOf(createdAt, System.currentTimeMillis())
             val known = s.get(ua.mandat.backup.AutoBackup.KEY_MANUAL)?.value?.toLongOrNull() ?: 0L
@@ -299,7 +414,7 @@ class Backups(private val context: Context, private val session: Session) {
     }
 
     fun cancelRestore() {
-        pending?.json?.fill(0)
+        pending?.drop()
         pending = null
     }
 
@@ -320,38 +435,28 @@ class Backups(private val context: Context, private val session: Session) {
         }
     }
 
+    /** The picker made a new file, but Mandat locked before it could be written: the empty file is removed and the owner told. */
+    fun savePickedTooLate(uri: Uri) {
+        scope.launch {
+            val empty = isNewDocument(context, uri)
+            if (empty) deleteQuietly(uri)
+            withContext(Dispatchers.Main) { if (notice == null) notice = BackupNotice.SaveFailed }
+        }
+    }
+
+    private companion object {
+        val firstInProcess = java.util.concurrent.atomic.AtomicBoolean(true)
+
+        /** How long to wait for a copy to reach the folder: a minute, and more for a large one (read before sending starts). */
+        fun waitMs(p: ua.mandat.backup.AutoBackup.Prepared): Long =
+            (60_000L + p.file.length() / (1024 * 1024) * 2_000L).coerceAtMost(10 * 60_000L)
+    }
+
     private fun deleteQuietly(uri: Uri) {
         try {
             DocumentsContract.deleteDocument(context.contentResolver, uri)
         } catch (e: Exception) {
             // The file app may not allow it; nothing else to do
-        }
-    }
-
-    private fun read(uri: Uri): ByteArray {
-        val limit = BackupCrypto.MAX_FILE_BYTES
-        // Check the size first when the file app tells it, before reading anything
-        try {
-            context.contentResolver.openFileDescriptor(uri, "r")?.use {
-                if (it.statSize > limit) throw BackupCrypto.NotABackup()
-            }
-        } catch (e: BackupCrypto.NotABackup) {
-            throw e
-        } catch (e: Exception) {
-            // Size unknown; the limit below still applies while reading
-        }
-        context.contentResolver.openInputStream(uri)!!.use { input ->
-            val out = ByteArrayOutputStream()
-            val buffer = ByteArray(64 * 1024)
-            var total = 0L
-            while (true) {
-                val n = input.read(buffer)
-                if (n < 0) break
-                total += n
-                if (total > limit) throw BackupCrypto.NotABackup()
-                out.write(buffer, 0, n)
-            }
-            return out.toByteArray()
         }
     }
 }

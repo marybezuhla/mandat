@@ -164,7 +164,7 @@ fun MattersList(db: MandatDb, onOpen: (Matter) -> Unit, onTopics: () -> Unit = {
             return@LazyColumn
         }
         if (active.isNotEmpty()) {
-            item(key = "district") { DistrictEntry(db, session) }
+            if (!AppMode.simple) item(key = "district") { DistrictEntry(db, session) }
             item(key = "chart") {
                 MCard {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
@@ -432,12 +432,12 @@ fun MatterEditor(db: MandatDb, session: Session, draft: MatterDraft) {
                 minLines = 4,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { draft.sensitive = !draft.sensitive }) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().switchRow(draft.sensitive) { draft.sensitive = it }) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.matter_sensitive), style = MaterialTheme.typography.bodyMedium)
                     Text(stringResource(R.string.matter_sensitive_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                 }
-                androidx.compose.material3.Switch(checked = draft.sensitive, onCheckedChange = { draft.sensitive = it })
+                androidx.compose.material3.Switch(checked = draft.sensitive, onCheckedChange = null)
             }
             }
             if (request.isNew) {
@@ -475,8 +475,8 @@ fun MatterEditor(db: MandatDb, session: Session, draft: MatterDraft) {
             text = {
                 Column {
                     Text(stringResource(R.string.matter_delete_confirm))
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp).clickable { deleteAll = !deleteAll }) {
-                        androidx.compose.material3.Checkbox(checked = deleteAll, onCheckedChange = { deleteAll = it })
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp).checkRow(deleteAll) { deleteAll = it }) {
+                        CheckMark(deleteAll)
                         Text(stringResource(R.string.matter_delete_all), style = MaterialTheme.typography.bodyMedium)
                     }
                     Text(stringResource(if (deleteAll) R.string.matter_delete_all_hint else R.string.matter_delete_keep_hint), style = MaterialTheme.typography.bodySmall,
@@ -488,8 +488,8 @@ fun MatterEditor(db: MandatDb, session: Session, draft: MatterDraft) {
                     if (aidRecords.isNotEmpty()) Text(stringResource(R.string.matter_delete_aid, aidRecords.size),
                         color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
                     // Texts hold much writing: the owner decides whether they go with the matter or stay unlinked
-                    if (matterTexts.isNotEmpty() && !deleteAll) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp).clickable { deleteTexts = !deleteTexts }) {
-                        androidx.compose.material3.Checkbox(checked = deleteTexts, onCheckedChange = { deleteTexts = it })
+                    if (matterTexts.isNotEmpty() && !deleteAll) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp).checkRow(deleteTexts) { deleteTexts = it }) {
+                        CheckMark(deleteTexts)
                         Text(stringResource(R.string.matter_delete_texts, matterTexts.size), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
@@ -554,7 +554,7 @@ fun <T> Picker(label: String, current: String, options: List<Pair<T, String>>, o
 /** People in a matter (with their position on it), and its delegations and promises. */
 @Composable
 private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: MatterDraft) {
-    val linkedFlow = remember(db, matterId) { db.people().observeForMatter(matterId) }
+    val linkedFlow = remember(db, matterId) { db.people().observeForMatter(matterId).hidingRows(session) }
     val peopleFlow = remember(db) { db.people().observeAll().hidingPeople(session) }
     val delegationsFlow = remember(db, matterId) { db.delegations().observeForMatter(matterId).hiding(session, ua.mandat.data.HideRules.DELEGATION) }
     val promisesFlow = remember(db, matterId) { db.promises().observeForMatter(matterId).hiding(session, ua.mandat.data.HideRules.PROMISE) }
@@ -592,7 +592,7 @@ private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: M
     }
     Row {
         TextButton(onClick = { adding = true }) { Text("+ " + stringResource(R.string.add_person)) }
-        if (linked.isNotEmpty()) TextButton(onClick = { session.saveDraft(); session.influenceFor = matterId }) {
+        if (linked.isNotEmpty() && !AppMode.simple) TextButton(onClick = { session.saveDraft(); session.influenceFor = matterId }) {
             Text(stringResource(R.string.influence_map))
         }
     }
@@ -609,11 +609,17 @@ private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: M
 
     LinkSection(stringResource(R.string.delegations))
     delegations.forEach { DelegationRow(it, it.personId?.let(nameOf::get), null, session) }
-    TextButton(onClick = { session.delegationDraft = newDelegation(matterId = matterId) }) { Text("+ " + stringResource(R.string.add_delegation)) }
+    Column {
+        TextButton(onClick = { session.delegationDraft = newDelegation(matterId = matterId) }) { Text("+ " + stringResource(R.string.add_delegation)) }
+        TextButton(onClick = { session.delegationDraft = newDelegation(matterId = matterId, incoming = true) }) { Text("+ " + stringResource(R.string.kind_delegation_in)) }
+    }
 
     LinkSection(stringResource(R.string.promises))
     promises.forEach { PromiseRow(it, it.personId?.let(nameOf::get), null, session) }
-    TextButton(onClick = { session.promiseDraft = newPromise(matterId = matterId) }) { Text("+ " + stringResource(R.string.add_promise)) }
+    Column {
+        TextButton(onClick = { session.promiseDraft = newPromise(matterId = matterId) }) { Text("+ " + stringResource(R.string.add_promise)) }
+        TextButton(onClick = { session.promiseDraft = newPromise(matterId = matterId, incoming = true) }) { Text("+ " + stringResource(R.string.kind_promise_in)) }
+    }
 
     if (adding) {
         val already = linked.map { it.personId }.toSet()
@@ -678,7 +684,7 @@ private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: M
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun MatterStrip(db: MandatDb, matter: Matter, session: Session) {
-    val linked by remember(db, matter.id) { db.people().observeForMatter(matter.id) }.collectAsStateWithLifecycle(emptyList())
+    val linked by remember(db, matter.id) { db.people().observeForMatter(matter.id).hidingRows(session) }.collectAsStateWithLifecycle(emptyList())
     val deadlines by remember(db, matter.id) { db.deadlines().observeForMatter(matter.id).hiding(session, ua.mandat.data.HideRules.DEADLINE) }.collectAsStateWithLifecycle(emptyList())
     val delegations by remember(db, matter.id) { db.delegations().observeForMatter(matter.id).hiding(session, ua.mandat.data.HideRules.DELEGATION) }.collectAsStateWithLifecycle(emptyList())
     val topics = rememberTopics(db)
@@ -721,7 +727,8 @@ private fun MatterStrip(db: MandatDb, matter: Matter, session: Session) {
                 }
             }
         }
-        val openD = delegations.filter { ua.mandat.data.TaskStatus.of(it.status) == open }
+        // (how what the owner handed out is going: what was handed to the owner is not counted here)
+        val openD = delegations.filter { !it.incoming && ua.mandat.data.TaskStatus.of(it.status) == open }
         if (openD.isNotEmpty()) {
             val late = openD.count { ua.mandat.data.isOverdue(it.due, it.status, today) }
             Spacer(Modifier.height(10.dp))
@@ -832,10 +839,11 @@ private fun VoteCounter(linked: List<ua.mandat.data.MatterPersonRow>, draft: Mat
 @Composable
 private fun MatterTime(db: MandatDb, matter: Matter, session: Session) {
     val entries by remember(db, matter.id) { db.time().observeForMatter(matter.id) }.collectAsStateWithLifecycle(emptyList())
-    val events by remember(db, matter.id) { db.events().observeForMatter(matter.id) }.collectAsStateWithLifecycle(emptyList())
+    // (an event kept off the screen is not counted either: a number that differs from the list would tell)
+    val events by remember(db, matter.id) { db.events().observeForMatter(matter.id).hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
     val today = Dates.today()
     val span = ua.mandat.data.Span(today - 29, today)
-    val fromEvents = events.filter { it.day in span }.sumOf { ua.mandat.data.eventMinutes(it) }
+    val fromEvents = ua.mandat.data.Repeats.eachTime(events, span.from, span.to).filter { it.day in span }.sumOf { ua.mandat.data.eventMinutes(it) }
     val byHand = entries.filter { it.day in span }.sumOf { it.minutes }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
         Text(

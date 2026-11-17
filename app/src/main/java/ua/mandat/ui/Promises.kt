@@ -55,12 +55,12 @@ import ua.mandat.data.TaskStatus
 
 /** Open promises that need care: high risk, or public ones due within two weeks or overdue. */
 fun isRisky(p: Promise, today: Long): Boolean =
-    TaskStatus.of(p.status) == TaskStatus.OPEN &&
+    TaskStatus.of(p.status) == TaskStatus.OPEN && !p.incoming &&
         (p.risk == 3 || (p.level == Publicity.PUBLIC && p.due != null && p.due <= today + 14))
 
 /** Open promises the owner did not choose to make: attributed to them, or dug up by the media. */
 fun isAttributed(p: Promise): Boolean =
-    TaskStatus.of(p.status) == TaskStatus.OPEN &&
+    TaskStatus.of(p.status) == TaskStatus.OPEN && !p.incoming &&
         (PromiseOrigin.of(p.origin) == PromiseOrigin.ATTRIBUTED || PromiseOrigin.of(p.origin) == PromiseOrigin.DUG_UP)
 
 private val STATUS_ORDER = listOf(TaskStatus.OPEN, TaskStatus.DONE, TaskStatus.FAILED, TaskStatus.CANCELLED)
@@ -73,7 +73,9 @@ private val STATUS_ORDER = listOf(TaskStatus.OPEN, TaskStatus.DONE, TaskStatus.F
 @Composable
 fun PromisesScreen(db: MandatDb, session: Session) {
     BackHandler { session.showPromises = false }
-    val all by remember(db) { db.promises().observeAll().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
+    val everything by remember(db) { db.promises().observeAll().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
+    // The charts are about the owner's own word; what was promised to the owner is a list of its own below
+    val all = everything.filter { !it.incoming }
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
     val titles by remember(db) { db.matters().observeAllTitles().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val nameOf = people.associate { it.id to it.name }
@@ -96,6 +98,8 @@ fun PromisesScreen(db: MandatDb, session: Session) {
         (level == null || p.level.name == level) && (statusPick == null || p.status == statusPick) &&
             (originPick == null || (p.origin ?: "NONE") == originPick) && (year == null || yearOf(p) == year)
     }
+    val toMe = everything.filter { p -> p.incoming && (q.length < 2 || listOf(p.what, p.toWhom, p.source, p.statusNote, p.personId?.let(nameOf::get).orEmpty()).any { it.lowercase().contains(q) }) }
+        .sortedWith(compareBy({ TaskStatus.of(it.status) != TaskStatus.OPEN }, { it.due == null }, { it.due }))
     val risky = searched.filter { isRisky(it, today) }.sortedWith(compareBy({ it.due == null }, { it.due }))
     val attributed = searched.filter(::isAttributed)
     val years = searched.map(::yearOf).distinct().sorted()
@@ -211,6 +215,15 @@ fun PromisesScreen(db: MandatDb, session: Session) {
                     SectionCard(Sym.checkCircle, stringResource(st.promiseLabel()), count = list.size, attention = st == TaskStatus.FAILED) {
                         Paged(list) { row(it) }
                     }
+                }
+            }
+            // What others promised to the owner: never counted above
+            item(key = "toMe") {
+                SectionCard(Sym.checkCircle, stringResource(R.string.kind_promise_in), count = toMe.size) {
+                    Text(stringResource(R.string.promises_to_me_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
+                    Spacer(Modifier.height(4.dp))
+                    Paged(toMe) { p -> PromiseRow(p, p.personId?.let(nameOf::get), p.matterId?.let(titleOf::get), session) }
+                    TextButton(onClick = { session.promiseDraft = newPromise(incoming = true) }) { Text("+ " + stringResource(R.string.kind_promise_in)) }
                 }
             }
         }

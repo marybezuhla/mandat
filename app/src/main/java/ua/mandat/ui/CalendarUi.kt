@@ -33,10 +33,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -74,6 +72,7 @@ import ua.mandat.data.DeadlineKind
 import ua.mandat.data.Event
 import ua.mandat.data.EventKind
 import ua.mandat.data.MandatDb
+import ua.mandat.data.observeRange
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -95,12 +94,25 @@ fun TimeTab(db: MandatDb, session: Session) {
     }
 }
 
+fun ua.mandat.data.Repeat.label(): Int = when (this) {
+    ua.mandat.data.Repeat.DAILY -> R.string.repeat_daily
+    ua.mandat.data.Repeat.WEEKLY -> R.string.repeat_weekly
+    ua.mandat.data.Repeat.BIWEEKLY -> R.string.repeat_biweekly
+    ua.mandat.data.Repeat.MONTHLY -> R.string.repeat_monthly
+    ua.mandat.data.Repeat.YEARLY -> R.string.repeat_yearly
+}
+
 fun EventKind.label(): Int = when (this) {
     EventKind.MEETING -> R.string.event_meeting
     EventKind.SESSION -> forMode(R.string.event_session, R.string.event_session_plain)
-    EventKind.COMMITTEE -> forMode(R.string.event_committee, R.string.event_committee_plain)
+    EventKind.COMMITTEE -> when (AppMode.mode) {
+        // (a local council works through standing commissions, not committees; an assistant may serve either)
+        ua.mandat.data.Mode.COUNCIL -> R.string.event_committee_council
+        ua.mandat.data.Mode.ASSISTANT -> R.string.event_committee_assistant
+        else -> forMode(R.string.event_committee, R.string.event_committee_plain)
+    }
     EventKind.TRIP -> R.string.event_trip
-    EventKind.RECEPTION -> if (AppMode.mode == ua.mandat.data.Mode.CITIZEN) R.string.event_reception_citizen else R.string.event_reception
+    EventKind.RECEPTION -> if (AppMode.mode.civic) R.string.event_reception_citizen else R.string.event_reception
     EventKind.CALL -> R.string.event_call
     EventKind.MEDIA -> R.string.event_media
     EventKind.OTHER -> R.string.event_other
@@ -223,11 +235,11 @@ fun CalendarScreenForTest(db: MandatDb, session: Session, view0: Int) {
         item(key = "grid") {
             MCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { selected = if (weekMode) selected - 7 else sel.minusMonths(1).toEpochDay() }) { Text("‹", style = MaterialTheme.typography.titleLarge) }
+                    StepButton(back = true, onClick = { selected = if (weekMode) selected - 7 else sel.minusMonths(1).toEpochDay() })
                     val title = if (weekMode) "${Dates.short(from)} – ${Dates.short(to)}"
                     else sel.format(DateTimeFormatter.ofPattern("LLLL yyyy")).replaceFirstChar { it.uppercase() }
-                    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    IconButton(onClick = { selected = if (weekMode) selected + 7 else sel.plusMonths(1).toEpochDay() }) { Text("›", style = MaterialTheme.typography.titleLarge) }
+                    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).announced(), textAlign = TextAlign.Center)
+                    StepButton(back = false, onClick = { selected = if (weekMode) selected + 7 else sel.plusMonths(1).toEpochDay() })
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     ViewChips(view) { view = it }
@@ -318,11 +330,15 @@ private fun DayCell(day: Long, selected: Boolean, today: Boolean, inMonth: Boole
     val scheme = MaterialTheme.colorScheme
     // A busier day is shaded a little deeper, so heavy days stand out from afar
     val shade = when { load >= 6 -> 0.26f; load >= 4 -> 0.17f; load >= 2 -> 0.09f; load >= 1 -> 0.04f; else -> 0f }
+    // For a screen reader: the whole date, "today", and how much is on the day (the eye sees a number, a border and dots)
+    val date = LocalDate.ofEpochDay(day)
+    val name = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()) + ", " + Dates.format(day)
+    val said = stringResource(R.string.cal_day_said, if (today) stringResource(R.string.cal_day_today, name) else name, load)
     Column(
         modifier.aspectRatio(0.9f).padding(2.dp).clip(RoundedCornerShape(8.dp))
             .background(if (selected) scheme.primaryContainer else if (inMonth && shade > 0f) Tone.plan.copy(alpha = shade) else Color.Transparent)
             .let { if (today && !selected) it.border(1.dp, scheme.primary, RoundedCornerShape(8.dp)) else it }
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick).said(said, chosen = selected),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -370,7 +386,7 @@ fun EventRow(e: Event, names: List<String>, matterTitle: String?, onDay: Long?, 
         // Tinted by the kind of event, so a day reads at a glance (a plenary, a reception, a trip)
         Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
             .background(kind.color().copy(alpha = 0.13f).compositeOver(MaterialTheme.colorScheme.surface))
-            .clickable { session.openEvent(e.id) }.padding(10.dp),
+            .clickable { session.openEvent(e.id, e.day) }.padding(10.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Box(Modifier.width(4.dp).height(40.dp).clip(RoundedCornerShape(2.dp)).background(kind.color()))
@@ -383,6 +399,7 @@ fun EventRow(e: Event, names: List<String>, matterTitle: String?, onDay: Long?, 
             Spacer(Modifier.height(4.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 MiniChip(stringResource(kind.label()))
+                ua.mandat.data.Repeat.of(e.repeat)?.let { MiniChip("↻ " + stringResource(it.label())) }
                 if (onDay == null) MiniChip(Dates.short(e.day))
                 if (e.place.isNotBlank()) MiniChip(e.place)
                 names.take(3).forEach { MiniChip(it) }
@@ -428,7 +445,7 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
     val context = LocalContext.current
 
     EditSheet(
-        title = stringResource(if (draft.isNew) R.string.event_new else R.string.event),
+        title = stringResource(if (draft.isNew && !draft.detached) R.string.event_new else R.string.event),
         onDismiss = { session.eventDraft = null },
         changed = draft.changed(),
         onSave = { session.saveEventDraft() },
@@ -441,7 +458,16 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
                 columns = 4, icon = { it.icon() }, mark = { it.color() })
         }
         SheetGroup(stringResource(R.string.event_when)) {
-            DueField(draft.day, allowClear = false, label = R.string.event_day) { if (it != null) draft.day = it }
+            // One time of a repeating event, or all of them: said first, so it is clear what a change touches
+            if (draft.detached) Text(stringResource(R.string.event_one_time_note), style = MaterialTheme.typography.labelMedium, color = Muted)
+            else if (!draft.isNew && draft.event.repeats) Text(stringResource(R.string.event_series_note), style = MaterialTheme.typography.labelMedium, color = Muted)
+            DueField(draft.day, allowClear = false, label = if (draft.repeat != null) R.string.event_first_day else R.string.event_day) {
+                if (it != null) {
+                    draft.day = it
+                    // An end that would now come before the first day is taken away in plain sight, not silently on saving
+                    if (draft.repeatUntil?.let { u -> u < it } == true) draft.repeatUntil = null
+                }
+            }
             // Time: whole day, or from–to as two large tiles
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (draft.startMin == null) {
@@ -455,6 +481,7 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
             if (draft.kind == EventKind.TRIP || draft.endDay != null) {
                 DueField(draft.endDay, label = R.string.event_end_day) { draft.endDay = it?.takeIf { d -> d > draft.day } }
             }
+            if (!draft.detached) RepeatPicker(draft)
             OutlinedTextField(value = draft.place, onValueChange = { draft.place = it },
                 label = { Text(stringResource(R.string.event_place)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         }
@@ -482,7 +509,9 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
                 label = { Text(stringResource(R.string.event_notes)) }, minLines = 2, modifier = Modifier.fillMaxWidth())
             if (draft.day <= Dates.today()) {
                 OutlinedTextField(value = draft.outcome, onValueChange = { draft.outcome = it },
-                    label = { Text(stringResource(R.string.event_outcome)) }, minLines = 2, modifier = Modifier.fillMaxWidth())
+                    label = { Text(stringResource(R.string.event_outcome)) }, minLines = 2, modifier = Modifier.fillMaxWidth(),
+                    // What came of one time is written in that time: the field here is one for all of them
+                    supportingText = if (draft.repeat != null) ({ Text(stringResource(R.string.event_outcome_series)) }) else null)
                 // After the meeting: what was agreed becomes delegations, promises and deadlines (only what is ticked)
                 val aiReady by session.ai.models.ready.collectAsStateWithLifecycle()
                 if (aiReady && draft.outcome.isNotBlank() && draft.day <= Dates.today()) AiChip(stringResource(R.string.ai_after_meeting)) {
@@ -490,9 +519,9 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
                     session.showAiSplit = true
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { draft.remind = !draft.remind }) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().switchRow(draft.remind) { draft.remind = it }) {
                 Text(stringResource(R.string.event_remind), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                androidx.compose.material3.Switch(checked = draft.remind, onCheckedChange = { draft.remind = it })
+                androidx.compose.material3.Switch(checked = draft.remind, onCheckedChange = null)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -523,7 +552,11 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
         val sensitive by remember(db, draft.matterId) {
             draft.matterId?.let { id -> db.matters().observeSensitiveIds().map { id in it } } ?: kotlinx.coroutines.flow.flowOf(false)
         }.collectAsStateWithLifecycle(false)
-        val warning = stringResource(R.string.event_to_phone_warning) + if (sensitive) "\n\n" + stringResource(R.string.event_to_phone_sensitive) else ""
+        // So does someone hidden in trip mode among those taking part, and a repeating event (its dates left out do not travel)
+        val hiddenPerson = draft.people.any { id -> people.firstOrNull { it.id == id }?.sensitive == true }
+        val warning = stringResource(R.string.event_to_phone_warning) + (if (sensitive) "\n\n" + stringResource(R.string.event_to_phone_sensitive) else "") +
+            (if (hiddenPerson) "\n\n" + stringResource(R.string.event_to_phone_person) else "") +
+            (if (draft.repeat != null) "\n\n" + stringResource(R.string.event_to_phone_repeat) else "")
         ConfirmDialog(stringResource(R.string.event_to_phone), warning, stringResource(R.string.event_to_phone_go),
             onConfirm = {
                 toPhone = false
@@ -531,17 +564,62 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
                 if (e != null) {
                     // Saved first: leaving Mandat locks it, and nothing typed is lost
                     session.saveEventDraft()
-                    PhoneCalendar.addToPhone(context, e.title, e.day, e.endDay, e.startMin, e.endMin, e.place)
+                    // A repeating event goes from its coming time, with its rule
+                    val t = ua.mandat.data.Repeats.at(e, ua.mandat.data.Repeats.next(e, Dates.today()) ?: e.day)
+                    PhoneCalendar.addToPhone(context, t.title, t.day, t.endDay, t.startMin, t.endMin, t.place, ua.mandat.data.Export.rrule(e))
                 }
             }, onCancel = { toPhone = false })
     }
     if (confirmDelete) {
-        ConfirmDelete(onConfirm = {
+        // A repeating event goes with all of its times: said before it is deleted
+        val delete: () -> Unit = {
             val id = draft.event.id
             session.eventDraft = null
             session.write { db -> db.withTransaction { db.communities().unlinkRef(ua.mandat.data.LinkKind.EVENT, id); db.events().delete(id) } }
-        }, onCancel = { confirmDelete = false })
+        }
+        if (draft.event.repeats) ConfirmDialog(null, stringResource(R.string.event_delete_series), stringResource(R.string.delete), danger = true, onConfirm = delete, onCancel = { confirmDelete = false })
+        else ConfirmDelete(onConfirm = delete, onCancel = { confirmDelete = false })
     }
+}
+
+/** How often the event comes again, and until when. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RepeatPicker(draft: EventDraft) {
+    Text(stringResource(R.string.event_repeat), style = MaterialTheme.typography.labelLarge)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        QuickChip(stringResource(R.string.repeat_none), draft.repeat == null) { draft.repeat = null }
+        ua.mandat.data.Repeat.entries.forEach { r -> QuickChip(stringResource(r.label()), draft.repeat == r) { draft.repeat = r } }
+    }
+    val r = draft.repeat ?: return
+    DueField(draft.repeatUntil, label = R.string.event_repeat_until) { draft.repeatUntil = it?.takeIf { d -> d >= draft.day } }
+    // The dates taken out of it: a tap brings one back (the latest ones, so the row stays short)
+    if (draft.skipped.isNotEmpty()) {
+        Text(stringResource(R.string.event_skipped), style = MaterialTheme.typography.labelMedium, color = Muted)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            draft.skipped.sorted().takeLast(24).forEach { d -> FilterBadge(Dates.format(d)) { draft.skipped = draft.skipped - d } }
+        }
+    }
+    // Something that lasts longer than the gap between two times cannot repeat that often: said, not silently dropped on saving
+    if ((draft.endDay ?: draft.day) - draft.day >= r.minGap) Text(stringResource(R.string.event_repeat_too_long), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+}
+
+/** A repeating event tapped on one day: this time, every time, or skip this time. */
+@Composable
+fun EventChoiceDialog(session: Session, choice: Session.EventChoice) {
+    AlertDialog(
+        onDismissRequest = { session.eventChoice = null },
+        title = { Text(choice.event.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.event_choice_text, Dates.format(choice.day)), style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = { session.openEventTime(choice) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.event_choice_one)) }
+                TextButton(onClick = { session.openEventSeries(choice) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.event_choice_all)) }
+                TextButton(onClick = { session.skipEventTime(choice) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.event_choice_skip), color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = { TextButton(onClick = { session.eventChoice = null }) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -607,9 +685,11 @@ fun PersonOrContactDialog(db: MandatDb, session: Session, exclude: Set<Long>, on
 /** Events of a matter or a person inside its card: what is coming, then the last ones. */
 @Composable
 fun EventLinks(db: MandatDb, session: Session, flow: kotlinx.coroutines.flow.Flow<List<Event>>, matterId: Long? = null, personId: Long? = null) {
-    val events by remember(flow) { flow }.collectAsStateWithLifecycle(emptyList())
+    val records by remember(flow) { flow }.collectAsStateWithLifecycle(emptyList())
     val titles by remember(db) { db.matters().observeAllTitles().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val today = Dates.today()
+    // A repeating event is one line here: at its coming time, or its last one when it is over
+    val events = records.map { ua.mandat.data.Repeats.near(it, today) }
     var all by remember { mutableStateOf(false) }
     LinkSection(stringResource(R.string.events) + if (events.isEmpty()) "" else " · ${events.size}")
     val coming = events.filter { it.lastDay >= today }.sortedBy { it.day }
@@ -655,9 +735,9 @@ private fun WeekGrid(
     val nowMin = java.time.LocalTime.now().let { it.hour * 60 + it.minute }
     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onPrev) { Text("‹", style = MaterialTheme.typography.titleLarge) }
-            Text("${Dates.short(from)} – ${Dates.short(from + 6)}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            IconButton(onClick = onNext) { Text("›", style = MaterialTheme.typography.titleLarge) }
+            StepButton(back = true, onClick = onPrev)
+            Text("${Dates.short(from)} – ${Dates.short(from + 6)}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).announced(), textAlign = TextAlign.Center)
+            StepButton(back = false, onClick = onNext)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             ViewChips(view, onView)
@@ -687,7 +767,7 @@ private fun WeekGrid(
                         Text(e.title, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             color = textOn(EventKind.of(e.kind).color()),
                             modifier = Modifier.padding(top = 2.dp).fillMaxWidth().padding(horizontal = 1.dp).clip(RoundedCornerShape(4.dp))
-                                .background(EventKind.of(e.kind).color()).clickable { session.openEvent(e.id) }.padding(horizontal = 3.dp, vertical = 1.dp))
+                                .background(EventKind.of(e.kind).color()).clickable { session.openEvent(e.id, e.day) }.padding(horizontal = 3.dp, vertical = 1.dp))
                     }
                 }
             }
@@ -732,7 +812,7 @@ private fun WeekGrid(
                             Box(
                                 Modifier.offset(x = w / count * lane, y = top).width(w / count).height(height).padding(1.dp)
                                     .clip(RoundedCornerShape(4.dp)).background(color.copy(alpha = if (item is Event) 0.9f else 0.5f))
-                                    .let { m -> if (item is Event) m.clickable { session.openEvent(item.id) } else m }
+                                    .let { m -> if (item is Event) m.clickable { session.openEvent(item.id, item.day) } else m }
                                     .padding(2.dp),
                             ) {
                                 val shown = color.copy(alpha = if (item is Event) 0.9f else 0.5f).compositeOver(MaterialTheme.colorScheme.background)
@@ -814,7 +894,7 @@ fun DayStrip(db: MandatDb, session: Session) {
 @Composable
 private fun NowLine(nowMin: Int) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(stringResource(R.string.now_at, timeText(nowMin)), style = MaterialTheme.typography.labelSmall, color = ChartColors.coral)
+        Text(stringResource(R.string.now_at, timeText(nowMin)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
         Spacer(Modifier.width(6.dp))
         Box(Modifier.weight(1f).height(2.dp).background(ChartColors.coral))
     }

@@ -143,10 +143,15 @@ class ScreensTest {
     @Test fun next() = shot("07-smart-next") { SmartListScreen(db, session, SmartList.NEXT) }
 
     // The choice of mode and roles at the first start, as an official and as a citizen see it
-    @Test fun rolesOfficial() = inMode(ua.mandat.data.Mode.OFFICIAL) { shot("26-roles-official") { ua.mandat.ui.RolesSetup(session) } }
-    @Test fun rolesCitizen() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("26-roles-citizen") { ua.mandat.ui.RolesSetup(session) } }
+    // The very first screen: nothing is chosen for the owner
+    @Test fun rolesFirst() = shot("26-roles-first") { ua.mandat.ui.RolesSetup(session) }
+    @Test fun rolesActivist() = inMode(ua.mandat.data.Mode.ACTIVIST) { shot("26-roles-activist") { ua.mandat.ui.RolesSetup(session, modeAlreadyChosen = true) } }
+    @Test fun rolesAssistant() = inMode(ua.mandat.data.Mode.ASSISTANT) { shot("26-roles-assistant") { ua.mandat.ui.RolesSetup(session, modeAlreadyChosen = true) } }
+    @Test fun peopleAssistant() = inMode(ua.mandat.data.Mode.ASSISTANT) { shot("28-people-assistant") { PeopleList(db, session) } }
+    @Test fun rolesOfficial() = inMode(ua.mandat.data.Mode.OFFICIAL) { shot("26-roles-official") { ua.mandat.ui.RolesSetup(session, modeAlreadyChosen = true) } }
+    @Test fun rolesCitizen() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("26-roles-citizen") { ua.mandat.ui.RolesSetup(session, modeAlreadyChosen = true) } }
     @Config(qualifiers = "+night")
-    @Test fun rolesCitizenDark() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("26-roles-citizen-dark") { ua.mandat.ui.RolesSetup(session) } }
+    @Test fun rolesCitizenDark() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("26-roles-citizen-dark") { ua.mandat.ui.RolesSetup(session, modeAlreadyChosen = true) } }
     @Test fun mattersCitizen() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("27-matters-citizen") { MattersList(db, onOpen = {}, session = session) } }
     // What was written for elected work has plain names for a citizen: communities, people, the dashboard's periods
     @Test fun districtCitizen() = inMode(ua.mandat.data.Mode.CITIZEN) { shot("28-district-citizen") { ua.mandat.ui.DistrictScreen(db, session) } }

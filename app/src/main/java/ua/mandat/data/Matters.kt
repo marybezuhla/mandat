@@ -44,6 +44,8 @@ enum class RolePost {
                     starts("заступник", "заступниця", "перший заступник", "перша заступниця", "deputy", "first deputy") ||
                         part.startsWith("заступник ") || part.startsWith("заступниця ") -> return DEPUTY
                     starts("голова підкомітету", "subcommittee chair") -> return if (bodyIsSub) LEAD else OTHER
+                    // (leads a project, not the organisation the role names)
+                    starts("керівник проєкту", "керівниця проєкту", "project manager") -> return OTHER
                     starts("голова", "співголова", "керівник", "керівниця", "chair", "co-chair", "chairperson", "head") ||
                         part.startsWith("голова ") || part.startsWith("керівник ") || part.startsWith("керівниця ") -> return LEAD
                     starts("секретар", "секретарка", "secretary") || part.startsWith("секретар ") -> return SECRETARY
@@ -84,7 +86,7 @@ data class Setting(
 )
 
 enum class MatterType {
-    CAMPAIGN, BILL, INVESTIGATION, COURT, DISTRICT, INTERNATIONAL, WORKING_GROUP, INQUIRY, PUBLIC_COMMS, AID, OTHER;
+    CAMPAIGN, BILL, INVESTIGATION, COURT, DISTRICT, INTERNATIONAL, WORKING_GROUP, INQUIRY, PUBLIC_COMMS, AID, GRANT, ACTION, DISPUTE, OTHER;
 
     companion object {
         fun of(key: String) = entries.firstOrNull { it.name == key } ?: OTHER

@@ -80,8 +80,15 @@ fun CommunityKind.label(): Int = when (this) {
     CommunityKind.OTHER -> R.string.community_other
 }
 
-/** A day with the owner in the community: a reception or a visit. */
-private fun isVisit(e: Event) = EventKind.of(e.kind) == EventKind.RECEPTION || EventKind.of(e.kind) == EventKind.TRIP
+/** A visit is any event tied to the community where the owner was there: everything but a phone call. */
+private fun isVisit(e: Event) = EventKind.of(e.kind) != EventKind.CALL
+
+/** An event not tied to any community is known as going out to people only by its kind: a reception or a trip. */
+private fun isOuting(e: Event) = EventKind.of(e.kind) == EventKind.RECEPTION || EventKind.of(e.kind) == EventKind.TRIP
+
+/** How far back and ahead the times of repeating events are counted for the district (days). */
+private const val DISTRICT_BACK = 2_200L
+private const val DISTRICT_AHEAD = 60L
 
 /** Everything counted for one community. */
 private data class CommunityStats(
@@ -101,12 +108,13 @@ private fun stats(
 ): List<CommunityStats> {
     val byKind = links.groupBy { it.communityId }
     val matterOf = matters.associateBy { it.id }
-    val eventOf = events.associateBy { it.id }
+    // (each time of a repeating event is an entry of its own, under the record's id)
+    val eventOf = events.groupBy { it.id }
     val promiseOf = promises.associateBy { it.id }
     return communities.map { c ->
         val l = byKind[c.id].orEmpty()
         val ms = l.filter { it.kind == LinkKind.MATTER }.mapNotNull { matterOf[it.refId] }
-        val es = l.filter { it.kind == LinkKind.EVENT }.mapNotNull { eventOf[it.refId] }
+        val es = l.filter { it.kind == LinkKind.EVENT }.flatMap { eventOf[it.refId].orEmpty() }
         val ps = l.filter { it.kind == LinkKind.PROMISE }.mapNotNull { promiseOf[it.refId] }
         val visits = es.filter { isVisit(it) && it.day <= today }
         CommunityStats(
@@ -142,12 +150,15 @@ fun DistrictScreen(db: MandatDb, session: Session) {
     val communities by remember(db) { db.communities().observeAll().hidingCommunities(session) }.collectAsStateWithLifecycle(emptyList())
     val links by remember(db) { db.communities().observeLinks() }.collectAsStateWithLifecycle(emptyList())
     val matters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
-    val events by remember(db) { db.events().observeAll().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
-    val promises by remember(db) { db.promises().observeAll().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
+    val eventRecords by remember(db) { db.events().observeAll().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
+    val events = remember(eventRecords) { Dates.today().let { t -> ua.mandat.data.Repeats.eachTime(eventRecords, t - DISTRICT_BACK, t + DISTRICT_AHEAD) } }
+    val promises by remember(db) { db.promises().observeAll().own().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
     val shownPeople by remember(db) { db.people().observeAll().hidingPeople(session).map { l -> l.mapTo(HashSet()) { it.id } } }.collectAsStateWithLifecycle(emptySet())
     val today = Dates.today()
     val all = stats(communities, links, matters, events, promises, today, shownPeople).sortedWith(compareBy({ it.lastVisit != null }, { it.lastVisit }))
-    val coming = events.filter { isVisit(it) && it.lastDay >= today && it.day <= today + 30 }.sortedBy { it.day }
+    // Coming: what is tied to a community, and receptions and trips also when not tied to one yet
+    val tiedEvents = remember(links) { links.filter { it.kind == LinkKind.EVENT }.mapTo(HashSet()) { it.refId } }
+    val coming = events.filter { ((it.id in tiedEvents && isVisit(it)) || isOuting(it)) && it.lastDay >= today && it.day <= today + 30 }.sortedBy { it.day }
     val openPromises = all.flatMap { it.promises }.distinctBy { it.id }.count { TaskStatus.of(it.status) == TaskStatus.OPEN }
     val longAgo = all.count { it.lastVisit == null || it.lastVisit < today - 90 }
     var sharing by remember { mutableStateOf(false) }
@@ -291,8 +302,9 @@ fun CommunityScreen(db: MandatDb, session: Session, id: Long) {
     val communities by remember(db) { db.communities().observeAll().hidingCommunities(session) }.collectAsStateWithLifecycle(emptyList())
     val links by remember(db) { db.communities().observeLinks() }.collectAsStateWithLifecycle(emptyList())
     val matters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
-    val events by remember(db) { db.events().observeAll().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
-    val promises by remember(db) { db.promises().observeAll().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
+    val eventRecords by remember(db) { db.events().observeAll().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
+    val events = remember(eventRecords) { Dates.today().let { t -> ua.mandat.data.Repeats.eachTime(eventRecords, t - DISTRICT_BACK, t + DISTRICT_AHEAD) } }
+    val promises by remember(db) { db.promises().observeAll().own().hiding(session, ua.mandat.data.HideRules.PROMISE) }.collectAsStateWithLifecycle(emptyList())
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
     val roles by remember(db) { db.roles().observeAll() }.collectAsStateWithLifecycle(emptyList())
     val c = communities.firstOrNull { it.id == id }
@@ -304,11 +316,20 @@ fun CommunityScreen(db: MandatDb, session: Session, id: Long) {
     val today = Dates.today()
     val s = stats(listOf(c), links, matters, events, promises, today, remember(people) { people.mapTo(HashSet()) { it.id } }).first()
     val mine = links.filter { it.communityId == id }
+    // The events tied here, one line each: a repeating one at its coming time (or its last), never once per time
+    val tiedHere = mine.filter { it.kind == LinkKind.EVENT }.mapTo(HashSet()) { it.refId }
+    val eventsHere = eventRecords.filter { it.id in tiedHere }.map { ua.mandat.data.Repeats.near(it, today) }
     val linkedPeople = mine.filter { it.kind == LinkKind.PERSON }.mapNotNull { l -> people.firstOrNull { it.id == l.refId } }
     var picking by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     val roleNames = roles.associate { it.id to it.name }
-    fun unlink(kind: String, ref: Long) = session.write { it.communities().unlink(id, kind, ref) }
+    // A link is removed after a question, not by one stray tap
+    var unlinking by remember { mutableStateOf<Pair<String, Long>?>(null) }
+    fun unlink(kind: String, ref: Long) { unlinking = kind to ref }
+    unlinking?.let { (kind, ref) ->
+        ConfirmDialog(null, stringResource(R.string.unlink_question), stringResource(R.string.unlink),
+            onConfirm = { unlinking = null; session.write { it.communities().unlink(id, kind, ref) } }, onCancel = { unlinking = null })
+    }
 
     @Composable
     fun Removable(kind: String, ref: Long, content: @Composable () -> Unit) {
@@ -361,8 +382,8 @@ fun CommunityScreen(db: MandatDb, session: Session, id: Long) {
                 }
             }
             item(key = "visits") {
-                SectionCard(Sym.calendar, stringResource(R.string.district_visits), count = s.events.size) {
-                    s.events.sortedByDescending { it.day }.take(20).forEach { e -> Removable(LinkKind.EVENT, e.id) { EventRow(e, emptyList(), null, null, session) } }
+                SectionCard(Sym.calendar, stringResource(R.string.district_visits), count = eventsHere.size) {
+                    eventsHere.sortedByDescending { it.day }.take(20).forEach { e -> Removable(LinkKind.EVENT, e.id) { EventRow(e, emptyList(), null, null, session) } }
                     Row {
                         TextButton(onClick = {
                             session.eventDraft = EventDraft(
@@ -415,7 +436,7 @@ fun CommunityScreen(db: MandatDb, session: Session, id: Long) {
             val options = when (kind) {
                 LinkKind.MATTER -> matters.filter { MatterStatus.of(it.status) == MatterStatus.ACTIVE }.map { it.id to it.title }
                 LinkKind.PROMISE -> promises.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }.map { it.id to it.what }
-                else -> events.filter { isVisit(it) }.sortedByDescending { it.day }.map { it.id to "${Dates.short(it.day)} · ${it.title}" }
+                else -> eventRecords.filter { isVisit(it) }.sortedByDescending { it.day }.map { it.id to "${Dates.short(it.day)} · ${it.title}" }
             }.filter { it.first !in linked }
             PickTextDialog(options, onPick = { ref ->
                 picking = null

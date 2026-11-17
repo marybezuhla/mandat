@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.map
 import ua.mandat.R
 import ua.mandat.data.Delegation
 import ua.mandat.data.MandatDb
@@ -138,7 +139,8 @@ fun OneOnOneScreen(db: MandatDb, session: Session, personId: Long) {
     val titleOf = titles.associate { it.id to it.title }
     val allMatters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val nextOf = allMatters.associate { it.id to it.nextStep }
-    val events by remember(db, personId) { db.events().observeForPerson(personId).hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
+    // A repeating event is one entry: at its coming time, or its last one when it is over
+    val events by remember(db, personId) { db.events().observeForPerson(personId).hiding(session, ua.mandat.data.HideRules.EVENT).map { l -> Dates.today().let { t -> l.map { ua.mandat.data.Repeats.near(it, t) } } } }.collectAsStateWithLifecycle(emptyList())
     val reviews by remember(db) { db.reviews().observeAll().hidingReviews(session) }.collectAsStateWithLifecycle(emptyList())
     val reviewLinks by remember(db) { db.reviews().observeLinks() }.collectAsStateWithLifecycle(emptyList())
     val hidden by session.hiddenMatters.collectAsStateWithLifecycle()
@@ -165,8 +167,10 @@ fun OneOnOneScreen(db: MandatDb, session: Session, personId: Long) {
     ) { padding ->
         if (p == null) return@Scaffold
         val team = p.teamRole != null
-        val open = delegations.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }
-        val done = delegations.filter { TaskStatus.of(it.status) == TaskStatus.DONE && it.closedAt != null && Dates.dayOf(it.closedAt) > today - 30 }
+        // What the owner handed to this person, and apart from it what this person handed to the owner
+        val open = delegations.filter { !it.incoming && TaskStatus.of(it.status) == TaskStatus.OPEN }
+        val done = delegations.filter { !it.incoming && TaskStatus.of(it.status) == TaskStatus.DONE && it.closedAt != null && Dates.dayOf(it.closedAt) > today - 30 }
+        val openIn = delegations.filter { it.incoming && TaskStatus.of(it.status) == TaskStatus.OPEN }
         LazyColumn(
             Modifier.padding(padding).fillMaxSize(),
             contentPadding = PaddingValues(start = Space.screen, end = Space.screen, bottom = 32.dp),
@@ -249,10 +253,21 @@ fun OneOnOneScreen(db: MandatDb, session: Session, personId: Long) {
                     }
                 }
             }
-            val openP = promises.filter { TaskStatus.of(it.status) == TaskStatus.OPEN }
+            if (openIn.isNotEmpty()) item(key = "openIn") {
+                SectionCard(Sym.checkCircle, stringResource(R.string.agenda_asked_me), count = openIn.size) {
+                    Paged(openIn) { d -> DelegationRow(d, null, d.matterId?.let(titleOf::get), session) }
+                }
+            }
+            val openP = promises.filter { !it.incoming && TaskStatus.of(it.status) == TaskStatus.OPEN }
             if (openP.isNotEmpty()) item(key = "promises") {
                 SectionCard(Sym.checkCircle, stringResource(R.string.agenda_promises), count = openP.size) {
                     Paged(openP) { x -> PromiseRow(x, null, x.matterId?.let(titleOf::get), session) }
+                }
+            }
+            val openPIn = promises.filter { it.incoming && TaskStatus.of(it.status) == TaskStatus.OPEN }
+            if (openPIn.isNotEmpty()) item(key = "promisesIn") {
+                SectionCard(Sym.checkCircle, stringResource(R.string.agenda_promised_me), count = openPIn.size) {
+                    Paged(openPIn) { x -> PromiseRow(x, null, x.matterId?.let(titleOf::get), session) }
                 }
             }
             if (notesAbout.isNotEmpty()) item(key = "diary") {
@@ -277,7 +292,7 @@ private enum class Cell { RELY, PERSUADE, WATCH, INFORM }
 fun InfluenceMapScreen(db: MandatDb, session: Session, matterId: Long?) {
     BackHandler { session.influenceFor = null }
     val people by remember(db) { db.people().observeAll().hidingPeople(session) }.collectAsStateWithLifecycle(emptyList())
-    val links by remember(db) { db.people().observeLinks().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
+    val links by remember(db) { db.people().observeLinks().hidingLinks(session) }.collectAsStateWithLifecycle(emptyList())
     val titles by remember(db) { db.matters().observeAllTitles().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val today = Dates.today()
     val outside = people.filter { it.teamRole == null }

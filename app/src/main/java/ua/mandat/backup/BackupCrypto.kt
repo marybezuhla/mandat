@@ -9,8 +9,9 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * The backup file. It has no readable header or marker at all: to anyone without the password
- * it looks like random bytes, so it does not reveal that it comes from Mandat.
+ * The one-piece encrypted file: an export (.mandatx), and a backup made before 0.3.0 (backups are
+ * now written in parts, see [BackupStream]). It has no readable header or marker at all: to anyone
+ * without the password it looks like random bytes, so it does not reveal that it comes from Mandat.
  *
  * Layout: salt (16) | nonce (12) | AES-256-GCM ciphertext with 16-byte tag.
  * The key comes from the password through Argon2id with fixed settings (see [PROFILES]);
@@ -49,10 +50,8 @@ object BackupCrypto {
     }
 
     const val MIN_PASSWORD_LENGTH = 16
+    /** A one-piece file, at most (it is opened whole, in memory). */
     const val MAX_FILE_BYTES = 16L * 1024 * 1024
-
-    /** The most a copy can hold before encryption: the file limit less room for the salt, nonce and tag. */
-    const val MAX_PLAIN_BYTES = MAX_FILE_BYTES - 64
 
     /**
      * The first bytes inside an export file (.mandatx), after decryption. A backup holds JSON
@@ -67,11 +66,17 @@ object BackupCrypto {
     private const val NONCE_BYTES = 12
     private const val TAG_BYTES = 16
 
+    /** Nothing shorter can be a file of either layout. */
+    const val MIN_FILE_BYTES = SALT_BYTES + NONCE_BYTES + TAG_BYTES
+
     /** The password or the file is wrong; deliberately the same for both. */
     class WrongPasswordOrDamaged : Exception()
 
     /** Too small or too large to be a backup. */
     class NotABackup : Exception()
+
+    /** The file itself could not be read (the folder or the storage failed): nothing is known about what is in it. */
+    class FileUnreadable : Exception()
 
     fun encrypt(plain: ByteArray, password: String, params: KdfParams = DEFAULT): ByteArray {
         val chars = password.toCharArray()
@@ -118,25 +123,14 @@ object BackupCrypto {
 
     /**
      * For automatic backups: a fresh salt and the key from the password, computed once when the
-     * owner turns them on. Files made with it have the same layout and open with the password.
+     * owner turns them on. Files made with it ([BackupStream.storedKey]) open with the password.
      */
     fun newAutoKey(password: String): Pair<ByteArray, ByteArray> {
         val salt = ByteArray(SALT_BYTES).also { SecureRandom().nextBytes(it) }
         return salt to deriveKey(password, salt, DEFAULT)
     }
 
-    /** Same file layout as [encrypt], with a key derived earlier; a fresh nonce every time. */
-    fun encryptWithKey(plain: ByteArray, key: ByteArray, salt: ByteArray): ByteArray {
-        require(key.size == 32 && salt.size == SALT_BYTES)
-        val nonce = ByteArray(NONCE_BYTES).also { SecureRandom().nextBytes(it) }
-        val header = salt + nonce
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_BYTES * 8, nonce))
-        cipher.updateAAD(header)
-        return header + cipher.doFinal(plain)
-    }
-
-    /** Opens a file with a key derived earlier (to check an automatic backup right after writing it). */
+    /** Opens a one-piece file with a key already made from the password and the salt at its start. */
     fun decryptWithKey(file: ByteArray, key: ByteArray): ByteArray {
         val headerSize = SALT_BYTES + NONCE_BYTES
         if (file.size < headerSize + TAG_BYTES || file.size > MAX_FILE_BYTES) throw NotABackup()

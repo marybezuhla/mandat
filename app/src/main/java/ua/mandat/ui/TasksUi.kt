@@ -3,7 +3,9 @@
 package ua.mandat.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Close
@@ -56,7 +58,16 @@ import ua.mandat.data.TaskStatus
 import ua.mandat.data.isOverdue
 
 /** What a row is; each kind has its own colour and picture, readable at a glance. */
-enum class TaskKind { HARD, SOFT, DELEGATION, PROMISE }
+enum class TaskKind { HARD, SOFT, DELEGATION, PROMISE, DELEGATION_IN, PROMISE_IN }
+
+private fun TaskKind.label(): Int = when (this) {
+    TaskKind.HARD -> R.string.deadline_hard
+    TaskKind.SOFT -> R.string.deadline_soft
+    TaskKind.DELEGATION -> R.string.kind_delegation
+    TaskKind.PROMISE -> R.string.kind_promise
+    TaskKind.DELEGATION_IN -> R.string.kind_delegation_in
+    TaskKind.PROMISE_IN -> R.string.kind_promise_in
+}
 
 @Composable
 private fun TaskKind.badge(): Pair<androidx.compose.ui.graphics.Color, androidx.compose.ui.graphics.Color> {
@@ -67,6 +78,8 @@ private fun TaskKind.badge(): Pair<androidx.compose.ui.graphics.Color, androidx.
         TaskKind.SOFT -> if (dark) c(0xFF042C53) to c(0xFFB5D4F4) else c(0xFFE6F1FB) to c(0xFF0C447C)
         TaskKind.DELEGATION -> if (dark) c(0xFF04342C) to c(0xFF9FE1CB) else c(0xFFE1F5EE) to c(0xFF085041)
         TaskKind.PROMISE -> if (dark) c(0xFF412402) to c(0xFFFAC775) else c(0xFFFAEEDA) to c(0xFF633806)
+        // What came to the owner: violet, apart from what the owner handed out or promised
+        TaskKind.DELEGATION_IN, TaskKind.PROMISE_IN -> if (dark) c(0xFF2A1F52) to c(0xFFCFC3F5) else c(0xFFEDE8FB) to c(0xFF3B2A7A)
     }
 }
 
@@ -74,6 +87,8 @@ private fun TaskKind.icon(): androidx.compose.ui.graphics.vector.ImageVector = w
     TaskKind.HARD, TaskKind.SOFT -> androidx.compose.material.icons.Icons.Filled.DateRange
     TaskKind.DELEGATION -> androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowForward
     TaskKind.PROMISE -> androidx.compose.material.icons.Icons.Filled.ThumbUp
+    TaskKind.DELEGATION_IN -> androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack
+    TaskKind.PROMISE_IN -> androidx.compose.material.icons.Icons.Filled.Star
 }
 
 /** A small label inside a row: a person, a matter, a date. */
@@ -93,7 +108,7 @@ fun MiniChip(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
             .background(bg ?: MaterialTheme.colorScheme.surface)
-            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .let { if (onClick != null) it.clickable(onClick = onClick).named(text) else it }
             .padding(horizontal = 7.dp, vertical = 2.dp),
     )
 }
@@ -140,7 +155,8 @@ fun TaskRow(
             Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape).background(bg),
             contentAlignment = Alignment.Center,
         ) {
-            androidx.compose.material3.Icon(kind.icon(), contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
+            // The kind is told by the picture and its colour: a screen reader says it in words
+            androidx.compose.material3.Icon(kind.icon(), contentDescription = stringResource(kind.label()), tint = fg, modifier = Modifier.size(18.dp))
         }
         androidx.compose.foundation.layout.Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
@@ -168,17 +184,19 @@ fun TaskRow(
                     modifier = Modifier.padding(top = 4.dp), maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
         }
-        Checkbox(checked = done, onCheckedChange = { onToggleDone() })
+        Checkbox(checked = done, onCheckedChange = { onToggleDone() }, modifier = Modifier.named(stringResource(R.string.mark_done_named, what)))
     }
 }
 
 @Composable
 fun DelegationRow(d: Delegation, personName: String?, matterTitle: String?, session: Session) {
+    // Handed to the owner: said in words too, with who handed it
+    val who = if (d.incoming) personName?.let { stringResource(R.string.chip_from, it) } ?: stringResource(R.string.chip_to_me) else personName
     TaskRow(
         what = d.what,
-        kind = TaskKind.DELEGATION,
+        kind = if (d.incoming) TaskKind.DELEGATION_IN else TaskKind.DELEGATION,
         chips = listOfNotNull(
-            personName, matterTitle,
+            who, matterTitle,
             d.checkIn?.takeIf { TaskStatus.of(d.status) == TaskStatus.OPEN }?.let { stringResource(R.string.check_in_chip, Dates.short(it)) },
             if (d.returned) stringResource(R.string.returned_chip) else null,
             ua.mandat.data.Freedom.of(d.freedom)?.let { stringResource(it.label()) },
@@ -188,7 +206,7 @@ fun DelegationRow(d: Delegation, personName: String?, matterTitle: String?, sess
         onToggleDone = {
             val next = if (TaskStatus.of(d.status) == TaskStatus.OPEN) TaskStatus.DONE else TaskStatus.OPEN
             // Done by someone: a gentle offer to thank them
-            if (next == TaskStatus.DONE && d.personId != null && !d.thanked) session.thankFor = d
+            if (next == TaskStatus.DONE && d.personId != null && !d.thanked && !d.incoming) session.thankFor = d
             session.write {
                 it.delegations().update(
                     d.copy(status = next.name, closedAt = if (next == TaskStatus.OPEN) null else System.currentTimeMillis()),
@@ -197,7 +215,7 @@ fun DelegationRow(d: Delegation, personName: String?, matterTitle: String?, sess
         },
         onOpen = { session.delegationDraft = DelegationDraft(d, isNew = false) },
         links = buildMap {
-            if (personName != null && d.personId != null) put(personName) { session.openPerson(d.personId) }
+            if (who != null && personName != null && d.personId != null) put(who) { session.openPerson(d.personId) }
             if (matterTitle != null && d.matterId != null) put(matterTitle) { session.openMatter(d.matterId) }
         },
     )
@@ -205,8 +223,9 @@ fun DelegationRow(d: Delegation, personName: String?, matterTitle: String?, sess
 
 @Composable
 fun PromiseRow(p: Promise, personName: String?, matterTitle: String?, session: Session, extra: String? = null) {
-    val whom = personName ?: p.toWhom.ifBlank { null }
-    val publicLabel = stringResource(R.string.chip_public)
+    val name = personName ?: p.toWhom.ifBlank { null }
+    // Promised to the owner: said in words too, with who promised
+    val whom = if (p.incoming) name?.let { stringResource(R.string.chip_from, it) } ?: stringResource(R.string.chip_to_me) else name
     fun toggle() {
         val next = if (TaskStatus.of(p.status) == TaskStatus.OPEN) TaskStatus.DONE else TaskStatus.OPEN
         session.write {
@@ -222,15 +241,15 @@ fun PromiseRow(p: Promise, personName: String?, matterTitle: String?, session: S
         onConfirm = { reopening = false; toggle() }, onCancel = { reopening = false })
     TaskRow(
         what = p.what,
-        kind = TaskKind.PROMISE,
-        chips = listOfNotNull(if (p.level != ua.mandat.data.Publicity.PERSONAL) stringResource(p.level.label()) else null, whom, matterTitle),
+        kind = if (p.incoming) TaskKind.PROMISE_IN else TaskKind.PROMISE,
+        chips = listOfNotNull(if (!p.incoming && p.level != ua.mandat.data.Publicity.PERSONAL) stringResource(p.level.label()) else null, whom, matterTitle),
         due = p.due,
         status = p.status,
         onToggleDone = { if (TaskStatus.of(p.status) != TaskStatus.OPEN && p.statusNote.isNotBlank()) reopening = true else toggle() },
         onOpen = { session.promiseDraft = PromiseDraft(p, isNew = false) },
         extra = extra,
         links = buildMap {
-            if (personName != null && p.personId != null) put(personName) { session.openPerson(p.personId) }
+            if (whom != null && personName != null && p.personId != null) put(whom) { session.openPerson(p.personId) }
             if (matterTitle != null && p.matterId != null) put(matterTitle) { session.openMatter(p.matterId) }
         },
     )
@@ -238,14 +257,14 @@ fun PromiseRow(p: Promise, personName: String?, matterTitle: String?, session: S
 
 /** Choose a person from Mandat (team first), or nobody. */
 @Composable
-fun PersonPicker(people: List<Person>, current: Long?, onPick: (Long?) -> Unit) {
+fun PersonPicker(people: List<Person>, current: Long?, label: Int = R.string.to_whom, onPick: (Long?) -> Unit) {
     val none = stringResource(R.string.nobody)
     val chosen = people.firstOrNull { it.id == current }
     var open by remember { mutableStateOf(false) }
-    FieldTile(stringResource(R.string.to_whom), chosen?.name ?: none, placeholder = chosen == null,
+    FieldTile(stringResource(label), chosen?.name ?: none, placeholder = chosen == null,
         onClear = if (chosen != null) ({ onPick(null) }) else null) { open = true }
     if (open) PickSheet(
-        stringResource(R.string.to_whom),
+        stringResource(label),
         listOf(PickItem<Long?>(null, none)) + people.map { p -> PickItem<Long?>(p.id, p.name, listOf(p.jobTitle, p.organization).filter { it.isNotBlank() }.joinToString(" · ")) },
         onPick = { open = false; onPick(it) }, onDismiss = { open = false }, current = current,
     )
@@ -328,19 +347,21 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
     var confirmDelete by remember { mutableStateOf(false) }
 
     EditSheet(
-        title = stringResource(R.string.delegation_new),
+        title = stringResource(if (draft.incoming) R.string.kind_delegation_in else R.string.delegation_new),
         onDismiss = { session.delegationDraft = null },
         changed = draft.changed(),
         onSave = { session.saveDelegationDraft() },
         saveEnabled = draft.what.isNotBlank(),
     ) {
         SheetGroup {
+                // Who handed it to whom: the owner to someone, or someone to the owner
+                DirectionChips(draft.incoming, R.string.dir_delegation_out, R.string.kind_delegation_in) { draft.incoming = it }
 
                 OutlinedTextField(
                     value = draft.what, onValueChange = { draft.what = it },
                     label = { Text(stringResource(R.string.what)) }, minLines = 2, modifier = Modifier.fillMaxWidth(),
                 )
-                PersonPicker(people, draft.personId) { draft.personId = it }
+                PersonPicker(people, draft.personId, if (draft.incoming) R.string.from_whom else R.string.to_whom) { draft.personId = it }
         }
         SheetGroup(stringResource(R.string.delegation_group_how)) {
                 // The intent and what "done" means: the person can act sensibly when things change
@@ -352,25 +373,27 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
                     value = draft.doneMeans, onValueChange = { draft.doneMeans = it },
                     label = { Text(stringResource(R.string.delegation_done_means)) }, modifier = Modifier.fillMaxWidth(),
                 )
-                FreedomPicker(draft.freedom) { draft.freedom = it }
+                // (the simple view leaves these out, unless this record already has them: nothing is ever edited blind)
+                if (!draft.incoming && (!AppMode.simple || draft.delegation.freedom != null)) FreedomPicker(draft.freedom) { draft.freedom = it }
         }
         SheetGroup(stringResource(R.string.delegation_group_when)) {
                 MatterPicker(matters, allMatters, draft.matterId) { draft.matterId = it }
                 DueField(draft.due) { draft.due = it }
-                DueField(draft.checkIn, label = R.string.delegation_check_in) { draft.checkIn = it }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // (the simple view leaves out the check-in day and "it came back")
+                if (!draft.incoming && (!AppMode.simple || draft.delegation.checkIn != null)) DueField(draft.checkIn, label = R.string.delegation_check_in) { draft.checkIn = it }
+                if (!draft.incoming && (!AppMode.simple || draft.delegation.returned)) Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.delegation_returned), style = MaterialTheme.typography.bodyLarge)
                         Text(stringResource(R.string.delegation_returned_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                     }
-                    androidx.compose.material3.Switch(checked = draft.returned, onCheckedChange = { draft.returned = it })
+                    androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.delegation_returned)), checked = draft.returned, onCheckedChange = { draft.returned = it })
                 }
         }
         if (!draft.isNew) SheetGroup {
             StatusChips(draft.status, TASK_STATUSES, { it.delegationLabel() }) { draft.status = it }
             // A polite reminder to copy into a messenger (only a suggestion; nothing is sent from here)
             val person = draft.personId?.let { id -> people.firstOrNull { it.id == id } }
-            if (person != null && draft.status == ua.mandat.data.TaskStatus.OPEN) AiAnswer(session, ua.mandat.ai.LocalAi.Task.REMINDER,
+            if (person != null && !draft.incoming && draft.status == ua.mandat.data.TaskStatus.OPEN) AiAnswer(session, ua.mandat.ai.LocalAi.Task.REMINDER,
                 facts = {
                     // Free text naming a hidden matter stays out while it is hidden
                     session.withOpenDb { d -> if (draft.matterId in session.hiddenMatters.value || (draft.matterId == null && d.namesHidden(session)(draft.what + " " + draft.purpose))) "" else reminderText(draft.what, draft.due, person.name, draft.purpose) }.orEmpty()
@@ -384,6 +407,15 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
             session.delegationDraft = null
             session.write { it.delegations().delete(id) }
         }, onCancel = { confirmDelete = false })
+    }
+}
+
+/** Two chips for the direction of a delegation or a promise: from the owner, or to the owner. */
+@Composable
+private fun DirectionChips(incoming: Boolean, out: Int, into: Int, onPick: (Boolean) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        QuickChip(stringResource(out), !incoming) { onPick(false) }
+        QuickChip(stringResource(into), incoming) { onPick(true) }
     }
 }
 
@@ -415,29 +447,35 @@ fun PromiseDialog(db: MandatDb, session: Session, draft: PromiseDraft) {
     var confirmDelete by remember { mutableStateOf(false) }
 
     EditSheet(
-        title = stringResource(R.string.promise_new),
+        title = stringResource(if (draft.incoming) R.string.kind_promise_in else R.string.promise_new),
         onDismiss = { session.promiseDraft = null },
         changed = draft.changed(),
         onSave = { session.savePromiseDraft() },
         saveEnabled = draft.what.isNotBlank(),
     ) {
         SheetGroup {
+                // Who promised whom: the owner to someone, or someone to the owner
+                DirectionChips(draft.incoming, R.string.dir_promise_out, R.string.kind_promise_in) { draft.incoming = it }
 
                 OutlinedTextField(
                     value = draft.what, onValueChange = { draft.what = it },
                     label = { Text(stringResource(R.string.what)) }, minLines = 2, modifier = Modifier.fillMaxWidth(),
                 )
-                PersonPicker(people, draft.personId) { draft.personId = it }
+                PersonPicker(people, draft.personId, if (draft.incoming) R.string.from_whom else R.string.to_whom) { draft.personId = it }
                 if (draft.personId == null) {
                     OutlinedTextField(
                         value = draft.toWhom, onValueChange = { draft.toWhom = it },
-                        label = { Text(stringResource(R.string.to_whom_text)) }, singleLine = true,
+                        label = { Text(stringResource(if (draft.incoming) R.string.from_whom_text else R.string.to_whom_text)) }, singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
         }
         SheetGroup(stringResource(R.string.promise_group_kind)) {
-                PromiseDimensions(draft)
+                // How widely, where from and how risky are about the owner's own word only
+                // (the simple view keeps only how widely, which decides what gets into the report,
+                // unless this promise already has the rest)
+                val had = draft.promise.origin != null || draft.promise.risk != null
+                if (!draft.incoming) PromiseDimensions(draft, plain = AppMode.simple && !had)
                 OutlinedTextField(
                     value = draft.source, onValueChange = { draft.source = it },
                     label = { Text(stringResource(R.string.promise_source)) },
@@ -474,13 +512,14 @@ fun PromiseDialog(db: MandatDb, session: Session, draft: PromiseDraft) {
 /** How widely, where from and how risky: the three things that tell promises apart. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun PromiseDimensions(draft: PromiseDraft) {
+fun PromiseDimensions(draft: PromiseDraft, plain: Boolean = false) {
     Text(stringResource(R.string.publicity), style = MaterialTheme.typography.labelLarge)
     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         ua.mandat.data.Publicity.entries.forEach { p ->
             QuickChip(stringResource(p.label()), draft.publicity == p) { draft.publicity = p }
         }
     }
+    if (plain) return
     Text(stringResource(R.string.origin), style = MaterialTheme.typography.labelLarge)
     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         ua.mandat.data.PromiseOrigin.entries.forEach { o ->

@@ -15,7 +15,7 @@
 
 **Як перевірити, що APK справжній.** Сертифікат підпису має SHA-256 `A7:06:53:16:67:2A:C1:5B:C3:87:A6:8C:2E:A2:96:EC:8E:A2:79:42:09:13:D6:9E:C5:02:05:BB:54:8D:77:3E`. Перевірка: `apksigner verify --print-certs mandat-<версія>.apk` (apksigner є в Android SDK Build Tools). SHA-256 самого файлу опубліковано в описі кожного випуску.
 
-**Межі.** Мандат не призначено для відомостей з грифом: для них потрібні спеціально захищені системи, а не застосунок на особистому телефоні.
+**Межі.** Мандат не призначено для таємної та службової інформації: для неї потрібні спеціально захищені системи, а не застосунок на особистому телефоні.
 
 ---
 
@@ -34,4 +34,4 @@
 
 **How to check that an APK is genuine.** The signing certificate's SHA-256 is `A7:06:53:16:67:2A:C1:5B:C3:87:A6:8C:2E:A2:96:EC:8E:A2:79:42:09:13:D6:9E:C5:02:05:BB:54:8D:77:3E`. Check: `apksigner verify --print-certs mandat-<version>.apk` (apksigner comes with the Android SDK Build Tools). The SHA-256 of the file itself is published with every release.
 
-**Limits.** Mandat is not for classified information, which needs specially protected systems rather than an app on a personal phone.
+**Limits.** Mandat is not for classified or restricted official information, which needs specially protected systems rather than an app on a personal phone.

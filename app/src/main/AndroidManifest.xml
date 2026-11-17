@@ -36,6 +36,7 @@
             android:exported="false"
             android:launchMode="singleTask"
             android:taskAffinity=""
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:windowSoftInputMode="adjustResize" />
         <!-- The entry on the home screen and in "Share": "Mandat", or a neutral name and icon (chosen in Options) -->
         <activity-alias

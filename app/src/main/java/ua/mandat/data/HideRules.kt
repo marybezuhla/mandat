@@ -2,9 +2,14 @@ package ua.mandat.data
 
 /**
  * How one kind of record is checked against what is hidden: the matter it belongs to, when it was
- * written or last changed, and all of its free text that could name a matter.
+ * written or last changed, and all of its free text that could name a matter or a person; then
+ * the person it is tied to ([personOf]), and for an event its own id ([eventOf]: the people of an
+ * event are kept apart from it).
  */
-class HideRule<T>(val matterOf: (T) -> Long?, val at: (T) -> Long, val text: (T) -> String)
+class HideRule<T>(
+    val matterOf: (T) -> Long?, val at: (T) -> Long, val personOf: (T) -> Long? = { null }, val eventOf: (T) -> Long? = { null },
+    val text: (T) -> String,
+)
 
 /**
  * The one place that says, for every kind of record, what decides whether it is hidden. The
@@ -16,11 +21,11 @@ class HideRule<T>(val matterOf: (T) -> Long?, val at: (T) -> Long, val text: (T)
  */
 object HideRules {
     val DEADLINE = HideRule<Deadline>({ it.matterId }, { it.createdAt }) { it.title + " " + it.basis }
-    val DELEGATION = HideRule<Delegation>({ it.matterId }, { it.createdAt }) { it.what + " " + it.purpose + " " + it.doneMeans }
-    val PROMISE = HideRule<Promise>({ it.matterId }, { it.createdAt }) { it.what + " " + it.toWhom + " " + it.source + " " + it.statusNote }
-    val EVENT = HideRule<Event>({ it.matterId }, { it.updatedAt }) { it.title + " " + it.notes + " " + it.place + " " + it.outcome }
-    val INFO = HideRule<InfoItem>({ it.matterId }, { it.updatedAt }) { it.title + " " + it.notes + " " + it.source + " " + it.result }
-    val ALLIANCE = HideRule<Alliance>({ it.matterId }, { it.updatedAt }) { it.withWhom + " " + it.about + " " + it.notes + " " + it.gives + " " + it.gets }
+    val DELEGATION = HideRule<Delegation>({ it.matterId }, { it.createdAt }, personOf = { it.personId }) { it.what + " " + it.purpose + " " + it.doneMeans }
+    val PROMISE = HideRule<Promise>({ it.matterId }, { it.createdAt }, personOf = { it.personId }) { it.what + " " + it.toWhom + " " + it.source + " " + it.statusNote }
+    val EVENT = HideRule<Event>({ it.matterId }, { it.updatedAt }, eventOf = { it.id }) { it.title + " " + it.notes + " " + it.place + " " + it.outcome }
+    val INFO = HideRule<InfoItem>({ it.matterId }, { it.updatedAt }, personOf = { it.personId }) { it.title + " " + it.notes + " " + it.source + " " + it.result }
+    val ALLIANCE = HideRule<Alliance>({ it.matterId }, { it.updatedAt }, personOf = { it.personId }) { it.withWhom + " " + it.about + " " + it.notes + " " + it.gives + " " + it.gets }
     val MESSAGE = HideRule<KeyMessage>({ it.matterId }, { it.updatedAt }) { it.text + " " + it.proof + " " + it.audience }
     val MONEY = HideRule<MoneyEntry>({ it.matterId }, { it.updatedAt }) { it.note + " " + it.toWhom + " " + it.category }
     val AID = HideRule<AidRecord>({ it.matterId }, { it.createdAt }) { it.what + " " + it.party }

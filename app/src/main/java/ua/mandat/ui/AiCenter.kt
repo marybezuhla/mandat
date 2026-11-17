@@ -36,6 +36,7 @@ import ua.mandat.R
 import ua.mandat.ai.LocalAi
 import ua.mandat.data.InfoKind
 import ua.mandat.data.MandatDb
+import ua.mandat.data.observeRange
 import ua.mandat.data.SearchRow
 
 /** What an AI action needs chosen first. */
@@ -88,8 +89,9 @@ private suspend fun factsFor(act: AiAct, db: MandatDb, session: Session, id: Lon
     AiAct.WEEK -> weekFacts(db, session)
     AiAct.RISK -> riskFacts(db, session)
     AiAct.PLAN -> planFacts(db, session)
-    AiAct.MEETING -> id?.let { db.events().get(it) }?.let { e ->
-        meetingFacts(db, session, e.title, e.day, e.startMin, e.matterId, db.events().peopleOf(e.id).toSet(), e.notes)
+    AiAct.MEETING -> id?.let { db.events().get(it) }?.takeIf { !session.hidden.value.hides(ua.mandat.data.HideRules.EVENT, it) }?.let { e ->
+        // For a repeating meeting: its coming time, not its first
+        meetingFacts(db, session, e.title, ua.mandat.data.Repeats.next(e, Dates.today()) ?: e.day, e.startMin, e.matterId, db.events().peopleOf(e.id).toSet(), e.notes)
     }.orEmpty()
     AiAct.REMINDER -> id?.let { reminderFacts(db, session, it) }.orEmpty()
     else -> ""
@@ -249,7 +251,7 @@ private fun ActRow(act: AiAct, enabled: Boolean, onClick: () -> Unit) {
             Text("$AI_MARK " + stringResource(act.title), style = MaterialTheme.typography.bodyLarge, color = if (enabled) AiViolet else Muted)
             Text(stringResource(act.hint), style = MaterialTheme.typography.labelMedium, color = Muted)
         }
-        if (enabled) Text(if (act.pick == AiPick.NONE) "›" else "…", style = MaterialTheme.typography.titleMedium, color = AiViolet)
+        if (enabled) Text(if (act.pick == AiPick.NONE) "›" else "…", style = MaterialTheme.typography.titleMedium, color = AiViolet, modifier = Modifier.decorative())
     }
 }
 
@@ -265,11 +267,12 @@ private fun AiPicker(db: MandatDb, session: Session, act: AiAct, onDismiss: () -
                 l.filter { !it.closed && (it.kind == InfoKind.ATTACK.name || it.kind == InfoKind.CRITIQUE.name) }.map { PickItem(it.id, it.title, it.source) }
             }
             // Meetings from today on, for two weeks
-            AiPick.EVENT -> kotlinx.coroutines.flow.combine(db.events().observeRange(Dates.today(), Dates.today() + 14).hiding(session) { it.matterId }, hiddenTitles(db, session)) { l, ht ->
-                l.filterNot { it.matterId == null && namesAny(ua.mandat.data.HideRules.EVENT.text(it), ht) }.sortedWith(compareBy({ it.day }, { it.startMin ?: -1 })).map { PickItem(it.id, it.title, Dates.format(it.day) + (it.startMin?.let { m -> " " + timeText(m) } ?: "")) }
+            AiPick.EVENT -> kotlinx.coroutines.flow.combine(db.events().observeRange(Dates.today(), Dates.today() + 14).hiding(session, ua.mandat.data.HideRules.EVENT), hiddenTitles(db, session)) { l, ht ->
+                // (a repeating meeting once, at its coming time)
+                l.filterNot { it.matterId == null && namesAny(ua.mandat.data.HideRules.EVENT.text(it), ht) }.sortedWith(compareBy({ it.day }, { it.startMin ?: -1 })).distinctBy { it.id }.map { PickItem(it.id, it.title, Dates.format(it.day) + (it.startMin?.let { m -> " " + timeText(m) } ?: "")) }
             }
             // Open delegations to someone: a reminder needs a person to write to
-            AiPick.DELEGATION -> kotlinx.coroutines.flow.combine(db.delegations().observeOpen().hiding(session, ua.mandat.data.HideRules.DELEGATION), db.people().observeAll().hidingPeople(session), hiddenTitles(db, session)) { ds, ps, ht ->
+            AiPick.DELEGATION -> kotlinx.coroutines.flow.combine(db.delegations().observeOpen().own().hiding(session, ua.mandat.data.HideRules.DELEGATION), db.people().observeAll().hidingPeople(session), hiddenTitles(db, session)) { ds, ps, ht ->
                 val names = ps.associate { it.id to it.name }
                 ds.filter { it.personId != null && !(it.matterId == null && namesAny(ua.mandat.data.HideRules.DELEGATION.text(it), ht)) }.map { PickItem(it.id, it.what, names[it.personId].orEmpty() + (it.due?.let { d -> " · " + Dates.format(d) } ?: "")) }
             }

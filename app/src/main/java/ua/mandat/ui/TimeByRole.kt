@@ -62,7 +62,7 @@ import ua.mandat.data.minutesByRole
  */
 @Composable
 fun TimeBlock(db: MandatDb, session: Session, span: Span, roles: List<Role>) {
-    val events by remember(db) { db.events().observeAll().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
+    val events by remember(db) { db.events().observeAll().eachTime().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
     val entries by remember(db) { db.time().observeAll().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
     val matters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val shares by remember(db) { db.time().observeShares() }.collectAsStateWithLifecycle(emptyList())
@@ -83,7 +83,7 @@ fun TimeBlock(db: MandatDb, session: Session, span: Span, roles: List<Role>) {
         fun pct(m: Int) = if (total == 0) 0 else Math.round(m * 100f / total)
         val slices = top.mapIndexed { i, id ->
             val m = byRole[id] ?: 0
-            Slice(id.toString(), names[id]?.let(::shortRole) ?: stringResource(R.string.time_no_role), m,
+            Slice(id.toString(), shortRoleNames(names)[id] ?: stringResource(R.string.time_no_role), m,
                 if (id == 0L) ChartColors.grayLight else colors[i % colors.size], display = hoursText(m) + " · " + pct(m) + " %")
         } + (if (restIds.isEmpty()) emptyList() else {
             val m = restIds.sumOf { byRole[it] ?: 0 }
@@ -105,7 +105,7 @@ fun TimeBlock(db: MandatDb, session: Session, span: Span, roles: List<Role>) {
                 val far = kotlin.math.abs(share - plan) * 3 >= plan
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { session.roleTime = id to span }.padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text(names[id]?.let(::shortRole) ?: stringResource(R.string.time_no_role), style = MaterialTheme.typography.labelMedium,
+                    Text(shortRoleNames(names)[id] ?: stringResource(R.string.time_no_role), style = MaterialTheme.typography.labelMedium,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     // "plan 10 % · fact 2 % ▼ less": the gap in words and a mark, coloured only when it is large
                     val gap = when { !far -> ""; share < plan -> " " + stringResource(R.string.time_plan_less); else -> " " + stringResource(R.string.time_plan_more) }
@@ -160,7 +160,7 @@ private fun SharesDialog(session: Session, roles: List<Role>, planned: Map<Long?
 fun RoleTimeScreen(db: MandatDb, session: Session, roleId: Long, span: Span) {
     BackHandler { session.roleTime = null }
     val roles by remember(db) { db.roles().observeAll() }.collectAsStateWithLifecycle(emptyList())
-    val events by remember(db) { db.events().observeAll().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
+    val events by remember(db) { db.events().observeAll().eachTime().hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
     val entries by remember(db) { db.time().observeAll().hiding(session) { it.matterId } }.collectAsStateWithLifecycle(emptyList())
     val matters by remember(db) { db.matters().observeAll().hiding(session) { it.id } }.collectAsStateWithLifecycle(emptyList())
     val roleOfMatter = matters.associate { it.id to it.roleId }

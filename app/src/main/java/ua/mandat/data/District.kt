@@ -72,6 +72,9 @@ interface CommunityDao {
     @Query("SELECT * FROM community_links")
     fun observeLinks(): Flow<List<CommunityLink>>
 
+    @Query("SELECT communityId FROM community_links WHERE kind = :kind AND refId = :refId")
+    suspend fun communitiesOf(kind: String, refId: Long): List<Long>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun link(l: CommunityLink)
 
@@ -102,16 +105,26 @@ fun cleanCommunity(c: Community): Community? {
 }
 
 /**
- * Who the owner is: a member of the national parliament or of a local council, an official, or a
- * citizen. Decides the bodies and positions offered for roles and some names; everything else is
+ * Who the owner is: a member of the national parliament or of a local council, a deputy's
+ * assistant, an official, someone in civic work (an organisation, a fund, a coalition, a union),
+ * or a citizen with affairs of their own. Decides the bodies and positions offered for roles and some names; everything else is
  * the same, and no stored data depends on it. Kept by name under [SETTING_MODE]; a missing or
  * unknown value means the parliament, as it was before there was a choice.
  */
 enum class Mode {
-    RADA, COUNCIL, OFFICIAL, CITIZEN;
+    RADA, COUNCIL, ASSISTANT, OFFICIAL, ACTIVIST, CITIZEN;
 
-    /** Elected work (the parliament or a local council): the wording and templates written for a deputy apply. */
-    val elected: Boolean get() = this == RADA || this == COUNCIL
+    /**
+     * Elected work (the parliament or a local council), the owner's own or, for an assistant, the
+     * deputy's: the wording and templates written for a deputy's work apply.
+     */
+    val elected: Boolean get() = this == RADA || this == COUNCIL || this == ASSISTANT
+
+    /** The owner is a deputy: other deputies are colleagues. (For an assistant a deputy is not a colleague.) */
+    val deputy: Boolean get() = this == RADA || this == COUNCIL
+
+    /** Civic work or a citizen's own affairs: no office is held, so nothing speaks of receptions of citizens or of an apparatus. */
+    val civic: Boolean get() = this == ACTIVIST || this == CITIZEN
 
     companion object {
         fun of(key: String?) = entries.firstOrNull { it.name == key } ?: RADA
@@ -122,3 +135,10 @@ const val SETTING_MODE = "mode"
 
 /** The district section is shown (for those elected in a district). */
 const val SETTING_DISTRICT = "district_on"
+
+/**
+ * The simple view: "1" leaves on the screens only what an ordinary person needs (matters, tasks,
+ * the calendar, people, the diary, money, texts) and takes away the ways into the rest. Nothing
+ * stored depends on it, and turning it off brings everything back.
+ */
+const val SETTING_SIMPLE = "simple_view"
