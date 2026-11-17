@@ -472,9 +472,10 @@ fun PromiseDialog(db: MandatDb, session: Session, draft: PromiseDraft) {
         }
         SheetGroup(stringResource(R.string.promise_group_kind)) {
                 // How widely, where from and how risky are about the owner's own word only
-                // (the simple view leaves them out, unless this promise already has them)
-                val had = draft.promise.level != ua.mandat.data.Publicity.PERSONAL || draft.promise.origin != null || draft.promise.risk != null
-                if (!draft.incoming && (!AppMode.simple || had)) PromiseDimensions(draft)
+                // (the simple view keeps only how widely, which decides what gets into the report,
+                // unless this promise already has the rest)
+                val had = draft.promise.origin != null || draft.promise.risk != null
+                if (!draft.incoming) PromiseDimensions(draft, plain = AppMode.simple && !had)
                 OutlinedTextField(
                     value = draft.source, onValueChange = { draft.source = it },
                     label = { Text(stringResource(R.string.promise_source)) },
@@ -511,13 +512,14 @@ fun PromiseDialog(db: MandatDb, session: Session, draft: PromiseDraft) {
 /** How widely, where from and how risky: the three things that tell promises apart. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun PromiseDimensions(draft: PromiseDraft) {
+fun PromiseDimensions(draft: PromiseDraft, plain: Boolean = false) {
     Text(stringResource(R.string.publicity), style = MaterialTheme.typography.labelLarge)
     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         ua.mandat.data.Publicity.entries.forEach { p ->
             QuickChip(stringResource(p.label()), draft.publicity == p) { draft.publicity = p }
         }
     }
+    if (plain) return
     Text(stringResource(R.string.origin), style = MaterialTheme.typography.labelLarge)
     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         ua.mandat.data.PromiseOrigin.entries.forEach { o ->

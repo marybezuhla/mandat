@@ -206,6 +206,12 @@ class RepeatsTest {
         // The rhythm itself changed: the days stay, and a day that is still a time stays left out
         val daily = Repeats.carrySkips(weekly, weekly.copy(repeat = Repeat.DAILY.name))
         assertEquals(setOf(monday + 7, monday + 14), Repeats.skipped(daily))
+        // The first day moved by a whole step or more: the days stay too (the left-out Monday is still left out)
+        val later = Repeats.carrySkips(weekly, weekly.copy(day = monday + 7))
+        assertEquals(setOf(monday + 7, monday + 14), Repeats.skipped(later))
+        assertEquals(listOf(monday + 21), Repeats.starts(later, monday, monday + 27))
+        val everyDay = event(monday, Repeat.DAILY, skip = "${monday + 3}")
+        assertEquals(setOf(monday + 3), Repeats.skipped(Repeats.carrySkips(everyDay, everyDay.copy(day = monday + 1))))
         // Nothing to carry
         assertEquals(weekly, Repeats.carrySkips(weekly, weekly))
         assertEquals("", Repeats.carrySkips(event(monday), event(monday + 1)).skipDays)

@@ -1024,6 +1024,8 @@ class Session(app: Application) : AndroidViewModel(app) {
         resume = null
         lensRole.value = null
         lastTab = null
+        // The empty Mandat asks again who its owner is
+        firstModeChosen = false
         val closingNow = closing
         background.launch {
             closingNow?.join()

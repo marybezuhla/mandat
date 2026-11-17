@@ -150,7 +150,7 @@ suspend fun matterFacts(db: MandatDb, session: Session, matterId: Long): String 
     val m = db.matters().get(matterId) ?: return ""
     val names = db.shownNames(session)
     val people = db.people().observeForMatter(matterId).first().filter { it.personId in names }
-    val dl = db.deadlines().observeForMatter(matterId).first()
+    val dl = db.deadlines().observeForMatter(matterId).first().filterNot { session.tied(ua.mandat.data.HideRules.DEADLINE, it) }
     // What is tied to a hidden person stays out, also in a matter that is in view
     val dg = db.delegations().observeForMatter(matterId).first().filterNot { session.tied(ua.mandat.data.HideRules.DELEGATION, it) }
     val pr = db.promises().observeForMatter(matterId).first().filterNot { session.tied(ua.mandat.data.HideRules.PROMISE, it) }

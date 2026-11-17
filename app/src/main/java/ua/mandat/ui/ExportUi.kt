@@ -786,7 +786,7 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
         })
     }
     plan.matterId?.takeIf { visible(it) }?.let { id -> db.matters().get(id)?.let { m -> addDoc("matter", matterDossier(context, db, m, nameOf, hidden, ::tied, shown.personWords)) } }
-    plan.textId?.let { id -> db.texts().get(id) }?.takeIf { visible(it.matterId) }?.let { t ->
+    plan.textId?.let { id -> db.texts().get(id) }?.takeIf { visible(it.matterId) && free(it.matterId, it.title, it.body) }?.let { t ->
         // Word for editing elsewhere; PDF and Markdown as with other documents
         out += "text.docx" to ua.mandat.data.Docx.build("# " + t.title + "\n\n" + t.body)
         val md = buildString {

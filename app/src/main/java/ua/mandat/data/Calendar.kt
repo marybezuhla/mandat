@@ -149,15 +149,18 @@ object Repeats {
     }
 
     /**
-     * [edited] with the skipped days of [before] carried over. When only the first day moved (the
-     * Monday meeting is now on Tuesdays), each skipped time stays skipped by its number: otherwise
-     * every time once left out, or changed on its own, would come back. When the rhythm itself
-     * changed, the days stay as they are: a day that is still one of the times stays left out.
+     * [edited] with the skipped days of [before] carried over. When only the first day moved, and
+     * by less than one step of the rhythm (the Monday meeting is now on Tuesdays), each skipped
+     * time stays skipped by its number: otherwise every time once left out, or changed on its own,
+     * would come back. When the first day moved further (the series now begins some weeks later),
+     * or the rhythm itself changed, the days stay as they are: a day that is still one of the times
+     * stays left out.
      */
     fun carrySkips(before: Event, edited: Event): Event {
         val was = Repeat.of(before.repeat) ?: return edited
         val now = Repeat.of(edited.repeat) ?: return edited
         if (was != now || before.day == edited.day) return edited
+        if (kotlin.math.abs(edited.day - before.day) >= was.minGap) return edited
         val moved = skipped(edited).mapNotNull { d -> numberOf(before, was, d)?.let { n -> start(edited, now, n) } }
         return edited.copy(skipDays = moved.sorted().joinToString(","))
     }

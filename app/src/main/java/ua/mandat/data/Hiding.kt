@@ -48,6 +48,12 @@ class HiddenNames(titles: Collection<String>) {
             }
         }.distinct()
 
+        /**
+         * The names that are safe to look for in every record: of two words or more. One word alone
+         * ("Іван") would hide far too much, so it hides only what a matter's title hides.
+         */
+        fun full(names: Collection<String>): List<String> = names.filter { stemsOf(it).size >= 2 }
+
         /** Short words that say nothing about a matter and are often left out when it is named. */
         private val SMALL = setOf("для", "про", "від", "під", "при", "між", "над", "без", "або", "щодо", "and", "the", "for")
     }

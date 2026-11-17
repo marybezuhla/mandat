@@ -369,7 +369,8 @@ fun TextEditor(db: MandatDb, session: Session, draft: TextDraft) {
 /** Texts of one matter, inside its card. */
 @Composable
 fun MatterTexts(db: MandatDb, session: Session, matterId: Long) {
-    val texts by remember(db, matterId) { db.texts().observeForMatter(matterId) }.collectAsStateWithLifecycle(emptyList())
+    // (a text that names a person trip mode hides is hidden here too, as on the Texts screen)
+    val texts by remember(db, matterId) { db.texts().observeForMatter(matterId).hiding(session, ua.mandat.data.HideRules.TEXT) }.collectAsStateWithLifecycle(emptyList())
     val own by remember(db) { db.texts().observeAll().hiding(session, ua.mandat.data.HideRules.TEXT) }.collectAsStateWithLifecycle(emptyList())
     var choosing by remember { mutableStateOf(false) }
     Text(stringResource(R.string.texts_title), style = MaterialTheme.typography.labelLarge)

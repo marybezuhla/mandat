@@ -36,7 +36,7 @@ class Hidden(
      * looked for in every record, also one that belongs to a matter that stays in view: the matter
      * stays, the record that names the person does not.
      */
-    val personWords: HiddenNames = if (peopleNames.isEmpty()) HiddenNames.NONE else HiddenNames(peopleNames)
+    val personWords: HiddenNames = HiddenNames.full(peopleNames).let { if (it.isEmpty()) HiddenNames.NONE else HiddenNames(it) }
 
     /** True for an item tied to a hidden matter. */
     fun matter(id: Long?): Boolean = id != null && id in matters
@@ -87,7 +87,8 @@ fun observeHidden(db: MandatDb, matters: Set<Long>, byName: Set<Long> = matters,
         @Suppress("UNCHECKED_CAST") val promisePerson = (arr[8] as List<ua.mandat.data.IdRef>).associate { it.a to it.b }
         @Suppress("UNCHECKED_CAST") val peopleNames = (arr[9] as List<ua.mandat.data.Person>).filter { it.id in marked }.map { it.name }
         // A matter whose own title names a hidden person is hidden with that person (trip mode)
-        val byPerson = if (peopleNames.isEmpty()) emptySet() else HiddenNames(peopleNames).let { w -> titles.filter { w.named(it.title) }.mapTo(HashSet()) { it.id } }
+        // (a name of two words or more: one word alone would take too many matters with it)
+        val byPerson = HiddenNames.full(peopleNames).let { full -> if (full.isEmpty()) emptySet() else HiddenNames(full).let { w -> titles.filter { w.named(it.title) }.mapTo(HashSet()) { it.id } } }
         @Suppress("NAME_SHADOWING") val matters = matters + byPerson
         val names = HiddenNames(titles.filter { it.id in byName || it.id in byPerson }.map { it.title } + peopleNames)
         val people = Hiding.people(matters, personMatter, marked)

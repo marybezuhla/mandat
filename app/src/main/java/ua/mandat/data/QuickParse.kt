@@ -160,20 +160,36 @@ fun findMatter(text: String, matters: List<MatterTitle>): Long? {
 /** "To me", "to us": the one promised or asked is the owner. */
 private val TO_OWNER = setOf("мені", "мене", "нам", "нас")
 private val BY_OWNER = setOf("я", "ми")
-/** Said of someone else: a past form that a speaker of either gender would not use of themselves ("пообіцяв" could be, so it counts only after another word). */
-private val THEY_DID = listOf("пообіцяв", "пообіцяли", "обіцяв", "обіцяли", "доручив", "доручили", "попросив", "попросили")
+/** A past form the owner could use of themselves too ("пообіцяв", "пообіцяла"): it speaks of someone else only when that someone stands right before it. */
+private val THEY_DID = setOf("пообіцяв", "пообіцяла", "пообіцяли", "обіцяв", "обіцяла", "обіцяли", "доручив", "доручила", "доручили", "попросив", "попросила", "попросили")
 private val DONE_TO = setOf("доручено", "обіцяно", "пообіцяно")
+/** Words before the verb that are not the one who did it: when, how, a joining word. */
+private val NOT_WHO = setOf(
+    "вчора", "учора", "позавчора", "сьогодні", "щойно", "вже", "уже", "тоді", "знову", "також", "теж", "ще", "не", "і", "й", "та", "а", "що", "як", "коли",
+    "зранку", "вранці", "ввечері", "увечері", "нещодавно", "днями", "раніше", "потім", "давно", "тут", "там", "публічно", "особисто", "сам", "сама", "самі",
+    "понеділок", "вівторок", "четвер", "січня", "лютого", "березня", "квітня", "травня", "червня", "липня", "серпня", "вересня", "жовтня", "листопада", "грудня",
+)
+/** Looks like "to someone" or "someone" as an object ("Тарасу", "Олегові", "сусідку"), never like the one who acts. */
+private fun toSomeone(w: String) = w.endsWith("ові") || w.endsWith("еві") || w.endsWith("єві") || w.endsWith("у") || w.endsWith("ю")
 
 /**
- * The note reads as something promised or handed to the owner: it says "to me", or "it was handed",
- * or someone else is named before the verb ("сусід пообіцяв") and "I" is not there. Only a guess:
- * the dialog opens with the direction chosen and the owner can change it with one tap.
+ * The note reads as something promised or handed to the owner: it says "to me", or "it was handed"
+ * (but not "handed to Taras"), or someone else stands right before the verb ("сусід пообіцяв",
+ * "сусідка пообіцяла") and "I" is not there. "Вчора пообіцяв виборцям" and "Тарасу доручив" are
+ * the owner's own. Only a guess: the dialog opens with the direction chosen and the owner can
+ * change it with one tap.
  */
 internal fun toOwner(ws: List<String>): Boolean {
     if (ws.any { it in BY_OWNER }) return false
-    if (ws.any { it in TO_OWNER } || ws.any { it in DONE_TO }) return true
+    if (ws.any { it in TO_OWNER }) return true
+    val done = ws.indexOfFirst { it in DONE_TO }
+    if (done >= 0) return !(ws[done] == "доручено" && ws.getOrNull(done + 1)?.let(::toSomeone) == true)
     val verb = ws.indexOfFirst { it in THEY_DID }
-    return verb > 0
+    if (verb <= 0) return false
+    val who = ws[verb - 1]
+    if (who in NOT_WHO || who.any(Char::isDigit) || toSomeone(who)) return false
+    // "Марії пообіцяв": to her, by the owner; "сусіди пообіцяли": they did
+    return ws[verb].endsWith("ли") || !(who.endsWith("і") || who.endsWith("ї"))
 }
 
 /** Reads the note and suggests what it most likely is. */

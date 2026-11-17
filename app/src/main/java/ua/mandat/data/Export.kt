@@ -214,9 +214,12 @@ object IcsReader {
                 l.equals("END:VEVENT", true) -> {
                     cur?.let { p ->
                         val uid = p["UID"]?.second?.trim()?.takeIf { it.isNotEmpty() }
-                        toItem(p, zone)?.let { out.add(it); ids.add(uid) }
-                        val day = p["RECURRENCE-ID"]?.let { (h, v) -> when_(h, v, zone)?.first }
-                        if (uid != null && day != null) changed.getOrPut(uid) { HashSet() }.add(day)
+                        toItem(p, zone)?.let {
+                            out.add(it); ids.add(uid)
+                            // Only a changed time that was itself taken: one that could not be read leaves the day in the series
+                            val day = p["RECURRENCE-ID"]?.let { (h, v) -> when_(h, v, zone)?.first }
+                            if (uid != null && day != null) changed.getOrPut(uid) { HashSet() }.add(day)
+                        }
                     }
                     cur = null
                 }
@@ -227,7 +230,8 @@ object IcsReader {
                     val had = cur[name]
                     if (had == null) cur[name] = head to value
                     // Days left out may come one per line: all of them count
-                    else if (name == "EXDATE") cur[name] = had.first to (had.second + "," + value).take(MAX_LINE)
+                    // (up to the longest line taken; past that nothing is copied again)
+                    else if (name == "EXDATE" && had.second.length < MAX_LINE) cur[name] = had.first to (had.second + "," + value).take(MAX_LINE)
                 }
             }
         }

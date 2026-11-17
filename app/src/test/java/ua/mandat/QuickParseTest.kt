@@ -79,10 +79,17 @@ class QuickParseTest {
         assertEquals(true, toOwner("Мені пообіцяли довідку"))
         assertEquals(true, toOwner("Голова доручив мені підготувати звіт"))
         assertEquals(true, toOwner("Доручено підготувати звіт до понеділка"))
+        assertEquals(true, toOwner("Сусідка пообіцяла полагодити паркан"))
+        assertEquals(true, toOwner("Сусіди пообіцяли прибрати подвір'я"))
         // The owner's own word and the owner's own tasks for others
         assertEquals(false, toOwner("Пообіцяв Олегові довідку"))
         assertEquals(false, toOwner("Я пообіцяла Марії Петрівні відповідь"))
         assertEquals(false, toOwner("Доручити Тарасу підготувати довідку"))
+        assertEquals(false, toOwner("Вчора пообіцяв виборцям відремонтувати дорогу"))
+        assertEquals(false, toOwner("У понеділок пообіцяла відповісти на звернення"))
+        assertEquals(false, toOwner("Тарасу доручив підготувати довідку"))
+        assertEquals(false, toOwner("Доручено Тарасу підготувати звіт"))
+        assertEquals(false, toOwner("Марії пообіцяв відповідь"))
         assertEquals(false, toOwner("Купити хліб"))
     }
 }
