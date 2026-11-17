@@ -72,4 +72,17 @@ class QuickParseTest {
         assertEquals(10L, suggest("доручити Оксані план реформи теплопостачання", people, matters, today).matterId)
         assertEquals(NoteKind.NOTE, suggest("подумати про це", people, matters, today).kind)
     }
+
+    @Test fun whatWasPromisedOrHandedToTheOwnerIsToldApart() {
+        fun toOwner(text: String) = suggest(text, people, emptyList(), today).incoming
+        assertEquals(true, toOwner("Сусід пообіцяв принести документи до п'ятниці"))
+        assertEquals(true, toOwner("Мені пообіцяли довідку"))
+        assertEquals(true, toOwner("Голова доручив мені підготувати звіт"))
+        assertEquals(true, toOwner("Доручено підготувати звіт до понеділка"))
+        // The owner's own word and the owner's own tasks for others
+        assertEquals(false, toOwner("Пообіцяв Олегові довідку"))
+        assertEquals(false, toOwner("Я пообіцяла Марії Петрівні відповідь"))
+        assertEquals(false, toOwner("Доручити Тарасу підготувати довідку"))
+        assertEquals(false, toOwner("Купити хліб"))
+    }
 }

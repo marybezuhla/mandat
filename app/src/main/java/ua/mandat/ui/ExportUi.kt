@@ -672,7 +672,8 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
     // Free text not tied to a matter that names a hidden one (or a hidden person) stays out, as on the screens, in the AI and the Obsidian vault
     val names = if (hidden.isEmpty() && shown.peopleNames.isEmpty()) ua.mandat.data.HiddenNames.NONE
         else ua.mandat.data.HiddenNames(db.matters().observeAll().first().filter { it.id in hidden }.map { it.title } + shown.peopleNames)
-    fun free(matterId: Long?, vararg text: String) = matterId != null || !names.namedAny(*text)
+    // (a hidden person's name is looked for in every record, also one of a matter that stays in view)
+    fun free(matterId: Long?, vararg text: String) = (matterId != null || !names.namedAny(*text)) && !shown.personWords.namedAny(*text)
     // People are left out by the very rule of the screens ([Hidden.person]): known only through hidden
     // matters, or with a card that names a matter trip mode hides. For those who stay, notes and a
     // contact line naming any hidden matter (also one the lens hides) are left blank.
@@ -784,7 +785,7 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
             }
         })
     }
-    plan.matterId?.takeIf { visible(it) }?.let { id -> db.matters().get(id)?.let { m -> addDoc("matter", matterDossier(context, db, m, nameOf, hidden, ::tied)) } }
+    plan.matterId?.takeIf { visible(it) }?.let { id -> db.matters().get(id)?.let { m -> addDoc("matter", matterDossier(context, db, m, nameOf, hidden, ::tied, shown.personWords)) } }
     plan.textId?.let { id -> db.texts().get(id) }?.takeIf { visible(it.matterId) }?.let { t ->
         // Word for editing elsewhere; PDF and Markdown as with other documents
         out += "text.docx" to ua.mandat.data.Docx.build("# " + t.title + "\n\n" + t.body)
@@ -802,7 +803,7 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
         }
         addDoc("text", md)
     }
-    plan.briefId?.let { id -> people.firstOrNull { it.id == id } }?.let { p -> addDoc("brief", briefDocument(context, db, p, hidden, titles, names, hiddenEvents)) }
+    plan.briefId?.let { id -> people.firstOrNull { it.id == id } }?.let { p -> addDoc("brief", briefDocument(context, db, p, hidden, titles, names, hiddenEvents, shown.personWords)) }
     if (plan.packet && plan.packetFile) {
         // Never a sensitive or hidden matter, nor anything tied to one or naming one in its text
         val all = db.matters().observeAll().first()
@@ -827,34 +828,36 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
         // A matter whose own text names a sensitive or hidden one keeps only its title and kind
         val matters = all.filter { it.id in ids }.map { m -> if (clean(m.description, m.goal, m.nextStep)) m else m.copy(description = "", goal = "", nextStep = "") }
             .filter { clean(it.title) }
-        val dg = dgAll.filter { it.matterId in ids }
-        val pr = prAll.filter { it.matterId in ids }
-        val dl = dlAll.filter { it.matterId in ids }
-        val ev = evAll.filter { it.matterId in ids }
+        // Only what belongs to a matter that really goes in: a matter left out for its title takes its records with it
+        val going = matters.mapTo(HashSet()) { it.id }
+        val dg = dgAll.filter { it.matterId in going }
+        val pr = prAll.filter { it.matterId in going }
+        val dl = dlAll.filter { it.matterId in going }
+        val ev = evAll.filter { it.matterId in going }
         val evIds = ev.map { it.id }.toSet()
         val eventPeople = db.events().observeLinks().first().filter { it.eventId in evIds }
         // Stances are the owner's own judgement: they go only when chosen
-        val links = db.people().observeLinks().first().filter { it.matterId in ids }.map { if (plan.packetStances) it else it.copy(stance = null) }
+        val links = db.people().observeLinks().first().filter { it.matterId in going }.map { if (plan.packetStances) it else it.copy(stance = null) }
         // People who take part in what goes in; never private notes, contacts only when chosen
         val personIds = (links.map { it.personId } + dg.mapNotNull { it.personId } + pr.mapNotNull { it.personId } + eventPeople.map { it.personId }).toSet()
-        val persons = people.filter { it.id in personIds && it.id !in out2 && clean(it.name, it.organization, it.jobTitle) }.map { if (plan.packetContacts) it else it.copy(contact = "") }
+        val persons = people.filter { it.id in personIds && it.id !in out2 && clean(it.name, it.organization, it.jobTitle) }.map { if (plan.packetContacts && clean(it.contact)) it else it.copy(contact = "") }
         val packetPeople = persons.map { it.id }.toSet()
         val roles = db.roles().observeAll().first().associate { it.id to it.name }
         val packet = ua.mandat.data.Packet.P(matters, persons, links.filter { it.personId in packetPeople }, dg, pr, dl, ev,
             eventPeople.filter { it.personId in packetPeople }, roles.filterKeys { k -> matters.any { it.roleId == k } })
         if (!packet.isEmpty) add(ua.mandat.data.Packet.FILE, ua.mandat.data.Packet.encode(packet))
     }
-    if (plan.obsidian) obsidianVault(context, db, hidden, onlyHidden, plan.vaultScope, span, plan.allPeople, names).forEach { (name, text) -> add(name, text) }
+    if (plan.obsidian) obsidianVault(context, db, hidden, onlyHidden, plan.vaultScope, span, plan.allPeople, names, shown.personWords).forEach { (name, text) -> add(name, text) }
     // A whole copy of everything is never cut by a period
     if (plan.everything && hidden.isEmpty() && shown.isEmpty && span == null) out += "everything.json" to ua.mandat.backup.BackupData.dump(db)
     return out
 }
 
 /** The brief before meeting a person, as a readable document; hidden matters and what is tied to them stay out. */
-private suspend fun briefDocument(context: Context, db: MandatDb, p: ua.mandat.data.Person, hidden: Set<Long>, titles: Map<Long, String>, names: ua.mandat.data.HiddenNames, hiddenEvents: Set<Long> = emptySet()): String = buildString {
+private suspend fun briefDocument(context: Context, db: MandatDb, p: ua.mandat.data.Person, hidden: Set<Long>, titles: Map<Long, String>, names: ua.mandat.data.HiddenNames, hiddenEvents: Set<Long> = emptySet(), people: ua.mandat.data.HiddenNames = ua.mandat.data.HiddenNames.NONE): String = buildString {
     fun visible(id: Long?) = id == null || id !in hidden
     // Not tied to a matter but naming a hidden one: left out too
-    fun ok(id: Long?, vararg text: String) = visible(id) && !(id == null && names.namedAny(*text))
+    fun ok(id: Long?, vararg text: String) = visible(id) && !(id == null && names.namedAny(*text)) && !people.namedAny(*text)
     val today = Dates.today()
     append("# ").append(Export.md(p.name)).append("\n\n")
     listOf(p.jobTitle, p.organization).filter { it.isNotBlank() }.joinToString(" · ").takeIf { it.isNotEmpty() }?.let { append(Export.md(it)).append("\n\n") }
@@ -902,7 +905,7 @@ private suspend fun briefDocument(context: Context, db: MandatDb, p: ua.mandat.d
 }
 
 /** One matter as a readable document: its card, people, deadlines, delegations, promises, events. */
-private suspend fun matterDossier(context: Context, db: MandatDb, m: ua.mandat.data.Matter, nameOf: Map<Long, String>, hidden: Set<Long>, tied: (Long?, Long?) -> Boolean = { _, _ -> false }): String = buildString {
+private suspend fun matterDossier(context: Context, db: MandatDb, m: ua.mandat.data.Matter, nameOf: Map<Long, String>, hidden: Set<Long>, tied: (Long?, Long?) -> Boolean = { _, _ -> false }, people: ua.mandat.data.HiddenNames = ua.mandat.data.HiddenNames.NONE): String = buildString {
     fun line(label: Int, value: String) { if (value.isNotBlank()) append("- **").append(context.getString(label)).append(":** ").append(Export.md(value)).append("\n") }
     append("# ").append(Export.md(m.title)).append("\n\n")
     line(R.string.matter_type, context.getString(ua.mandat.data.MatterType.of(m.type).label()))
@@ -916,24 +919,24 @@ private suspend fun matterDossier(context: Context, db: MandatDb, m: ua.mandat.d
         append("\n## ").append(context.getString(R.string.people_in_matter)).append("\n\n")
         linked.forEach { append("- ").append(Export.md(it.name)).append(ua.mandat.data.Stance.of(it.stance)?.let { s -> " — " + context.getString(s.label()) }.orEmpty()).append("\n") }
     }
-    val dls = db.deadlines().observeForMatter(m.id).first()
+    val dls = db.deadlines().observeForMatter(m.id).first().filterNot { people.named(ua.mandat.data.HideRules.DEADLINE.text(it)) }
     if (dls.isNotEmpty()) {
         append("\n## ").append(context.getString(R.string.deadlines)).append("\n\n")
         dls.forEach { append("- ").append(Export.day(it.day)).append(" — ").append(Export.md(it.title)).append("\n") }
     }
     // What is tied to a hidden person stays out, also in a matter that is in view
-    val ds = db.delegations().observeForMatter(m.id).first().filterNot { tied(it.personId, null) }
+    val ds = db.delegations().observeForMatter(m.id).first().filterNot { tied(it.personId, null) || people.named(ua.mandat.data.HideRules.DELEGATION.text(it)) }
     if (ds.isNotEmpty()) {
         append("\n## ").append(context.getString(R.string.delegations)).append("\n\n")
         ds.forEach { d -> append("- ").append(if (d.incoming) context.getString(R.string.kind_delegation_in) + ": " else "").append(Export.md(d.what)).append(d.personId?.let(nameOf::get)?.let { " — " + Export.md(it) }.orEmpty())
             .append(d.due?.let { " (" + Export.day(it) + ")" }.orEmpty()).append(" · ").append(context.getString(TaskStatus.of(d.status).delegationLabel())).append("\n") }
     }
-    val ps = db.promises().observeForMatter(m.id).first().filterNot { tied(it.personId, null) }
+    val ps = db.promises().observeForMatter(m.id).first().filterNot { tied(it.personId, null) || people.named(ua.mandat.data.HideRules.PROMISE.text(it)) }
     if (ps.isNotEmpty()) {
         append("\n## ").append(context.getString(R.string.promises)).append("\n\n")
         ps.forEach { p -> append("- ").append(if (p.incoming) context.getString(R.string.kind_promise_in) + ": " else "").append(Export.md(p.what)).append(" · ").append(context.getString(TaskStatus.of(p.status).promiseLabel())).append("\n") }
     }
-    val es = db.events().observeForMatter(m.id).first().filterNot { tied(null, it.id) }
+    val es = db.events().observeForMatter(m.id).first().filterNot { tied(null, it.id) || people.named(ua.mandat.data.HideRules.EVENT.text(it)) }
     if (es.isNotEmpty()) {
         append("\n## ").append(context.getString(R.string.events)).append("\n\n")
         es.sortedBy { it.day }.forEach { e -> append("- ").append(Export.day(e.day)).append(" — ").append(Export.md(e.title))

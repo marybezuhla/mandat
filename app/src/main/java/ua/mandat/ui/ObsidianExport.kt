@@ -27,6 +27,8 @@ internal suspend fun obsidianVault(
     context: Context, db: MandatDb, hidden: Set<Long>, onlyHidden: Set<Long>,
     scope: VaultScope = VaultScope.BASIC, span: Span? = null, allPeople: Boolean = false,
     names: ua.mandat.data.HiddenNames? = null,
+    /** The names of hidden people: looked for in every record, also one of a matter that stays in view. */
+    personWords: ua.mandat.data.HiddenNames = ua.mandat.data.HiddenNames.NONE,
 ): List<Pair<String, String>> {
     fun visible(id: Long?) = id == null || id !in hidden
     fun s(id: Int) = context.getString(id)
@@ -38,7 +40,7 @@ internal suspend fun obsidianVault(
 
     // Free text not tied to a matter that names a hidden one stays out while it is hidden
     val hiddenNames = names ?: if (hidden.isEmpty()) ua.mandat.data.HiddenNames.NONE else ua.mandat.data.HiddenNames(db.matters().observeAll().first().filter { it.id in hidden }.map { it.title })
-    fun free(matterId: Long?, vararg text: String) = matterId != null || !hiddenNames.namedAny(*text)
+    fun free(matterId: Long?, vararg text: String) = (matterId != null || !hiddenNames.namedAny(*text)) && !personWords.namedAny(*text)
 
     // Everything visible, then narrowed to the period
     val roles = db.roles().observeAll().first().associate { it.id to it.name }

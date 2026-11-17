@@ -259,13 +259,13 @@
     <string name="search_hint">Type at least two letters to search matters, people, notes and deadlines.</string>
     <string name="search_nothing">Nothing found.</string>
     <string name="reminders_title">Reminders</string>
-    <string name="reminders_text">Once a day, at the hour you choose, on days when something is due. The reminder has no details at all: Mandat only remembers on which days something is due, never what.</string>
+    <string name="reminders_text">Once a day, at the hour you choose, on days when something is due. The reminder has no details at all: Mandat only remembers on which days something is due, never what. For repeating events the days are remembered two weeks ahead and renewed every time you open Mandat.</string>
     <string name="reminders_switch">Remind me</string>
     <string name="reminders_hour">At</string>
     <string name="reminders_denied">Notifications are not allowed for Mandat. You can allow them in the phone settings.</string>
     <string name="reminders_channel">Reminders</string>
     <string name="reminder_text">A reminder for today.</string>
-    <string name="my_promises">My promises, all time</string>
+    <string name="my_promises">Promises, all time</string>
     <string name="promises_empty">No promises here yet.</string>
     <string name="promised_on">promised on %1$s</string>
     <string name="p_FAILED">Did not work out</string>
@@ -368,8 +368,8 @@
     <string name="smart_stuck">Stuck</string>
     <string name="smart_no_next">No next step</string>
     <string name="smart_next_hint">The next step of every awake matter: what you can do yourself.</string>
-    <string name="smart_waiting_hint">Open delegations and what was promised to you, by matter: what others owe you.</string>
-    <string name="smart_promises_hint">Your open promises and what was handed to you, by matter: what you owe.</string>
+    <string name="smart_waiting_hint">What you are waiting for from others: open delegations and what was promised to you. By matter.</string>
+    <string name="smart_promises_hint">What you have to do: your open promises and what was handed to you. By matter.</string>
     <string name="smart_stuck_hint">Active matters without any movement for 30 days or more.</string>
     <string name="smart_no_next_hint">Matters where the next step is not written down. One line is enough.</string>
     <string name="smart_empty">Nothing here.</string>
@@ -782,7 +782,7 @@
     <string name="community_population">About how many people live there</string>
     <string name="district_title">District</string>
     <string name="district_open">District · communities: %1$d</string>
-    <string name="district_coming">In the communities, next 30 days</string>
+    <string name="district_coming">Next 30 days: communities, receptions, trips</string>
     <string name="district_coverage">Communities: since the last visit</string>
     <string name="district_coverage_hint">Those not visited for longest come first: the longer the bar, the longer ago.</string>
     <string name="district_days_ago">%1$d days ago</string>
@@ -883,16 +883,16 @@
     <string name="neutral_icon_hint">On the home screen, in Share and in reminders the app is called \"Notes\" with a plain icon. You may need to add the icon to the home screen again. Phone settings still show \"Mandat\", and Android may show it in the header of an expanded reminder too. If that matters, turn reminders off.</string>
     <string name="pin_only_failed">Could not change it. The key stays as it was.</string>
     <string name="matter_sensitive">Sensitive</string>
-    <string name="matter_sensitive_hint">While trip mode is on, this matter is shown nowhere, not to you either; nothing is deleted. People known only through sensitive matters disappear with it. A person from ordinary matters is not hidden, unless their card contains every word of a sensitive matter\'s title. To hide the person, mark them as sensitive in their card.</string>
+    <string name="matter_sensitive_hint">While trip mode is on, this matter is shown nowhere, not to you either; nothing is deleted. People known only through sensitive matters disappear with it. A person from ordinary matters is not hidden, unless their card contains every word of a sensitive matter\'s title. To hide the person, turn on \"Hide in trip mode\" in their card.</string>
     <string name="trip_mode">Trip mode</string>
-    <string name="trip_hint">Takes sensitive matters and sensitive people off the screens for a while, away from a stranger\'s glance; nothing is deleted. It does not protect you if you are forced to open Mandat: it is turned off with the same fingerprint or PIN as the phone.</string>
+    <string name="trip_hint">Takes sensitive matters, and the people you marked to be hidden, off the screens for a while, away from a stranger\'s glance; nothing is deleted. It does not protect you if you are forced to open Mandat: it is turned off with the same fingerprint or PIN as the phone.</string>
     <string name="trip_on">On.</string>
     <string name="trip_how">How it works</string>
     <string name="trip_turn_on">Turn on</string>
     <string name="trip_confirm_off">Turn trip mode off</string>
     <string name="confirm_backup">Confirm: the copy holds all data</string>
     <string name="confirm_export">Confirm the export</string>
-    <string name="trip_explain">What it does: matters marked as sensitive, and everything linked to them (delegations, promises, deadlines, events, media items, key messages, alliances, money, aid records, links with people), disappear from every screen, list, chart, search and AI prompt. With them go the people known only through these matters, diary entries linked to them or naming them, and communities linked only to them. People marked as sensitive disappear in the same way, with everything tied to them: their delegations and promises, the events they take part in, media items, alliances, their links with matters. Events from the phone calendar are not shown either, and nothing hidden gives a reminder. The data stays encrypted on the phone; nothing is deleted.\n\nWhat stays visible: the other people, communities and entries, topic names, the switch itself and the \"Sensitive\" mark. Notes, people and communities not tied to a hidden matter or person are hidden by the matter\'s title or the person\'s name only when they contain every word of it (in any form): a partial or roundabout mention, such as the surname alone, stays visible. A matter a sensitive person takes part in stays; only the line about that person goes. What is created while trip mode is on (and for some kinds of records, what is changed) stays in view even if it names a hidden matter.\n\nWhat it does not do: it does not protect against someone who makes you open Mandat and confirm turning it off with the phone\'s fingerprint or PIN. Backups, including automatic ones on the phone, contain everything. Copies of events added to the phone calendar stay there. Restoring an older backup removes the marks made after it.\n\nFor crossing a border it is safer to also turn on \"PIN only\", make a backup with a password, move automatic backups off the phone, and before the border switch the phone off or use \"Lockdown\" in the power menu. If you remove sensitive matters for the trip, delete them with \"together with everything tied to it\" ticked, or their tasks and events stay behind and become visible. GrapheneOS also has a duress PIN that wipes the phone.\n\nA matter or a person is marked sensitive in its card.</string>
+    <string name="trip_explain">What it does: matters marked as sensitive, and everything linked to them (delegations, promises, deadlines, events, media items, key messages, alliances, money, aid records, links with people), disappear from every screen, list, chart, search and AI prompt. With them go the people known only through these matters, diary entries linked to them or naming them, and communities linked only to them. The people whose card has \"Hide in trip mode\" turned on disappear in the same way, with everything tied to them: their delegations and promises, the events they take part in, media items, alliances, their links with matters, and the matters with their name in the title. Events from the phone calendar are not shown either, and nothing hidden gives a reminder. The data stays encrypted on the phone; nothing is deleted.\n\nWhat stays visible: the other people, communities and entries, topic names, the switch itself and the \"Sensitive\" mark. Notes, people and communities not tied to anything hidden are hidden by their text only when they contain every word (in most of its forms) of a hidden matter\'s title or of a hidden person\'s name; by a matter\'s title only records without a matter are hidden this way, by a person\'s name any record. A partial or roundabout mention, such as the surname alone, stays visible. A matter a hidden person takes part in stays, with its description and notes; only the line about that person goes. What is created while trip mode is on (and for some kinds of records, what is changed) stays in view even if it names a hidden matter.\n\nWhat it does not do: it does not protect against someone who makes you open Mandat and confirm turning it off with the phone\'s fingerprint or PIN. Backups, including automatic ones on the phone, contain everything. Copies of events added to the phone calendar stay there. Restoring an older backup removes the marks made after it.\n\nFor crossing a border it is safer to also turn on \"PIN only\", make a backup with a password, move automatic backups off the phone, and before the border switch the phone off or use \"Lockdown\" in the power menu. If you remove sensitive matters for the trip, delete them with \"together with everything tied to it\" ticked, or their tasks and events stay behind and become visible. GrapheneOS also has a duress PIN that wipes the phone.\n\nA matter is marked sensitive in its card; a person is hidden with the \"Hide in trip mode\" switch in theirs.</string>
     <string name="dash_idle_row">Roles without a step in this period: %1$d</string>
     <string name="category_suggest">Looks like: %1$s — choose</string>
     <string name="category_own">Own…</string>
@@ -960,7 +960,7 @@
     <string name="import_csv">Contacts (.csv) into the address book</string>
     <string name="import_failed">Could not read the file (too big, or not the right format).</string>
     <string name="import_save_failed">The file was read, but saving failed (Mandat may have locked). Nothing was added, and the file stays where it was.</string>
-    <string name="import_ics_summary">Events found: %1$d. Already existing ones are skipped.</string>
+    <string name="import_ics_summary">Events found: %1$d. Already existing ones are skipped. A way of repeating that Mandat does not keep (such as \"the second Tuesday of the month\" or a set number of times) becomes one event on its first date.</string>
     <string name="import_notes_summary">Notes found: %1$d (split at blank lines).</string>
     <string name="import_csv_summary">Contacts found: %1$d. Next you can choose which to add.</string>
     <string name="import_go">Import</string>
@@ -1102,12 +1102,12 @@
     <string name="export_text_one">Text: %1$s (.docx, .md)</string>
     <string name="report_make">Draft a report for voters →</string>
     <string name="report_title">Work report: %1$s – %2$s</string>
-    <string name="report_note">A draft gathered from Mandat: check it, add to it and remove what is not needed. Sensitive matters and private promises are left out.</string>
+    <string name="report_note">This draft was put together from Mandat: check it, add to it and remove what is not needed, above all the texts of promises and the number of meetings. Sensitive matters, everything tied to them and to the people you hide, personal promises and working notes are not here.</string>
     <string name="report_done">What was done</string>
     <string name="report_kept">Public promises kept</string>
     <string name="report_meetings">Meeting people</string>
     <string name="report_receptions">receptions</string>
-    <string name="report_visits">visits and trips</string>
+    <string name="report_visits">visits</string>
     <string name="report_aid">Aid</string>
     <string name="report_collected">collected</string>
     <string name="report_in_work">What I am working on next</string>
@@ -1270,7 +1270,7 @@
     <string name="report_from">From</string>
     <string name="report_to">To</string>
     <string name="report_compose">Make the report</string>
-    <string name="report_hint">The report takes only the titles of matters, public promises, the number of receptions, visits and trips, and the aid collected. A visit is an event tied to a community (other than a phone call), or a trip. Sensitive things and working notes stay out.</string>
+    <string name="report_hint">The report takes only the titles of matters, public promises, the number of receptions and visits that have already happened, and the aid collected. A repeating event counts for every date you did not take out. A visit is an event tied to a community (other than a phone call or a reception: receptions are counted apart); where nothing is tied to a community, events of the kind \"trip\" count. Sensitive matters, people you hide and working notes stay out.</string>
     <plurals name="open_delegations">
         <item quantity="one">%1$d delegation</item>
         <item quantity="other">%1$d delegations</item>
@@ -1361,7 +1361,7 @@
     <string name="export_vault_all_people_basic">All people, not only those tied to what is exported</string>
     <string name="packet_check">Matters and tasks for a colleague\'s Mandat</string>
     <string name="packet_one_matter">Only one matter (otherwise the matters that moved in the period, and those its tasks and events belong to)</string>
-    <string name="packet_hint">A packet for an assistant or colleague with Mandat: matters with their people, delegations, promises, deadlines and events. Records without a matter, sensitive and hidden matters (and anything naming them), and private notes on people stay out. The colleague imports the file and confirms matching people and matters; nothing is deleted.</string>
+    <string name="packet_hint">A packet for an assistant or a colleague who uses Mandat: matters with their people, delegations, promises, deadlines and events. Records without a matter, sensitive and hidden matters, the people you hide in trip mode (and whatever names them in full), and private notes about people are left out. The direction \"handed to me\" or \"promised to me\" travels as it is: for the colleague such a record reads as handed or promised to them, so look them through. The colleague imports the file and confirms the matches of people and matters; nothing is deleted.</string>
     <string name="import_packet_summary">A packet from a colleague: %1$d matters, %2$d people, %3$d tasks, %4$d events; %5$d more from the calendar and contacts. All of it is added to what is there: nothing is changed or deleted, nothing is doubled.</string>
     <string name="packet_done">Added: %1$d matters, %2$d people, %3$d tasks, %4$d events. Already here and skipped: %5$d.</string>
     <string name="packet_matter_one">Matter: %1$s</string>
@@ -1406,7 +1406,7 @@
     <string name="how_graph">The map of links: dots are matters and people, a line means a person takes part in a matter. A bigger dot has more links.\n\nIt shows who connects the different lines of your work. Pinch to zoom; tap a dot to open it.</string>
     <string name="how_info">Media and information: publications, mentions, attacks and the answers to them, key messages.\n\nAn attack has steps: found, assessed, decided, done, result. Only facts with sources, about actions, not about the person.</string>
     <string name="how_alliances">Situational alliances: with whom, about what, until when, who gives and gets what.\n\nWritten down so that agreements stay fair and nothing is forgotten.</string>
-    <string name="how_promises">Promises: to whom, how public, where it came from, the risk and the deadline. The matrix shows where the risk is highest.\n\nAttributed promises are ones you never made but people expect. You can take them on or openly correct them.</string>
+    <string name="how_promises">Promises: to whom, how public, where it came from, the risk and the deadline. The matrix shows where the risk is highest.\n\nAttributed promises are ones you never made but people expect. You can take them on or openly correct them.\n\nWhat was promised to you is written down the same way, with the direction \"Promised to me\". It stands apart and is not counted among your own promises.</string>
     <string name="how_retro">The retrospective looks back over months: where the time went by role, what was in focus each month, how matters started and ended, the words of the period, the year grid and the lifelines of matters.\n\nIt is built from the journal of matter changes, events and time entries. You can make a report for a chosen period.</string>
     <string name="how_texts">Texts: speeches, columns, letters, notes and your own templates. Each save keeps the earlier version (up to 20) to go back to.\n\nTemplate fields in [square brackets] are filled one by one. A text can be exported to Word or PDF.</string>
     <string name="how_topics">A topic gathers everything where its words appear (in any form, separated by commas): matters, delegations, promises, deadlines, the Inbox and evenings. It shows how much work is around one question.\n\nBelow are words that often appear in your records. Tap one to make it a topic.</string>
@@ -1490,20 +1490,20 @@
     <string name="tpl_council_appeal_body" formatted="false"># Deputy\'s appeal\n\n[Ref. No. and date]\n\n[Position, name of the body, enterprise or institution on the council\'s territory]\n[Name]\n\nRe: [the matter in one line]\n\nDear [name],\n\nAs a deputy of the [name] council I have been contacted by [who: voters, an organisation] about [the matter].\n\n[A short account: facts, dates, what has been done.]\n\nUnder Article 13 of the Law of Ukraine \"On the Status of Deputies of Local Councils\" I ask you to:\n- [request 1];\n- [request 2].\n\nPlease reply within ten days or, if further study or a check is needed, within one month at the latest (Article 13 of that Law).\n\n[Check the article and the term against the current wording of the law, then remove this line.]\n\nAttachments: [list or \"none\"].\n\nDeputy of the [name] council\n[Name]\n[Date]</string>
     <string name="tpl_council_inquiry_body" formatted="false"># Deputy\'s inquiry\n\nTo the [name] council\n\nto [position, body or enterprise among those named in Article 21]\nre: [the matter in one line]\n\nUnder Articles 21 and 22 of the Law of Ukraine \"On the Status of Deputies of Local Councils\" I submit this inquiry and ask the council to support it.\n\n## The matter\n[What happened and why it matters to the community.]\n\n## Circumstances\n[Facts, documents, dates.]\n\n## Requests\n- [what exactly should be done];\n- [provide information on…].\n\nI ask the council to set the term within which [who] must give an official written reply to the council and to me: [term].\n\n[Check the articles against the current wording of the law and your council\'s rules, then remove this line.]\n\nDeputy of the [name] council\n[Name]\n[Date]</string>
     <string name="mode_assistant_hint">You run a deputy\'s matters: the district, appeals, inquiries, the report. The appeal and inquiry templates are for the deputy to sign. Put the deputy\'s surname into the role\'s name; for several deputies add a role for each.</string>
-    <string name="person_sensitive">Sensitive person</string>
-    <string name="person_sensitive_hint">While trip mode is on, this person is shown nowhere, not to you either; nothing is deleted. Their delegations and promises, the events they take part in, media items and alliances disappear with them. A note not tied to them is hidden only when it contains every word of the name on this card: a mention by the surname alone stays visible.</string>
-    <string name="person_delete_sensitive">This person is marked as sensitive. Their delegations, promises and events will stay without the name, and trip mode will no longer hide them.</string>
+    <string name="person_sensitive">Hide in trip mode</string>
+    <string name="person_sensitive_hint">While trip mode is on, this person is shown nowhere, not even to you; nothing is deleted. Everything tied to them goes too, and so do the records with their full name and the matters with it in the title. Not hidden: a mention by the surname alone or by a nickname, the description and notes of an ordinary matter, copies of events in the phone calendar, backups. Keep only the first name and the surname in the name field, without remarks.</string>
+    <string name="person_delete_sensitive">You hide this person in trip mode. Once the card is deleted, trip mode will no longer hide what was tied to it: delegations, promises, events, media items, alliances or arrangements, diary days and notes with the name. If they must not stay in view, delete or change them first.</string>
     <string name="kind_delegation_in">Handed to me</string>
     <string name="kind_promise_in">Promised to me</string>
     <string name="dir_delegation_out">I hand it to someone</string>
     <string name="dir_promise_out">I promise</string>
     <string name="from_whom">From whom</string>
-    <string name="from_whom_text">Who promised (if not a person in Mandat)</string>
+    <string name="from_whom_text">From whom (if not among People)</string>
     <string name="chip_from">from: %1$s</string>
     <string name="chip_to_me">to me</string>
-    <string name="agenda_asked_me">What was handed to you</string>
-    <string name="agenda_promised_me">What was promised to you</string>
-    <string name="promises_to_me_hint">What others promised to you. It is not counted in the matrix, the risks or the reports: those hold only your own promises.</string>
+    <string name="agenda_asked_me">This person handed to me</string>
+    <string name="agenda_promised_me">This person promised me</string>
+    <string name="promises_to_me_hint">What others promised to you. It is not counted in the table and charts of your promises, among the risky ones or in the reports: those hold only your own.</string>
     <string name="event_repeat">Repeats</string>
     <string name="repeat_none">no</string>
     <string name="repeat_daily">every day</string>
@@ -1512,21 +1512,21 @@
     <string name="repeat_monthly">every month</string>
     <string name="repeat_yearly">every year</string>
     <string name="event_repeat_until">Repeat until (inclusive)</string>
-    <string name="event_repeat_too_long">The event lasts longer than the gap between its times: it will be saved without repeating.</string>
-    <string name="event_first_day">First time</string>
-    <string name="event_series_note">This event repeats: changes apply to every time of it.</string>
-    <string name="event_one_time_note">This time only. Once saved, it becomes an event of its own, and the other times stay as they were.</string>
-    <string name="event_outcome_series">One field for every time. To write what came of one time, open the event from the calendar and choose \"This time only\".</string>
-    <string name="event_delete_series">Delete the event with all of its times? The times changed on their own will stay.</string>
-    <string name="event_choice_text">This event repeats. You opened it on %1$s.</string>
-    <string name="event_choice_one">This time only</string>
-    <string name="event_choice_all">Every time</string>
-    <string name="event_choice_skip">Skip this time</string>
+    <string name="event_repeat_too_long">The event lasts longer than the gap between its dates: it will be saved without repeating.</string>
+    <string name="event_first_day">First date</string>
+    <string name="event_series_note">This event repeats: changes apply to every date of it, past ones too. To change it only from now on, end this one (\"Repeat until\") and make a new one.</string>
+    <string name="event_one_time_note">This date only. Once saved, it becomes an event of its own, and the other dates stay as they were.</string>
+    <string name="event_outcome_series">One field for every date. To write what came of one day, open the event from the calendar and choose \"This date only\".</string>
+    <string name="event_delete_series">Delete the event with all of its dates? The dates you changed on their own will stay.</string>
+    <string name="event_choice_text">This event repeats. You chose %1$s. What should change?</string>
+    <string name="event_choice_one">This date only</string>
+    <string name="event_choice_all">Every date</string>
+    <string name="event_choice_skip">Not on this date</string>
     <string name="mode_activist">Civic work</string>
-    <string name="mode_activist_hint">For those who work in a civic organisation, a fund, a coalition, an initiative, a trade union or a newsroom. Public bodies are those you write to, not where you work.</string>
-    <string name="mode_citizen_hint">For your own affairs: your building, your community, appeals, meetings. \"Simple view\" in Options leaves on the screens only what is needed every day; at the first start it turns on by itself.</string>
-    <string name="mode_choose_first">First choose who you are. Names, ready roles and text templates follow it. Your records do not depend on the mode, and you can change it at any time in Options.</string>
-    <string name="roles_text_civic">Roles are the areas where you have matters: an organisation, your building, your community, personal affairs. Matters are grouped by them, so none gets lost. Choose an area, add a name if you like and tap \"Add this role\"; repeat for each. You can skip this: roles are added and changed at any time in Options.</string>
+    <string name="mode_activist_hint">For activists, volunteers and staff of civic organisations, funds, coalitions, initiatives, trade unions, newsrooms. Here you write to the authorities; you do not work in them.</string>
+    <string name="mode_citizen_hint">For your own affairs: home, the building\'s association, family, appeals. \"Simple view\" in Options leaves on the screens only what is needed most.</string>
+    <string name="mode_choose_first">Choose one: what you do. The words Mandat uses with you, and the ready lists it offers, follow it. A wrong choice does no harm: your records do not depend on it, and you can change it at any time in Options.</string>
+    <string name="roles_text_civic">Where do you have matters? For example: personal, family, the building\'s association, an organisation. Matters are grouped by these areas, so none gets lost. Choose from the list, add a name if you like and tap \"Add this role\"; you can add several. You can also skip this: all of it is added and changed at any time in Options.</string>
     <string name="role_body_civic">Organisation or area</string>
     <string name="role_position_civic">What you are there</string>
     <string name="type_GRANT">Grant / project</string>
@@ -1563,12 +1563,21 @@
     <string name="tile_alliances_plain">arrangements</string>
     <string name="alliance_broken_plain">Broken off</string>
     <string name="tpl_office_reply_title">Reply to an appeal</string>
-    <string name="tpl_office_reply_body" formatted="false">[Name of the body]\n[Ref. No. and date]\n\n[To: full name]\n[Address for the reply]\n\nDear [name],\n\nYour appeal of [date] about [the matter], received by [name of the body] on [date, incoming No.], has been considered.\n\n[In substance: what was established, what has been done or will be done, and when.]\n\n[If the matter is outside the powers of the body: where the appeal was forwarded, or where to turn.]\n\n[If the requests are refused: the reasons and how to appeal. Check what a reply must contain, and the time limits, against the current text of the Law of Ukraine \"On Citizens\' Appeals\".]\n\nYours sincerely,\n[Position]\n[Full name]\n\nPrepared by: [surname, phone]</string>
-    <string name="tpl_office_cover_body" formatted="false">[Name of the body]\n[Ref. No. and date]\n\n[To: position, name of the body]\n\nWe are sending [what: an appeal, documents, materials] about [the matter] [for consideration within your powers / for information / to be taken into account].\n\nPlease inform [whom] of the outcome by [date].\n\nEnclosures: [list, number of sheets].\n\n[Position]\n[Full name]\n\nPrepared by: [surname, phone]</string>
+    <string name="tpl_office_reply_body" formatted="false">[Name of the body]\n[Ref. No. and date]\n\n[To: full name]\n[Address for the reply]\n\nDear [name],\n\nYour appeal of [date] about [the matter], received by [name of the body] on [date, incoming No.], has been considered.\n\n[In substance: what was established, what has been done or will be done, and when.]\n\n[If the matter is outside the powers of the body: where and when the appeal was forwarded.]\n\n[If the requests are refused: the provision of the law, the reasons and how to appeal.]\n\n[Check what a reply must contain, and the time limits, against the current texts of the laws of Ukraine \"On Citizens\' Appeals\" and \"On Administrative Procedure\".]\n\nYours sincerely,\n[Position of the head of the body or of the person acting for them]\n[Full name]\n\nPrepared by: [surname, phone]</string>
+    <string name="tpl_office_cover_body" formatted="false">[Name of the body]\n[Ref. No. and date]\n[In reply to No. … of …]\n\n[To: position, name of the body]\n\nRe: [short subject]\n\nWe are sending [what: an appeal, documents, materials] about [the matter] [for consideration within your powers / for information / to be taken into account].\n\nPlease inform [whom] of the outcome [within the time set by law, or by a date].\n\n[If you forward a citizen\'s appeal: the applicant has been told. A complaint is not sent to the one whose actions it is about.]\n\nEnclosures: [list, number of sheets and copies].\n\n[Position]\n[Full name]\n\nPrepared by: [surname, phone]</string>
     <string name="tpl_office_note_body" formatted="false"># Explanatory note\nto the draft [kind and title of the act]\n\n[Check the structure of the note against the rules of procedure of your body and the rules for preparing draft acts.]\n\n## Purpose\n[What problem the draft solves and what it is to achieve.]\n\n## Why it is needed\n[What happens now and why an act is needed.]\n\n## Main provisions\n[What exactly changes.]\n\n## Legal aspects\n[Which acts are in force in this field; check references against the current texts.]\n\n## Financial and economic grounds\n[Whether funds are needed, how much and from which sources.]\n\n## Position of the parties concerned\n[With whom it was agreed, whether there was a public discussion and what it showed.]\n\n## Expected results\n[What changes after adoption and how it will be seen.]</string>
-    <string name="tpl_joint_appeal_title">Joint appeal</string>
-    <string name="tpl_joint_appeal_body" formatted="false"># Joint appeal\n\n[To: position, name of the body]\n\nFrom: [name of the organisation or the initiative group]\n[Address for the reply: postal or e-mail]\n[Contact person, phone]\n\nDear [name],\n\n[The matter: what happened, where and when, whom it concerns.]\n\n[What has been done: where you turned, what replies you received.]\n\nWe ask:\n- [request 1];\n- [request 2].\n\nPlease send the reply to [which address] within the time set by the Law of Ukraine \"On Citizens\' Appeals\".\n\n[Check what a joint appeal must contain against the current text of that law.]\n\nEnclosures: [list, or \"none\"].\n\n[Date]\n\nSignatures:\n1. [Full name; place of residence; signature]\n2. [Full name; place of residence; signature]</string>
+    <string name="tpl_joint_appeal_title">Joint appeal of citizens</string>
+    <string name="tpl_joint_appeal_body" formatted="false"># Joint appeal\n\n[To: position, name of the body]\n\nFrom: the citizens who signed below\n[Address for the reply: the full name and address of one of the applicants, postal or e-mail]\n[Phone]\n\nDear [name],\n\n[The matter: what happened, where and when, whom it concerns.]\n\n[What has been done: where you turned, what replies you received.]\n\nWe ask:\n- [request 1];\n- [request 2].\n\nPlease send the reply to the address above within the time set by the Law of Ukraine \"On Citizens\' Appeals\".\n\n[Check what a joint appeal must contain against the current text of that law. A letter from an organisation as a legal entity is drawn up differently: on its letterhead, signed by its head.]\n\nEnclosures: [list, or \"none\"].\n\n[Date]\n\nSignatures:\n1. [Full name; place of residence; signature]\n2. [Full name; place of residence; signature]</string>
     <string name="simple_view">Simple view</string>
-    <string name="simple_view_hint">Leaves on the screens what is needed every day: matters, tasks, the calendar, people, the diary, money and texts. Hides the ways into media, alliances and arrangements, the influence map, the team, communities, statistics and the retrospective, and a few rarely needed fields. No record goes away, and search still finds everything: turn it off and it all comes back.</string>
-    <string name="report_pick_hint">Untick a matter that should not be in the report: its promises, events and aid stay out with it.</string>
+    <string name="simple_view_hint">Shows only what is needed most: matters, tasks, the calendar, people, money, the diary and texts. Statistics, the overviews of media and of alliances or arrangements, the influence map, the team, communities and a few rarely needed fields are taken off the screens (the fields stay where they are already filled in). Promises and the report open with buttons on the Review tab. Nothing is deleted and search finds everything: turn it off and it all comes back. If you lead a team, this view is not for you.</string>
+    <string name="report_pick_hint">Untick a matter that should not be in the report: its promises, events and aid stay out with it. Changing the period brings the ticks back.</string>
+    <string name="event_to_phone_person">Someone you hide in trip mode takes part. The copy of the event in the phone calendar will stay visible.</string>
+    <string name="event_to_phone_repeat">This event repeats: the phone calendar gets its coming date with the rule of repeating; the dates you took out or changed on their own are not passed on.</string>
+    <string name="event_skipped">Dates taken out (tap one to bring it back)</string>
+    <string name="mode_citizen_first">For this choice \"Simple view\" is on: the screens show only what is needed most. The rest can be brought back at any time in Options.</string>
+    <string name="mode_official_hint">For your own planning: time limits, tasks, meetings, receptions. Do not put in documents or information with restricted access, the texts of appeals or applicants\' personal data: a number, a date and a short mark are enough.</string>
+    <string name="civic_body_family">Family and home</string>
+    <string name="act_pos_board_chair">Chair of the board</string>
+    <string name="act_pos_exec">Executive director</string>
+    <string name="report_other_matters">Other matters that give promises, meetings and aid</string>
 </resources>

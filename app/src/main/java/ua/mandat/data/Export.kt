@@ -91,20 +91,7 @@ object Export {
                 append("DTEND").append(tz).append(":").append(stamp(maxOf(end, start.plusMinutes(15)))).append("\r\n")
             }
             if (repeat != null) {
-                val first = LocalDate.ofEpochDay(e.day)
-                append("RRULE:FREQ=").append(when (repeat) {
-                    Repeat.DAILY -> "DAILY"
-                    Repeat.WEEKLY -> "WEEKLY"
-                    Repeat.BIWEEKLY -> "WEEKLY;INTERVAL=2"
-                    // In a month without that day: its last day, as Mandat itself counts
-                    Repeat.MONTHLY -> "MONTHLY" + if (first.dayOfMonth > 28) ";BYMONTHDAY=" + (28..first.dayOfMonth).joinToString(",") + ";BYSETPOS=-1" else ""
-                    Repeat.YEARLY -> "YEARLY" + if (first.monthValue == 2 && first.dayOfMonth == 29) ";BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1" else ""
-                })
-                e.repeatUntil?.let { u ->
-                    append(";UNTIL=").append(if (e.startMin == null) LocalDate.ofEpochDay(u).format(dateOnly)
-                        else LocalDate.ofEpochDay(u).atTime(23, 59, 59).atZone(zone).withZoneSameInstant(ZoneOffset.UTC).format(utc))
-                }
-                append("\r\n")
+                append(fold("RRULE:" + rrule(e, zone))).append("\r\n")
                 val skipped = Repeats.skipped(e).filter { it >= e.day }.sorted()
                 if (skipped.isNotEmpty()) append(fold(
                     if (e.startMin == null) "EXDATE;VALUE=DATE:" + skipped.joinToString(",") { LocalDate.ofEpochDay(it).format(dateOnly) }
@@ -119,6 +106,32 @@ object Export {
             append("END:VEVENT\r\n")
         }
         append("END:VCALENDAR\r\n")
+    }
+
+    /**
+     * The rule of repeating of [e] as calendars write it (the part after "RRULE:"), or null for an
+     * event that happens once. In a month without that day the last day is taken, as Mandat itself
+     * counts; the end is written as calendars expect it for a whole-day and for a timed event.
+     */
+    fun rrule(e: Event, zone: ZoneId = ZoneId.systemDefault()): String? {
+        val repeat = Repeat.of(e.repeat) ?: return null
+        val first = LocalDate.ofEpochDay(e.day)
+        val rule = StringBuilder("FREQ=").append(when (repeat) {
+            Repeat.DAILY -> "DAILY"
+            Repeat.WEEKLY -> "WEEKLY"
+            Repeat.BIWEEKLY -> "WEEKLY;INTERVAL=2"
+            Repeat.MONTHLY -> "MONTHLY" + when {
+                first.dayOfMonth == 31 -> ";BYMONTHDAY=-1"
+                first.dayOfMonth > 28 -> ";BYMONTHDAY=" + (28..first.dayOfMonth).joinToString(",") + ";BYSETPOS=-1"
+                else -> ""
+            }
+            Repeat.YEARLY -> "YEARLY" + if (first.monthValue == 2 && first.dayOfMonth == 29) ";BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1" else ""
+        })
+        e.repeatUntil?.let { u ->
+            rule.append(";UNTIL=").append(if (e.startMin == null) LocalDate.ofEpochDay(u).format(dateOnly)
+                else LocalDate.ofEpochDay(u).atTime(23, 59, 59).atZone(zone).withZoneSameInstant(ZoneOffset.UTC).format(utc))
+        }
+        return rule.toString()
     }
 
     // ── CSV ──
@@ -189,20 +202,40 @@ object IcsReader {
 
     fun read(text: String, zone: ZoneId = ZoneId.systemDefault()): List<Item> {
         val out = ArrayList<Item>()
+        // Whose event each item is, and the days on which a repeating event was moved or changed on
+        // its own (those come as events of their own, so the repeating one must not come then too)
+        val ids = ArrayList<String?>()
+        val changed = HashMap<String, MutableSet<Long>>()
         var cur: MutableMap<String, Pair<String, String>>? = null
         for (l in unfold(text)) {
             if (out.size >= MAX_EVENTS) break
             when {
                 l.equals("BEGIN:VEVENT", true) -> cur = HashMap()
-                l.equals("END:VEVENT", true) -> { cur?.let { toItem(it, zone)?.let(out::add) }; cur = null }
+                l.equals("END:VEVENT", true) -> {
+                    cur?.let { p ->
+                        val uid = p["UID"]?.second?.trim()?.takeIf { it.isNotEmpty() }
+                        toItem(p, zone)?.let { out.add(it); ids.add(uid) }
+                        val day = p["RECURRENCE-ID"]?.let { (h, v) -> when_(h, v, zone)?.first }
+                        if (uid != null && day != null) changed.getOrPut(uid) { HashSet() }.add(day)
+                    }
+                    cur = null
+                }
                 cur != null && ':' in l -> {
                     val head = l.substringBefore(':')
                     val name = head.substringBefore(';').uppercase()
-                    if (name !in cur) cur[name] = head to l.substringAfter(':')
+                    val value = l.substringAfter(':')
+                    val had = cur[name]
+                    if (had == null) cur[name] = head to value
+                    // Days left out may come one per line: all of them count
+                    else if (name == "EXDATE") cur[name] = had.first to (had.second + "," + value).take(MAX_LINE)
                 }
             }
         }
-        return out
+        return out.mapIndexed { i, item ->
+            val more = ids[i]?.let(changed::get)
+            if (item.repeat == null || more.isNullOrEmpty()) item
+            else item.copy(skipDays = (item.skipDays.split(',').mapNotNull { it.toLongOrNull() } + more).distinct().sorted().takeLast(MAX_SKIP_DAYS).joinToString(","))
+        }
     }
 
     /** Longest logical line kept; anything beyond is dropped, so a hostile file cannot grow one line forever. */
@@ -277,20 +310,28 @@ object IcsReader {
         val every = parts["INTERVAL"]?.toIntOrNull() ?: 1
         val first = LocalDate.ofEpochDay(firstDay)
         val known = setOf("FREQ", "INTERVAL", "UNTIL", "BYDAY", "BYMONTHDAY", "BYMONTH", "BYSETPOS", "WKST")
+        val freq = parts["FREQ"]?.uppercase()
         val byDay = parts["BYDAY"]
         val monthDays = parts["BYMONTHDAY"]?.split(',')?.mapNotNull { it.trim().toIntOrNull() }
-        val lastOfMonth = parts["BYSETPOS"] == "-1" && monthDays != null && monthDays.max() == first.dayOfMonth && monthDays == (28..first.dayOfMonth).toList()
+        // "The last day of the month" in the two ways it is written, when the event itself begins on such a day
+        val lastOfMonth = (parts["BYSETPOS"] == "-1" && monthDays != null && monthDays.isNotEmpty() && monthDays == (28..first.dayOfMonth).toList()) ||
+            (parts["BYSETPOS"] == null && monthDays == listOf(-1) && first.dayOfMonth == 31)
+        // Calendars leave out a month or a year that has no such day; Mandat would take its last day instead.
+        // So the 29th to the 31st is kept only when the rule itself says "the last day"
+        val needsLast = (freq == "MONTHLY" && first.dayOfMonth > 28) || (freq == "YEARLY" && first.monthValue == 2 && first.dayOfMonth == 29)
         val repeat = when {
             parts.keys.any { it !in known } -> null
             // Several weekdays, or a numbered one: not a rhythm Mandat keeps. One weekday must be the event's own
             byDay != null && byDay.uppercase() != first.dayOfWeek.name.take(2) -> null
             parts["BYSETPOS"] != null && !lastOfMonth -> null
             monthDays != null && !lastOfMonth && monthDays != listOf(first.dayOfMonth) -> null
-            parts["BYMONTH"] != null && parts["BYMONTH"] != first.monthValue.toString() -> null
-            else -> when (parts["FREQ"]?.uppercase()) {
+            needsLast && !lastOfMonth -> null
+            // "Only in such a month" belongs to a yearly rule, and must be the event's own month
+            parts["BYMONTH"] != null && (freq != "YEARLY" || parts["BYMONTH"] != first.monthValue.toString()) -> null
+            else -> when (freq) {
                 "DAILY" -> if (byDay != null || monthDays != null) null else when (every) { 1 -> Repeat.DAILY; 7 -> Repeat.WEEKLY; 14 -> Repeat.BIWEEKLY; else -> null }
                 "WEEKLY" -> if (monthDays != null) null else when (every) { 1 -> Repeat.WEEKLY; 2 -> Repeat.BIWEEKLY; else -> null }
-                "MONTHLY" -> if (byDay != null) null else when (every) { 1 -> Repeat.MONTHLY; 12 -> Repeat.YEARLY; else -> null }
+                "MONTHLY" -> if (byDay != null) null else when (every) { 1 -> Repeat.MONTHLY; 12 -> if (needsLast) null else Repeat.YEARLY; else -> null }
                 "YEARLY" -> if (byDay != null || every != 1) null else Repeat.YEARLY
                 else -> null
             }

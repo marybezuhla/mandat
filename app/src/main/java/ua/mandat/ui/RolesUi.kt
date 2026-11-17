@@ -120,7 +120,8 @@ fun RolesSetup(session: Session, modeAlreadyChosen: Boolean = false) {
     var draft by remember { mutableStateOf<String?>(null) }
     var asking by remember { mutableStateOf<String?>(null) }
     // Who the owner is must be chosen here, never left as it came: the rest of this screen and of Mandat follows it
-    var modeChosen by remember { mutableStateOf(modeAlreadyChosen) }
+    // (kept in the session too: Mandat locking in the middle of this screen must not ask again)
+    var modeChosen by remember { mutableStateOf(modeAlreadyChosen || session.firstModeChosen) }
 
     fun finish(save: Boolean) {
         if (finished) return
@@ -138,12 +139,13 @@ fun RolesSetup(session: Session, modeAlreadyChosen: Boolean = false) {
         Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ModePicker(session, chosen = modeChosen) { mode ->
-            modeChosen = true
-            // A citizen starts with the simple view; anyone can turn it on or off in Options
-            session.write { it.settings().put(Setting(ua.mandat.data.SETTING_SIMPLE, if (mode == ua.mandat.data.Mode.CITIZEN) "1" else "0")) }
-        }
         if (!modeChosen) Text(stringResource(R.string.mode_choose_first), style = MaterialTheme.typography.bodyLarge)
+        // A citizen starts with the simple view (written together with the mode); anyone can turn it on or off in Options
+        ModePicker(session, chosen = modeChosen, firstRun = true) {
+            modeChosen = true
+            session.firstModeChosen = true
+        }
+        if (modeChosen && AppMode.mode == ua.mandat.data.Mode.CITIZEN) Text(stringResource(R.string.mode_citizen_first), style = MaterialTheme.typography.labelMedium, color = Muted)
         Spacer(Modifier.height(8.dp))
         if (modeChosen) {
             Text(stringResource(R.string.roles_title), style = MaterialTheme.typography.titleLarge)
@@ -301,16 +303,23 @@ OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true
 
 /**
  * The owner's mode: changes the bodies, positions and some names. On the very first screen nothing
- * is marked as chosen ([chosen] false) until the owner taps one, and [onPick] hears the choice.
+ * is marked as chosen ([chosen] false) until the owner taps one, [onPick] hears the choice, and
+ * ([firstRun]) the simple view is set together with it.
  */
 @Composable
-fun ModePicker(session: Session, chosen: Boolean = true, onPick: ((ua.mandat.data.Mode) -> Unit)? = null) {
+fun ModePicker(session: Session, chosen: Boolean = true, firstRun: Boolean = false, onPick: ((ua.mandat.data.Mode) -> Unit)? = null) {
     Text(stringResource(R.string.mode_title), style = MaterialTheme.typography.titleMedium)
     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         ua.mandat.data.Mode.entries.forEach { mode ->
             QuickChip(stringResource(mode.label()), chosen && AppMode.mode == mode) {
                 AppMode.mode = mode
-                session.write { it.settings().put(Setting(ua.mandat.data.SETTING_MODE, mode.name)) }
+                session.write { db ->
+                    db.withTransaction {
+                        db.settings().put(Setting(ua.mandat.data.SETTING_MODE, mode.name))
+                        // At the first start the simple view goes with the choice, in the same step: on for a citizen, off for the rest
+                        if (firstRun) db.settings().put(Setting(ua.mandat.data.SETTING_SIMPLE, if (mode == ua.mandat.data.Mode.CITIZEN) "1" else "0"))
+                    }
+                }
                 onPick?.invoke(mode)
             }
         }
@@ -321,6 +330,7 @@ fun ModePicker(session: Session, chosen: Boolean = true, onPick: ((ua.mandat.dat
     when (AppMode.mode) {
         // (for an assistant the work is the deputy's, and so are the signatures)
         ua.mandat.data.Mode.ASSISTANT -> R.string.mode_assistant_hint
+        ua.mandat.data.Mode.OFFICIAL -> R.string.mode_official_hint
         ua.mandat.data.Mode.ACTIVIST -> R.string.mode_activist_hint
         ua.mandat.data.Mode.CITIZEN -> R.string.mode_citizen_hint
         else -> null

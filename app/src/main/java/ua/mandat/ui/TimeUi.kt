@@ -326,6 +326,13 @@ fun ReviewScreen(db: MandatDb, session: Session) {
             }
         }
         if (!AppMode.simple) item(key = "promises") { ReputationTiles(db, session) }
+        // In the simple view: plain doors to all promises (also those made to the owner) and to the report
+        else item(key = "promisesPlain") {
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.gap)) {
+                OutlinedButton(onClick = { session.showPromises = true }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.promises)) }
+                OutlinedButton(onClick = { session.showRetro = true }, modifier = Modifier.weight(1f)) { Text(stringResource(forMode(R.string.report_make_title, R.string.report_make_title_plain)), maxLines = 1) }
+            }
+        }
         item(key = "budget") { BudgetCard(db, session) }
         item(key = "diary") {
             Row(horizontalArrangement = Arrangement.spacedBy(Space.gap)) {

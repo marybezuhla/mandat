@@ -120,7 +120,7 @@ class RepeatsTest {
         val days = reminderDays(emptyList(), emptyList(), emptyList(), today, listOf(weekly))
         assertEquals(today, days.first())
         assertTrue(days.all { it >= today && (it - weekly.day) % 7 == 0L })
-        assertEquals(13, days.size) // today and twelve more weeks within ninety days
+        assertEquals(listOf(today, today + 7, today + 14), days) // the two weeks the phone keeps
         // Over before today: nothing
         assertEquals(emptyList<Long>(), reminderDays(emptyList(), emptyList(), emptyList(), today, listOf(event(today - 70, Repeat.WEEKLY, until = today - 1, remind = true))))
     }
@@ -133,7 +133,7 @@ class RepeatsTest {
         val once = event(day(2026, 3, 3), start = 540).copy(title = "Один раз")
         val text = Export.ics(listOf(monthly, weekly, once), { it }, kyiv, now = 0)
         assertTrue(text.contains("DTSTART;TZID=Europe/Kyiv:20260131T100000"))
-        assertTrue(text.contains("RRULE:FREQ=MONTHLY;BYMONTHDAY=28,29,30,31;BYSETPOS=-1;UNTIL=20261231T215959Z"))
+        assertTrue(text.contains("RRULE:FREQ=MONTHLY;BYMONTHDAY=-1;UNTIL=20261231T215959Z"))
         assertTrue(text.contains("EXDATE;TZID=Europe/Kyiv:20260228T100000"))
         assertTrue(text.contains("RRULE:FREQ=WEEKLY;INTERVAL=2\r\n"))
         // An event that happens once is written as before, in universal time
@@ -157,6 +157,19 @@ class RepeatsTest {
         assertEquals(Repeat.BIWEEKLY, rule("FREQ=WEEKLY;INTERVAL=2"))
         assertEquals(Repeat.YEARLY, rule("FREQ=YEARLY"))
         assertEquals(Repeat.MONTHLY, rule("FREQ=MONTHLY;BYMONTHDAY=5"))
+        // Calendars leave out a month without the 31st; Mandat would not: kept only when the rule says "the last day"
+        val the31st = day(2026, 1, 31)
+        assertNull(IcsReader.repeatOf("FREQ=MONTHLY", the31st, zone))
+        assertNull(IcsReader.repeatOf("FREQ=MONTHLY;BYMONTHDAY=31", the31st, zone))
+        assertEquals(Repeat.MONTHLY, IcsReader.repeatOf("FREQ=MONTHLY;BYMONTHDAY=-1", the31st, zone)?.first)
+        assertEquals(Repeat.MONTHLY, IcsReader.repeatOf("FREQ=MONTHLY;BYMONTHDAY=28,29,30;BYSETPOS=-1", day(2026, 1, 30), zone)?.first)
+        assertNull(IcsReader.repeatOf("FREQ=MONTHLY;BYMONTHDAY=-1", day(2026, 4, 30), zone))
+        assertNull(IcsReader.repeatOf("FREQ=YEARLY", day(2024, 2, 29), zone))
+        assertEquals(Repeat.YEARLY, IcsReader.repeatOf("FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1", day(2024, 2, 29), zone)?.first)
+        // "Only in January" is not every day
+        assertNull(rule("FREQ=DAILY;BYMONTH=1"))
+        assertNull(rule("FREQ=MONTHLY;BYMONTH=1;BYMONTHDAY=5"))
+        assertEquals(Repeat.YEARLY, rule("FREQ=YEARLY;BYMONTH=1"))
         assertNull(rule("FREQ=WEEKLY;BYDAY=MO,WE,FR"))
         assertNull(rule("FREQ=WEEKLY;BYDAY=TU"))
         assertNull(rule("FREQ=WEEKLY;COUNT=10"))
@@ -178,5 +191,58 @@ class RepeatsTest {
         val names = HiddenNames(listOf("Вигадана Особа"))
         assertTrue(names.named("зустріч із Вигаданою Особою"))
         assertFalse(names.named("зустріч з Особою"))
+    }
+
+    @Test fun movingASeriesKeepsItsSkippedTimesSkipped() {
+        val monday = day(2026, 1, 5)
+        val weekly = event(monday, Repeat.WEEKLY, skip = "${monday + 7},${monday + 14}")
+        // The meeting moves to Tuesdays: the second and the third time stay left out
+        val tuesdays = Repeats.carrySkips(weekly, weekly.copy(day = monday + 1))
+        assertEquals(listOf(monday + 1, monday + 22), Repeats.starts(tuesdays, monday, monday + 27))
+        // Monthly on the 31st, moved to the 15th
+        val monthly = event(day(2026, 1, 31), Repeat.MONTHLY, skip = "${day(2026, 2, 28)},${day(2028, 7, 31)}")
+        val moved = Repeats.carrySkips(monthly, monthly.copy(day = day(2026, 1, 15)))
+        assertEquals(setOf(day(2026, 2, 15), day(2028, 7, 15)), Repeats.skipped(moved))
+        // The rhythm itself changed: the days stay, and a day that is still a time stays left out
+        val daily = Repeats.carrySkips(weekly, weekly.copy(repeat = Repeat.DAILY.name))
+        assertEquals(setOf(monday + 7, monday + 14), Repeats.skipped(daily))
+        // Nothing to carry
+        assertEquals(weekly, Repeats.carrySkips(weekly, weekly))
+        assertEquals("", Repeats.carrySkips(event(monday), event(monday + 1)).skipDays)
+    }
+
+    @Test fun aCalendarFromElsewhereKeepsEveryDayLeftOutAndDoesNotDoubleAMovedTime() {
+        val zone = ZoneId.of("Europe/Kyiv")
+        val text = listOf(
+            "BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:a1", "DTSTART;TZID=Europe/Kyiv:20260105T100000", "DTEND;TZID=Europe/Kyiv:20260105T110000",
+            "RRULE:FREQ=WEEKLY;BYDAY=MO", "EXDATE;TZID=Europe/Kyiv:20260112T100000", "EXDATE;TZID=Europe/Kyiv:20260126T100000", "SUMMARY:Щотижня", "END:VEVENT",
+            // The time of 19 January was moved to the 20th, at two o'clock
+            "BEGIN:VEVENT", "UID:a1", "RECURRENCE-ID;TZID=Europe/Kyiv:20260119T100000", "DTSTART;TZID=Europe/Kyiv:20260120T140000", "DTEND;TZID=Europe/Kyiv:20260120T150000",
+            "SUMMARY:Щотижня", "END:VEVENT", "END:VCALENDAR",
+        ).joinToString("\r\n")
+        val items = IcsReader.read(text, zone)
+        assertEquals(2, items.size)
+        val series = items.single { it.repeat != null }
+        assertEquals("WEEKLY", series.repeat)
+        assertEquals(listOf(day(2026, 1, 12), day(2026, 1, 19), day(2026, 1, 26)).joinToString(","), series.skipDays)
+        val one = items.single { it.repeat == null }
+        assertEquals(day(2026, 1, 20), one.day)
+        assertEquals(14 * 60, one.startMin)
+    }
+
+    @Test fun damagedSkippedDaysAndFirstDaysDoNoHarm() {
+        val e = event(100, Repeat.WEEKLY, skip = "107,99999999999999,-99999999999999")
+        assertEquals(setOf(107L), Repeats.skipped(e))
+        assertTrue(Export.ics(listOf(e), { it }, ZoneId.of("Europe/Kyiv"), now = 0).contains("EXDATE;VALUE=DATE:19700418"))
+        assertEquals(emptyList<Long>(), Repeats.starts(event(Long.MIN_VALUE + 10, Repeat.DAILY), 0, 100))
+        assertEquals(emptyList<Long>(), Repeats.starts(event(-10_000_000, Repeat.WEEKLY), 0, 100))
+    }
+
+    @Test fun peopleMetMostOftenCountEveryTimeOfARepeatingMeeting() {
+        val weekly = event(0, Repeat.WEEKLY).copy(id = 1)
+        val once = event(3).copy(id = 2)
+        val times = Repeats.eachTime(listOf(weekly, once), 0, 27)
+        val top = ua.mandat.data.Retro.topPeople(ua.mandat.data.Span(0, 27), times, listOf(EventPerson(1, 50), EventPerson(2, 60), EventPerson(2, 50)))
+        assertEquals(listOf(50L to 5, 60L to 1), top)
     }
 }

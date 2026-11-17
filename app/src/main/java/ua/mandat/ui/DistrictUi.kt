@@ -316,6 +316,9 @@ fun CommunityScreen(db: MandatDb, session: Session, id: Long) {
     val today = Dates.today()
     val s = stats(listOf(c), links, matters, events, promises, today, remember(people) { people.mapTo(HashSet()) { it.id } }).first()
     val mine = links.filter { it.communityId == id }
+    // The events tied here, one line each: a repeating one at its coming time (or its last), never once per time
+    val tiedHere = mine.filter { it.kind == LinkKind.EVENT }.mapTo(HashSet()) { it.refId }
+    val eventsHere = eventRecords.filter { it.id in tiedHere }.map { ua.mandat.data.Repeats.near(it, today) }
     val linkedPeople = mine.filter { it.kind == LinkKind.PERSON }.mapNotNull { l -> people.firstOrNull { it.id == l.refId } }
     var picking by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -379,8 +382,8 @@ fun CommunityScreen(db: MandatDb, session: Session, id: Long) {
                 }
             }
             item(key = "visits") {
-                SectionCard(Sym.calendar, stringResource(R.string.district_visits), count = s.events.size) {
-                    s.events.sortedByDescending { it.day }.take(20).forEach { e -> Removable(LinkKind.EVENT, e.id) { EventRow(e, emptyList(), null, null, session) } }
+                SectionCard(Sym.calendar, stringResource(R.string.district_visits), count = eventsHere.size) {
+                    eventsHere.sortedByDescending { it.day }.take(20).forEach { e -> Removable(LinkKind.EVENT, e.id) { EventRow(e, emptyList(), null, null, session) } }
                     Row {
                         TextButton(onClick = {
                             session.eventDraft = EventDraft(

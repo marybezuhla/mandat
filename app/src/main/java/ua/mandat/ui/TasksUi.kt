@@ -373,14 +373,15 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
                     value = draft.doneMeans, onValueChange = { draft.doneMeans = it },
                     label = { Text(stringResource(R.string.delegation_done_means)) }, modifier = Modifier.fillMaxWidth(),
                 )
-                if (!draft.incoming && !AppMode.simple) FreedomPicker(draft.freedom) { draft.freedom = it }
+                // (the simple view leaves these out, unless this record already has them: nothing is ever edited blind)
+                if (!draft.incoming && (!AppMode.simple || draft.delegation.freedom != null)) FreedomPicker(draft.freedom) { draft.freedom = it }
         }
         SheetGroup(stringResource(R.string.delegation_group_when)) {
                 MatterPicker(matters, allMatters, draft.matterId) { draft.matterId = it }
                 DueField(draft.due) { draft.due = it }
                 // (the simple view leaves out the check-in day and "it came back")
-                if (!draft.incoming && !AppMode.simple) DueField(draft.checkIn, label = R.string.delegation_check_in) { draft.checkIn = it }
-                if (!draft.incoming && !AppMode.simple) Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!draft.incoming && (!AppMode.simple || draft.delegation.checkIn != null)) DueField(draft.checkIn, label = R.string.delegation_check_in) { draft.checkIn = it }
+                if (!draft.incoming && (!AppMode.simple || draft.delegation.returned)) Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.delegation_returned), style = MaterialTheme.typography.bodyLarge)
                         Text(stringResource(R.string.delegation_returned_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
@@ -471,7 +472,9 @@ fun PromiseDialog(db: MandatDb, session: Session, draft: PromiseDraft) {
         }
         SheetGroup(stringResource(R.string.promise_group_kind)) {
                 // How widely, where from and how risky are about the owner's own word only
-                if (!draft.incoming && !AppMode.simple) PromiseDimensions(draft)
+                // (the simple view leaves them out, unless this promise already has them)
+                val had = draft.promise.level != ua.mandat.data.Publicity.PERSONAL || draft.promise.origin != null || draft.promise.risk != null
+                if (!draft.incoming && (!AppMode.simple || had)) PromiseDimensions(draft)
                 OutlinedTextField(
                     value = draft.source, onValueChange = { draft.source = it },
                     label = { Text(stringResource(R.string.promise_source)) },

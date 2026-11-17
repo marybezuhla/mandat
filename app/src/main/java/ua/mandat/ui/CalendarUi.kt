@@ -461,7 +461,13 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
             // One time of a repeating event, or all of them: said first, so it is clear what a change touches
             if (draft.detached) Text(stringResource(R.string.event_one_time_note), style = MaterialTheme.typography.labelMedium, color = Muted)
             else if (!draft.isNew && draft.event.repeats) Text(stringResource(R.string.event_series_note), style = MaterialTheme.typography.labelMedium, color = Muted)
-            DueField(draft.day, allowClear = false, label = if (draft.repeat != null) R.string.event_first_day else R.string.event_day) { if (it != null) draft.day = it }
+            DueField(draft.day, allowClear = false, label = if (draft.repeat != null) R.string.event_first_day else R.string.event_day) {
+                if (it != null) {
+                    draft.day = it
+                    // An end that would now come before the first day is taken away in plain sight, not silently on saving
+                    if (draft.repeatUntil?.let { u -> u < it } == true) draft.repeatUntil = null
+                }
+            }
             // Time: whole day, or from–to as two large tiles
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (draft.startMin == null) {
@@ -546,7 +552,11 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
         val sensitive by remember(db, draft.matterId) {
             draft.matterId?.let { id -> db.matters().observeSensitiveIds().map { id in it } } ?: kotlinx.coroutines.flow.flowOf(false)
         }.collectAsStateWithLifecycle(false)
-        val warning = stringResource(R.string.event_to_phone_warning) + if (sensitive) "\n\n" + stringResource(R.string.event_to_phone_sensitive) else ""
+        // So does someone hidden in trip mode among those taking part, and a repeating event (its dates left out do not travel)
+        val hiddenPerson = draft.people.any { id -> people.firstOrNull { it.id == id }?.sensitive == true }
+        val warning = stringResource(R.string.event_to_phone_warning) + (if (sensitive) "\n\n" + stringResource(R.string.event_to_phone_sensitive) else "") +
+            (if (hiddenPerson) "\n\n" + stringResource(R.string.event_to_phone_person) else "") +
+            (if (draft.repeat != null) "\n\n" + stringResource(R.string.event_to_phone_repeat) else "")
         ConfirmDialog(stringResource(R.string.event_to_phone), warning, stringResource(R.string.event_to_phone_go),
             onConfirm = {
                 toPhone = false
@@ -554,7 +564,9 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
                 if (e != null) {
                     // Saved first: leaving Mandat locks it, and nothing typed is lost
                     session.saveEventDraft()
-                    PhoneCalendar.addToPhone(context, e.title, e.day, e.endDay, e.startMin, e.endMin, e.place)
+                    // A repeating event goes from its coming time, with its rule
+                    val t = ua.mandat.data.Repeats.at(e, ua.mandat.data.Repeats.next(e, Dates.today()) ?: e.day)
+                    PhoneCalendar.addToPhone(context, t.title, t.day, t.endDay, t.startMin, t.endMin, t.place, ua.mandat.data.Export.rrule(e))
                 }
             }, onCancel = { toPhone = false })
     }
@@ -581,6 +593,13 @@ private fun RepeatPicker(draft: EventDraft) {
     }
     val r = draft.repeat ?: return
     DueField(draft.repeatUntil, label = R.string.event_repeat_until) { draft.repeatUntil = it?.takeIf { d -> d >= draft.day } }
+    // The dates taken out of it: a tap brings one back (the latest ones, so the row stays short)
+    if (draft.skipped.isNotEmpty()) {
+        Text(stringResource(R.string.event_skipped), style = MaterialTheme.typography.labelMedium, color = Muted)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            draft.skipped.sorted().takeLast(24).forEach { d -> FilterBadge(Dates.format(d)) { draft.skipped = draft.skipped - d } }
+        }
+    }
     // Something that lasts longer than the gap between two times cannot repeat that often: said, not silently dropped on saving
     if ((draft.endDay ?: draft.day) - draft.day >= r.minGap) Text(stringResource(R.string.event_repeat_too_long), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
 }

@@ -73,7 +73,8 @@ object Repeats {
     /** No list of times is ever longer than this (ten years of every day), whatever a damaged record says. */
     const val MAX_TIMES = 3_700
 
-    fun skipped(e: Event): Set<Long> = e.skipDays.split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
+    /** The days left out of a repeating event; anything that is not a possible day (a damaged record) is no day. */
+    fun skipped(e: Event): Set<Long> = e.skipDays.split(',').mapNotNull { it.trim().toLongOrNull()?.takeIf { d -> d in EVENT_MIN_DAY..EVENT_MAX_DAY } }.toSet()
 
     /** The first day of the time number [n] (0 is the event's own day), or null past the supported dates. */
     private fun start(e: Event, kind: Repeat, n: Long): Long? = try {
@@ -90,6 +91,8 @@ object Repeats {
     fun starts(e: Event, from: Long, to: Long): List<Long> {
         val span = e.lastDay - e.day
         val kind = Repeat.of(e.repeat) ?: return if (e.day <= to && e.lastDay >= from) listOf(e.day) else emptyList()
+        // An impossible first day (a damaged record) repeats nowhere
+        if (e.day !in EVENT_MIN_DAY..EVENT_MAX_DAY || span !in 0..EVENT_MAX_SPAN) return emptyList()
         val last = minOf(to, e.repeatUntil ?: Long.MAX_VALUE, EVENT_MAX_DAY)
         if (last < e.day) return emptyList()
         val skip = skipped(e)
@@ -129,8 +132,34 @@ object Repeats {
     fun near(e: Event, today: Long): Event {
         if (!e.repeats) return e
         next(e, today)?.let { return at(e, it) }
+        // Back far enough to pass a skipped year of a yearly event
         val end = minOf(today, e.repeatUntil ?: today)
-        return starts(e, end - 400, end).lastOrNull()?.let { at(e, it) } ?: e
+        return starts(e, end - 800, end).lastOrNull()?.let { at(e, it) } ?: e
+    }
+
+    /** Which time of [e] starts on [day] (0 is its own day), or null when none does. */
+    private fun numberOf(e: Event, kind: Repeat, day: Long): Long? {
+        if (day < e.day) return null
+        val guess = when (kind) {
+            Repeat.DAILY, Repeat.WEEKLY, Repeat.BIWEEKLY -> (day - e.day) / kind.minGap
+            Repeat.MONTHLY -> (day - e.day) * 12 / 365
+            Repeat.YEARLY -> (day - e.day) / 365
+        }
+        return (guess - 2..guess + 2).firstOrNull { n -> n >= 0 && start(e, kind, n) == day }
+    }
+
+    /**
+     * [edited] with the skipped days of [before] carried over. When only the first day moved (the
+     * Monday meeting is now on Tuesdays), each skipped time stays skipped by its number: otherwise
+     * every time once left out, or changed on its own, would come back. When the rhythm itself
+     * changed, the days stay as they are: a day that is still one of the times stays left out.
+     */
+    fun carrySkips(before: Event, edited: Event): Event {
+        val was = Repeat.of(before.repeat) ?: return edited
+        val now = Repeat.of(edited.repeat) ?: return edited
+        if (was != now || before.day == edited.day) return edited
+        val moved = skipped(edited).mapNotNull { d -> numberOf(before, was, d)?.let { n -> start(edited, now, n) } }
+        return edited.copy(skipDays = moved.sorted().joinToString(","))
     }
 
     /** [e] with its time that starts on [day] left out. */
@@ -238,7 +267,7 @@ fun EventDao.observeRange(from: Long, to: Long): Flow<List<Event>> = observeRang
 const val EVENT_MIN_DAY = -25_567L
 const val EVENT_MAX_DAY = 84_006L
 /** How many skipped days of a repeating event are kept (the latest ones). */
-const val MAX_SKIP_DAYS = 500
+const val MAX_SKIP_DAYS = 4_000
 /** The longest event in days; a longer one keeps only its first day, so no screen walks thousands of years. */
 const val EVENT_MAX_SPAN = 366L
 

@@ -246,7 +246,8 @@ fun Options(session: Session, onBack: () -> Unit) {
                 OptionGroup(stringResource(forMode(R.string.opt_work, R.string.opt_work_plain)), stringResource(forMode(R.string.opt_work_hint, R.string.opt_work_hint_plain)), Sym.badge, key = "work") {
                     ModePicker(session)
                     SimpleSwitch(db, session)
-                    DistrictSwitch(db, session)
+                    // (the simple view has no way into the communities, so their switch would do nothing there)
+                    if (!AppMode.simple) DistrictSwitch(db, session)
                     RolesManager(db, session)
                 }
             }

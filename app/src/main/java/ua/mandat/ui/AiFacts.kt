@@ -13,8 +13,12 @@ import ua.mandat.data.TaskStatus
  * prompt. The text stays in memory only.
  */
 
-/** Tied to a hidden person (trip mode hides the people marked sensitive): such a record reaches no prompt either. */
-private fun <T> Session.tied(rule: ua.mandat.data.HideRule<T>, item: T): Boolean = hidden.value.tied(rule, item)
+/**
+ * Tied to a hidden person (trip mode hides the people marked sensitive), or naming one in its own
+ * words, whatever matter it belongs to: such a record reaches no prompt either.
+ */
+private fun <T> Session.tied(rule: ua.mandat.data.HideRule<T>, item: T): Boolean =
+    hidden.value.let { h -> h.tied(rule, item) || h.personWords.named(rule.text(item)) }
 
 private fun MandatDb.hiddenOk(session: Session): (Long?) -> Boolean {
     val hidden = session.hiddenMatters.value

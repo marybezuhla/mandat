@@ -82,6 +82,16 @@ class HideRulesTest {
         // A note without a matter that names the person in full is hidden; the surname alone is not enough
         assertTrue(trip.hides(HideRules.DELEGATION, delegation("передати Вигаданій Особі")))
         assertFalse(trip.hides(HideRules.DELEGATION, delegation("передати Особі")))
+        // A person's name is looked for in the records of a matter that stays in view too: the title
+        // of a matter hides only records without a matter, a person's name hides any
+        val named = Hidden(emptySet(), setOf(5L), emptySet(), emptySet(), HiddenNames(listOf("Вигадана Особа")), peopleNames = listOf("Вигадана Особа"))
+        assertTrue(named.hides(HideRules.DELEGATION, delegation("передати Вигаданій Особі", matterId = 8)))
+        assertFalse(named.hides(HideRules.DELEGATION, delegation("передати Особі", matterId = 8)))
+        assertFalse(trip.hides(HideRules.DELEGATION, delegation("передати Вигаданій Особі", matterId = 8)))
+        // What was written since trip mode began stays in view, whatever it names
+        val later = Hidden(emptySet(), setOf(5L), emptySet(), emptySet(), HiddenNames(listOf("Вигадана Особа")), since = 100, peopleNames = listOf("Вигадана Особа"))
+        assertFalse(later.hides(HideRules.DELEGATION, delegation("передати Вигаданій Особі", matterId = 8, createdAt = 200)))
+        assertTrue(later.hides(HideRules.DELEGATION, delegation("передати Вигаданій Особі", matterId = 8, createdAt = 50)))
         // Search follows the same rule
         val rows = listOf(
             ua.mandat.data.SearchRow("delegation", 1, "a", "", "a", 8, personId = 5),
@@ -106,7 +116,7 @@ class HideRulesTest {
         val promises = listOf(kept("обіцянка першої", 1), kept("обіцянка другої", 2), kept("обіцяли мені", 1, incoming = true))
         val events = listOf(event(1, "MEETING"), event(2, "MEETING"), event(3, "CALL"), event(4, "TRIP"), event(5, "RECEPTION"), event(6, "MEETING", matterId = 2))
         val text = ua.mandat.ui.voterReport(heads, span, matters, finished = setOf(1L), promises = promises, events = events, aid = emptyList(),
-            skip = setOf(2L), communityEvents = setOf(1L, 3L, 5L, 6L))
+            skip = setOf(2L), communityEvents = setOf(1L, 3L, 4L, 5L, 6L))
         assertTrue(text.contains("- Перша"))
         assertFalse(text.contains("Друга"))
         assertFalse(text.contains("Третя"))
@@ -114,8 +124,18 @@ class HideRulesTest {
         assertFalse(text.contains("обіцянка другої"))
         // What was promised to the owner is never among the owner's kept promises
         assertFalse(text.contains("обіцяли мені"))
-        // Visits: the meeting in a community and the trip; not the call, not the reception (counted apart), not the unticked matter's event
+        // Visits: the meeting and the trip tied to a community; not the call, not the reception (counted apart), not the unticked matter's event
         assertTrue(text.contains("- visits: 2"))
         assertTrue(text.contains("- receptions: 1"))
+        // Where nothing is tied to a community, a trip is a visit
+        val plain = ua.mandat.ui.voterReport(heads, span, matters, setOf(1L), promises, events, emptyList())
+        assertTrue(plain.contains("- visits: 1"))
+        // A date still ahead has not happened; a person marked sensitive and the events they take part in stay out
+        val early = ua.mandat.ui.voterReport(heads, span, matters, setOf(1L), promises + kept("обіцянка джерелу", 1).copy(personId = 9), events, emptyList(),
+            today = 4, guardedPeople = setOf(9L))
+        assertFalse(early.contains("MEET"))
+        assertFalse(early.contains("обіцянка джерелу"))
+        val guarded = ua.mandat.ui.voterReport(heads, span, matters, setOf(1L), promises, events, emptyList(), guardedEvents = setOf(4L, 5L))
+        assertFalse(guarded.contains("MEET"))
     }
 }

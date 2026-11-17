@@ -205,7 +205,12 @@ class PromiseDraft(val promise: ua.mandat.data.Promise, val isNew: Boolean) {
         // Keep the exact moment unless the owner picked another day (then noon of that day)
         val original = if (isNew) now else promise.createdAt
         val made = if (Dates.dayOf(original) == madeOn) original else Dates.noonOf(madeOn)
-        if (isNew) db.promises().insert(edited.copy(id = 0, createdAt = made)) else db.promises().update(edited.copy(createdAt = made))
+        if (isNew) db.promises().insert(edited.copy(id = 0, createdAt = made))
+        else db.withTransaction {
+            db.promises().update(edited.copy(createdAt = made))
+            // A promise that is now someone else's is no longer the owner's word to a community: its ties there go
+            if (incoming && !promise.incoming) db.communities().unlinkRef(ua.mandat.data.LinkKind.PROMISE, promise.id)
+        }
     }
 }
 
@@ -307,7 +312,7 @@ class EventDraft(
     private val initialPeople = people
     val detached: Boolean get() = detachFrom != null && detachDay != null
     /** Something was typed or chosen since the sheet opened: closing it asks before throwing that away. */
-    fun changed(): Boolean = repeat?.name != event.repeat || repeatUntil != event.repeatUntil || title != event.title || notes != event.notes || outcome != event.outcome || place != event.place || day != event.day || startMin != event.startMin || matterId != event.matterId || endDay != event.endDay || endMin != event.endMin || kind.name != event.kind || remind != event.remind || people != initialPeople
+    fun changed(): Boolean = repeat?.name != event.repeat || repeatUntil != event.repeatUntil || skipped != ua.mandat.data.Repeats.skipped(event) || title != event.title || notes != event.notes || outcome != event.outcome || place != event.place || day != event.day || startMin != event.startMin || matterId != event.matterId || endDay != event.endDay || endMin != event.endMin || kind.name != event.kind || remind != event.remind || people != initialPeople
 
     var title by mutableStateOf(event.title)
     var day by mutableStateOf(event.day)
@@ -323,6 +328,8 @@ class EventDraft(
     var people by mutableStateOf(people)
     var repeat by mutableStateOf(ua.mandat.data.Repeat.of(event.repeat))
     var repeatUntil by mutableStateOf(event.repeatUntil)
+    /** The days on which a repeating event does not come; taking one out of here brings that time back. */
+    var skipped by mutableStateOf(ua.mandat.data.Repeats.skipped(event))
 
     fun valid() = title.isNotBlank()
 
@@ -330,13 +337,16 @@ class EventDraft(
         title = title, day = day, endDay = endDay, startMin = startMin, endMin = endMin, kind = kind.name,
         place = place, matterId = matterId, notes = notes, outcome = outcome, remind = remind, updatedAt = now,
         repeat = repeat?.name, repeatUntil = if (repeat == null) null else repeatUntil,
+        skipDays = if (repeat == null) "" else skipped.sorted().joinToString(","),
     )
 
     suspend fun persist(db: MandatDb) {
         // One time opened on its own and left as it was stays a part of the repeating event
         if ((!isNew || detached) && !changed()) return
         val now = System.currentTimeMillis()
-        val edited = ua.mandat.data.cleanEvent(current(now)) ?: return keepInInbox(db, matterId, title, place, notes, outcome)
+        // A repeating event moved to another first day keeps its left-out times left out (by their number)
+        val edited = ua.mandat.data.cleanEvent(if (isNew) current(now) else ua.mandat.data.Repeats.carrySkips(event, current(now)))
+            ?: return keepInInbox(db, matterId, title, place, notes, outcome)
         db.withTransaction {
             val id = if (isNew) db.events().insert(edited.copy(id = 0, createdAt = now)) else edited.id.also { db.events().update(edited) }
             db.events().setPeople(id, people)

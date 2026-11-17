@@ -118,8 +118,10 @@ object Retro {
 
     /** People met most often in [span], by the number of events together. */
     fun topPeople(span: Span, events: List<Event>, links: List<EventPerson>, limit: Int = 5): List<Pair<Long, Int>> {
-        val inSpan = events.filter { it.day in span }.map { it.id }.toSet()
-        return links.filter { it.eventId in inSpan }.groupingBy { it.personId }.eachCount()
-            .entries.sortedByDescending { it.value }.take(limit).map { it.key to it.value }
+        // (each time of a repeating event is an entry of its own under the record's id: every one is a meeting)
+        val times = events.filter { it.day in span }.groupingBy { it.id }.eachCount()
+        val met = HashMap<Long, Int>()
+        links.forEach { l -> times[l.eventId]?.let { n -> met[l.personId] = (met[l.personId] ?: 0) + n } }
+        return met.entries.sortedByDescending { it.value }.take(limit).map { it.key to it.value }
     }
 }

@@ -231,6 +231,9 @@ class Session(app: Application) : AndroidViewModel(app) {
         write(onFail = { if (eventDraft == null) eventDraft = d }) { d.persist(it) }
     }
 
+    /** At the first start the owner has already said who they are (kept here, so a lock in between does not ask again). */
+    var firstModeChosen by mutableStateOf(false)
+
     /** A repeating event was tapped on one of its days: the owner is asked whether this time or every time is meant. */
     class EventChoice(val event: ua.mandat.data.Event, val people: Set<Long>, val day: Long)
     var eventChoice by mutableStateOf<EventChoice?>(null)

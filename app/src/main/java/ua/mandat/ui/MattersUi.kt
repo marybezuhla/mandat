@@ -609,11 +609,17 @@ private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: M
 
     LinkSection(stringResource(R.string.delegations))
     delegations.forEach { DelegationRow(it, it.personId?.let(nameOf::get), null, session) }
-    TextButton(onClick = { session.delegationDraft = newDelegation(matterId = matterId) }) { Text("+ " + stringResource(R.string.add_delegation)) }
+    Column {
+        TextButton(onClick = { session.delegationDraft = newDelegation(matterId = matterId) }) { Text("+ " + stringResource(R.string.add_delegation)) }
+        TextButton(onClick = { session.delegationDraft = newDelegation(matterId = matterId, incoming = true) }) { Text("+ " + stringResource(R.string.kind_delegation_in)) }
+    }
 
     LinkSection(stringResource(R.string.promises))
     promises.forEach { PromiseRow(it, it.personId?.let(nameOf::get), null, session) }
-    TextButton(onClick = { session.promiseDraft = newPromise(matterId = matterId) }) { Text("+ " + stringResource(R.string.add_promise)) }
+    Column {
+        TextButton(onClick = { session.promiseDraft = newPromise(matterId = matterId) }) { Text("+ " + stringResource(R.string.add_promise)) }
+        TextButton(onClick = { session.promiseDraft = newPromise(matterId = matterId, incoming = true) }) { Text("+ " + stringResource(R.string.kind_promise_in)) }
+    }
 
     if (adding) {
         val already = linked.map { it.personId }.toSet()
@@ -721,7 +727,8 @@ private fun MatterStrip(db: MandatDb, matter: Matter, session: Session) {
                 }
             }
         }
-        val openD = delegations.filter { ua.mandat.data.TaskStatus.of(it.status) == open }
+        // (how what the owner handed out is going: what was handed to the owner is not counted here)
+        val openD = delegations.filter { !it.incoming && ua.mandat.data.TaskStatus.of(it.status) == open }
         if (openD.isNotEmpty()) {
             val late = openD.count { ua.mandat.data.isOverdue(it.due, it.status, today) }
             Spacer(Modifier.height(10.dp))
@@ -832,7 +839,8 @@ private fun VoteCounter(linked: List<ua.mandat.data.MatterPersonRow>, draft: Mat
 @Composable
 private fun MatterTime(db: MandatDb, matter: Matter, session: Session) {
     val entries by remember(db, matter.id) { db.time().observeForMatter(matter.id) }.collectAsStateWithLifecycle(emptyList())
-    val events by remember(db, matter.id) { db.events().observeForMatter(matter.id) }.collectAsStateWithLifecycle(emptyList())
+    // (an event kept off the screen is not counted either: a number that differs from the list would tell)
+    val events by remember(db, matter.id) { db.events().observeForMatter(matter.id).hiding(session, ua.mandat.data.HideRules.EVENT) }.collectAsStateWithLifecycle(emptyList())
     val today = Dates.today()
     val span = ua.mandat.data.Span(today - 29, today)
     val fromEvents = ua.mandat.data.Repeats.eachTime(events, span.from, span.to).filter { it.day in span }.sumOf { ua.mandat.data.eventMinutes(it) }

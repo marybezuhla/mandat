@@ -726,8 +726,8 @@ private fun AddDialog(db: MandatDb, session: Session) {
         val roleId = h.role?.let { r -> roles.firstOrNull { it.name == r }?.id }
         session.inboxDraft = null
         when (h.kind) {
-            "delegation" -> session.delegationDraft = newDelegation(hint.personId, matterId).also { it.what = clean; it.due = hint.due }
-            "promise" -> session.promiseDraft = newPromise(hint.personId, matterId).also { it.what = clean; it.due = hint.due }
+            "delegation" -> session.delegationDraft = newDelegation(hint.personId, matterId, incoming = hint.incoming).also { it.what = clean; it.due = hint.due }
+            "promise" -> session.promiseDraft = newPromise(hint.personId, matterId, incoming = hint.incoming).also { it.what = clean; it.due = hint.due }
             "deadline" -> session.deadlineDraft = newDeadline(matterId).also { d -> d.title = clean; hint.due?.let { d.day = it } }
             "matter" -> session.draft = MatterDraft(EditRequest(matterFromNote(clean, System.currentTimeMillis()).copy(roleId = roleId), isNew = true))
             else -> session.inboxDraft = text
@@ -738,8 +738,9 @@ private fun AddDialog(db: MandatDb, session: Session) {
         val clean = text.trim().take(2_000)
         session.inboxDraft = null
         when (hint.kind) {
-            ua.mandat.data.NoteKind.DELEGATION -> session.delegationDraft = newDelegation(hint.personId, hint.matterId).also { it.what = clean; it.due = hint.due }
-            ua.mandat.data.NoteKind.PROMISE -> session.promiseDraft = newPromise(hint.personId, hint.matterId).also { it.what = clean; it.due = hint.due }
+            // (a note that reads as promised or handed to the owner opens with that direction chosen)
+            ua.mandat.data.NoteKind.DELEGATION -> session.delegationDraft = newDelegation(hint.personId, hint.matterId, incoming = hint.incoming).also { it.what = clean; it.due = hint.due }
+            ua.mandat.data.NoteKind.PROMISE -> session.promiseDraft = newPromise(hint.personId, hint.matterId, incoming = hint.incoming).also { it.what = clean; it.due = hint.due }
             ua.mandat.data.NoteKind.DEADLINE -> session.deadlineDraft = newDeadline(hint.matterId).also { d -> d.title = clean; hint.due?.let { d.day = it } }
             ua.mandat.data.NoteKind.MATTER -> {
                 val m = matterFromNote(clean, System.currentTimeMillis())

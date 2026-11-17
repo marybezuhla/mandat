@@ -16,6 +16,8 @@ data class Suggestion(
     val due: Long? = null,
     val matterId: Long? = null,
     val matterType: MatterType? = null,
+    /** A promise or a delegation that reads as made to the owner ("мені пообіцяли", "сусід пообіцяв"), not by the owner. */
+    val incoming: Boolean = false,
 )
 
 private val NOT_WORD = Regex("[^\\p{L}\\p{N}'.]+")
@@ -155,6 +157,25 @@ fun findMatter(text: String, matters: List<MatterTitle>): Long? {
     return scored.filter { it.second == best }.singleOrNull()?.first?.id
 }
 
+/** "To me", "to us": the one promised or asked is the owner. */
+private val TO_OWNER = setOf("мені", "мене", "нам", "нас")
+private val BY_OWNER = setOf("я", "ми")
+/** Said of someone else: a past form that a speaker of either gender would not use of themselves ("пообіцяв" could be, so it counts only after another word). */
+private val THEY_DID = listOf("пообіцяв", "пообіцяли", "обіцяв", "обіцяли", "доручив", "доручили", "попросив", "попросили")
+private val DONE_TO = setOf("доручено", "обіцяно", "пообіцяно")
+
+/**
+ * The note reads as something promised or handed to the owner: it says "to me", or "it was handed",
+ * or someone else is named before the verb ("сусід пообіцяв") and "I" is not there. Only a guess:
+ * the dialog opens with the direction chosen and the owner can change it with one tap.
+ */
+internal fun toOwner(ws: List<String>): Boolean {
+    if (ws.any { it in BY_OWNER }) return false
+    if (ws.any { it in TO_OWNER } || ws.any { it in DONE_TO }) return true
+    val verb = ws.indexOfFirst { it in THEY_DID }
+    return verb > 0
+}
+
 /** Reads the note and suggests what it most likely is. */
 fun suggest(text: String, people: List<Person>, matters: List<MatterTitle>, today: Long): Suggestion {
     val ws = words(text)
@@ -176,5 +197,5 @@ fun suggest(text: String, people: List<Person>, matters: List<MatterTitle>, toda
         else -> NoteKind.NOTE
     }
     val type = if (kind == NoteKind.MATTER) TYPE_WORDS.firstOrNull { (_, list) -> has(list) }?.first else null
-    return Suggestion(kind, personId, due, matterId, type)
+    return Suggestion(kind, personId, due, matterId, type, incoming = (kind == NoteKind.PROMISE || kind == NoteKind.DELEGATION) && toOwner(ws))
 }

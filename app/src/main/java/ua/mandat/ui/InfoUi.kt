@@ -547,10 +547,15 @@ fun AllianceDialog(db: MandatDb, session: Session, d: AllianceDraft) {
 fun MatterInfoLinks(db: MandatDb, session: Session, matterId: Long) {
     val items by remember(db, matterId) { db.info().observeForMatter(matterId).hiding(session, ua.mandat.data.HideRules.INFO) }.collectAsStateWithLifecycle(emptyList())
     val alliances by remember(db, matterId) { db.info().observeAlliancesForMatter(matterId).hiding(session, ua.mandat.data.HideRules.ALLIANCE) }.collectAsStateWithLifecycle(emptyList())
-    LinkSection(stringResource(R.string.info_title) + if (items.isEmpty()) "" else " · ${items.size}")
-    items.take(5).forEachIndexed { i, it -> if (i > 0) RowDivider(); InfoRow(it, null, null, session) }
-    TextButton(onClick = { session.infoDraft = newInfo(matterId = matterId) }) { Text("+ " + stringResource(R.string.info_new)) }
-    LinkSection(stringResource(forMode(R.string.alliances_title, R.string.alliances_title_plain)) + if (alliances.isEmpty()) "" else " · ${alliances.size}")
-    alliances.take(5).forEachIndexed { i, a -> if (i > 0) RowDivider(); AllianceRow(a, null, null, session) }
-    TextButton(onClick = { session.allianceDraft = newAlliance(matterId = matterId) }) { Text("+ " + stringResource(forMode(R.string.alliance_new, R.string.alliance_new_plain))) }
+    // The simple view shows each of the two sections only when the matter already has something in it
+    if (!AppMode.simple || items.isNotEmpty()) {
+        LinkSection(stringResource(R.string.info_title) + if (items.isEmpty()) "" else " · ${items.size}")
+        items.take(5).forEachIndexed { i, it -> if (i > 0) RowDivider(); InfoRow(it, null, null, session) }
+        TextButton(onClick = { session.infoDraft = newInfo(matterId = matterId) }) { Text("+ " + stringResource(R.string.info_new)) }
+    }
+    if (!AppMode.simple || alliances.isNotEmpty()) {
+        LinkSection(stringResource(forMode(R.string.alliances_title, R.string.alliances_title_plain)) + if (alliances.isEmpty()) "" else " · ${alliances.size}")
+        alliances.take(5).forEachIndexed { i, a -> if (i > 0) RowDivider(); AllianceRow(a, null, null, session) }
+        TextButton(onClick = { session.allianceDraft = newAlliance(matterId = matterId) }) { Text("+ " + stringResource(forMode(R.string.alliance_new, R.string.alliance_new_plain))) }
+    }
 }

@@ -109,6 +109,7 @@ private val CITIZEN_TEMPLATES = listOf(
 /** A reply, a covering letter and an explanatory note as an office writes them (a deputy's own are in [TEXT_TEMPLATES]). */
 private val OFFICE_TEMPLATES = listOf(
     TextTemplate("reply", TextKind.LETTER, R.string.tpl_office_reply_title, R.string.tpl_office_reply_body),
+    TextTemplate("invite", TextKind.LETTER, R.string.tpl_invite_title, R.string.tpl_invite_body),
     TextTemplate("cover", TextKind.LETTER, R.string.tpl_cover_title, R.string.tpl_office_cover_body),
     TextTemplate("note", TextKind.NOTE, R.string.tpl_note_title, R.string.tpl_office_note_body),
 )
@@ -126,9 +127,11 @@ fun textTemplates(): List<TextTemplate> {
         ua.mandat.data.Mode.COUNCIL -> COUNCIL_LETTERS + TEXT_TEMPLATES
         ua.mandat.data.Mode.ASSISTANT -> ASSISTANT_LETTERS + TEXT_TEMPLATES
         // An office answers and forwards in its own name, not as a deputy does
-        ua.mandat.data.Mode.OFFICIAL -> OFFICE_TEMPLATES + TEXT_TEMPLATES.filter { it.key in own }
+        // (and writes no newspaper column in its own name)
+        ua.mandat.data.Mode.OFFICIAL -> OFFICE_TEMPLATES + TEXT_TEMPLATES.filter { it.key in own && it.key != "column" }
         ua.mandat.data.Mode.ACTIVIST -> CITIZEN_TEMPLATES + CIVIC_TEMPLATES + TEXT_TEMPLATES.filter { it.key in own }
-        ua.mandat.data.Mode.CITIZEN -> CITIZEN_TEMPLATES + TEXT_TEMPLATES.filter { it.key in own }
+        // (neighbours sign an appeal together as often as an organisation's members do)
+        ua.mandat.data.Mode.CITIZEN -> CITIZEN_TEMPLATES + CIVIC_TEMPLATES + TEXT_TEMPLATES.filter { it.key in own }
     }
 }
 

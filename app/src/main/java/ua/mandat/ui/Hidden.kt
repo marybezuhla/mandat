@@ -31,14 +31,22 @@ class Hidden(
 ) {
     val isEmpty: Boolean get() = matters.isEmpty() && people.isEmpty()
 
+    /**
+     * Recognises the names of the people trip mode hides. Unlike a matter's title, a person's name is
+     * looked for in every record, also one that belongs to a matter that stays in view: the matter
+     * stays, the record that names the person does not.
+     */
+    val personWords: HiddenNames = if (peopleNames.isEmpty()) HiddenNames.NONE else HiddenNames(peopleNames)
+
     /** True for an item tied to a hidden matter. */
     fun matter(id: Long?): Boolean = id != null && id in matters
 
     /** True for an item tied to a hidden matter, or not tied to one but naming it in its text. */
-    fun item(matterId: Long?, vararg text: String): Boolean = matter(matterId) || (matterId == null && names.namedAny(*text))
+    fun item(matterId: Long?, vararg text: String): Boolean = matter(matterId) || (matterId == null && names.namedAny(*text)) || personWords.namedAny(*text)
 
     /** The same, for a record written or last changed at [at]: one written in trip mode stays in view. */
-    fun itemAt(matterId: Long?, at: Long, vararg text: String): Boolean = matter(matterId) || (matterId == null && !fresh(at) && names.namedAny(*text))
+    fun itemAt(matterId: Long?, at: Long, vararg text: String): Boolean =
+        matter(matterId) || (!fresh(at) && ((matterId == null && names.namedAny(*text)) || personWords.namedAny(*text)))
 
     /** True for a record tied to a hidden person, or (with [eventId]) an event such a person takes part in. */
     fun tied(personId: Long?, eventId: Long? = null): Boolean = (personId != null && personId in people) || (eventId != null && eventId in events)
@@ -78,7 +86,10 @@ fun observeHidden(db: MandatDb, matters: Set<Long>, byName: Set<Long> = matters,
         @Suppress("UNCHECKED_CAST") val eventPeople = arr[7] as List<ua.mandat.data.EventPerson>
         @Suppress("UNCHECKED_CAST") val promisePerson = (arr[8] as List<ua.mandat.data.IdRef>).associate { it.a to it.b }
         @Suppress("UNCHECKED_CAST") val peopleNames = (arr[9] as List<ua.mandat.data.Person>).filter { it.id in marked }.map { it.name }
-        val names = HiddenNames(titles.filter { it.id in byName }.map { it.title } + peopleNames)
+        // A matter whose own title names a hidden person is hidden with that person (trip mode)
+        val byPerson = if (peopleNames.isEmpty()) emptySet() else HiddenNames(peopleNames).let { w -> titles.filter { w.named(it.title) }.mapTo(HashSet()) { it.id } }
+        @Suppress("NAME_SHADOWING") val matters = matters + byPerson
+        val names = HiddenNames(titles.filter { it.id in byName || it.id in byPerson }.map { it.title } + peopleNames)
         val people = Hiding.people(matters, personMatter, marked)
         val events = Hiding.events(people, eventPeople)
         Hidden(
@@ -152,7 +163,7 @@ fun <T> Flow<List<T>>.hiding(session: Session?, rule: ua.mandat.data.HideRule<T>
 /** Leaves out the people of a matter who are hidden now (a person marked sensitive may be in a matter that stays in view). */
 fun Flow<List<ua.mandat.data.MatterPersonRow>>.hidingRows(session: Session?): Flow<List<ua.mandat.data.MatterPersonRow>> =
     if (session == null) this
-    else combine(session.hidden) { list, h -> if (h.people.isEmpty()) list else list.filter { it.personId !in h.people } }
+    else combine(session.hidden) { list, h -> if (h.people.isEmpty()) list else list.filter { it.personId !in h.people && !h.personWords.named(it.name) } }
 
 /** Leaves out who-is-in-which-matter links of hidden matters and of hidden people. */
 fun Flow<List<ua.mandat.data.MatterPerson>>.hidingLinks(session: Session?): Flow<List<ua.mandat.data.MatterPerson>> =

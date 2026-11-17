@@ -526,7 +526,8 @@ suspend fun briefFacts(db: ua.mandat.data.MandatDb, session: Session, personId: 
     val shown = session.hidden.value
     val p = db.people().all().firstOrNull { it.id == personId && !shown.person(it) } ?: return ""
     val named = db.namesHidden(session)
-    fun free(id: Long?, text: String) = ok(id) && !(id == null && named(text))
+    // (a record that names a hidden person in its words stays out, whatever matter it belongs to)
+    fun free(id: Long?, text: String) = ok(id) && !(id == null && named(text)) && !shown.personWords.named(text)
     val matters = db.people().observeMattersOf(personId).first().filter { ok(it.matterId) }
     val promises = db.promises().observeForPerson(personId).first().filter { free(it.matterId, ua.mandat.data.HideRules.PROMISE.text(it)) && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.OPEN }
     val asked = db.delegations().observeForPerson(personId).first().filter { free(it.matterId, ua.mandat.data.HideRules.DELEGATION.text(it)) && ua.mandat.data.TaskStatus.of(it.status) == ua.mandat.data.TaskStatus.OPEN }

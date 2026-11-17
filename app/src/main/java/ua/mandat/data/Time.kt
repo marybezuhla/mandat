@@ -185,8 +185,11 @@ fun cleanDeadline(d: Deadline): Deadline? {
     return d.copy(title = title, basis = basis, remindBefore = d.remindBefore.coerceIn(0, 60))
 }
 
-/** How many days ahead the times of a repeating event get their reminders. */
-const val REMIND_REPEATS_AHEAD = 90L
+/**
+ * How many days ahead the times of a repeating event get their reminder days. The days kept on the
+ * phone reach two weeks ahead and are worked out again whenever Mandat is opened, as for everything else.
+ */
+const val REMIND_REPEATS_AHEAD = 14L
 
 /**
  * The days on which Mandat should show a reminder, from today on: each open deadline's day and
@@ -201,8 +204,7 @@ fun reminderDays(
     val heads = mutableSetOf<Long>()
     // Days on which something open is due: once past, that thing is overdue
     val due = mutableSetOf<Long>()
-    // Events marked for a reminder: their first day only; for a repeating one, each time in the coming weeks
-    // (the days are worked out again whenever Mandat is opened)
+    // Events marked for a reminder: their first day only; for a repeating one, each time in the coming two weeks
     events.filter { it.remind }.forEach { e -> if (e.repeats) heads += Repeats.starts(e, today, today + REMIND_REPEATS_AHEAD).filter { it >= today } else heads += e.day }
     for (d in deadlines) {
         if (TaskStatus.of(d.status) != TaskStatus.OPEN) continue

@@ -55,12 +55,12 @@ import ua.mandat.data.TaskStatus
 
 /** Open promises that need care: high risk, or public ones due within two weeks or overdue. */
 fun isRisky(p: Promise, today: Long): Boolean =
-    TaskStatus.of(p.status) == TaskStatus.OPEN &&
+    TaskStatus.of(p.status) == TaskStatus.OPEN && !p.incoming &&
         (p.risk == 3 || (p.level == Publicity.PUBLIC && p.due != null && p.due <= today + 14))
 
 /** Open promises the owner did not choose to make: attributed to them, or dug up by the media. */
 fun isAttributed(p: Promise): Boolean =
-    TaskStatus.of(p.status) == TaskStatus.OPEN &&
+    TaskStatus.of(p.status) == TaskStatus.OPEN && !p.incoming &&
         (PromiseOrigin.of(p.origin) == PromiseOrigin.ATTRIBUTED || PromiseOrigin.of(p.origin) == PromiseOrigin.DUG_UP)
 
 private val STATUS_ORDER = listOf(TaskStatus.OPEN, TaskStatus.DONE, TaskStatus.FAILED, TaskStatus.CANCELLED)

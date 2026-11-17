@@ -156,8 +156,8 @@ val OFFICIAL_BODIES = listOf(
  * branch, a newsroom. Generic names only; the organisation's own name goes into the role's name.
  */
 val ACTIVIST_BODIES = listOf(
-    RoleBody(R.string.act_body_ngo, listOf(R.string.pos_head, R.string.pos_deputy_head, R.string.civic_pos_board, R.string.act_pos_manager, R.string.pos_member, R.string.civic_pos_volunteer)),
-    RoleBody(R.string.act_body_fund, listOf(R.string.act_pos_director, R.string.act_pos_supervisory, R.string.act_pos_manager, R.string.civic_pos_coordinator, R.string.civic_pos_volunteer)),
+    RoleBody(R.string.act_body_ngo, listOf(R.string.pos_chair, R.string.act_pos_board_chair, R.string.act_pos_exec, R.string.pos_deputy, R.string.civic_pos_board, R.string.act_pos_manager, R.string.pos_member, R.string.civic_pos_volunteer)),
+    RoleBody(R.string.act_body_fund, listOf(R.string.act_pos_director, R.string.act_pos_board_chair, R.string.act_pos_supervisory, R.string.act_pos_manager, R.string.civic_pos_coordinator, R.string.civic_pos_volunteer)),
     RoleBody(R.string.act_body_coalition, listOf(R.string.civic_pos_coordinator, R.string.pos_representative, R.string.civic_pos_participant)),
     RoleBody(R.string.civic_body_initiative, listOf(R.string.civic_pos_coordinator, R.string.civic_pos_participant)),
     RoleBody(R.string.civic_body_volunteer, listOf(R.string.civic_pos_coordinator, R.string.civic_pos_volunteer)),
@@ -165,6 +165,7 @@ val ACTIVIST_BODIES = listOf(
     RoleBody(R.string.act_body_party, listOf(R.string.pos_head, R.string.pos_deputy_head, R.string.act_pos_council, R.string.pos_member)),
     RoleBody(R.string.act_body_media, listOf(R.string.act_pos_editor, R.string.act_pos_journalist, R.string.act_pos_author)),
     RoleBody(R.string.civic_body_public_council, listOf(R.string.pos_chair, R.string.pos_deputy, R.string.pos_secretary, R.string.pos_member)),
+    RoleBody(R.string.civic_body_condo, listOf(R.string.act_pos_board_chair, R.string.civic_pos_board, R.string.pos_member)),
     RoleBody(R.string.mode_body_working_group, listOf(R.string.pos_head, R.string.pos_member)),
     RoleBody(R.string.civic_body_community, listOf()),
     RoleBody(R.string.civic_body_personal, listOf()),
@@ -172,14 +173,16 @@ val ACTIVIST_BODIES = listOf(
 
 /** A citizen: organisations and groups people join by their own will, and their own affairs. */
 val CITIZEN_BODIES = listOf(
-    RoleBody(R.string.civic_body_ngo, listOf(R.string.pos_head, R.string.pos_deputy_head, R.string.civic_pos_board, R.string.pos_member, R.string.civic_pos_volunteer)),
-    RoleBody(R.string.civic_body_condo, listOf(R.string.pos_chair, R.string.civic_pos_board, R.string.pos_member)),
-    RoleBody(R.string.civic_body_initiative, listOf(R.string.civic_pos_coordinator, R.string.civic_pos_participant)),
-    RoleBody(R.string.civic_body_public_council, listOf(R.string.pos_chair, R.string.pos_deputy, R.string.pos_secretary, R.string.pos_member)),
-    RoleBody(R.string.civic_body_volunteer, listOf(R.string.civic_pos_coordinator, R.string.civic_pos_volunteer)),
-    RoleBody(R.string.mode_body_working_group, listOf(R.string.pos_head, R.string.pos_member)),
-    RoleBody(R.string.civic_body_community, listOf()),
+    // What everyone has comes first: the first of these is offered to begin with
     RoleBody(R.string.civic_body_personal, listOf()),
+    RoleBody(R.string.civic_body_family, listOf()),
+    RoleBody(R.string.civic_body_condo, listOf(R.string.act_pos_board_chair, R.string.civic_pos_board, R.string.pos_member)),
+    RoleBody(R.string.civic_body_community, listOf()),
+    RoleBody(R.string.civic_body_ngo, listOf(R.string.pos_head, R.string.pos_deputy_head, R.string.civic_pos_board, R.string.pos_member, R.string.civic_pos_volunteer)),
+    RoleBody(R.string.civic_body_initiative, listOf(R.string.civic_pos_coordinator, R.string.civic_pos_participant)),
+    RoleBody(R.string.civic_body_volunteer, listOf(R.string.civic_pos_coordinator, R.string.civic_pos_volunteer)),
+    RoleBody(R.string.civic_body_public_council, listOf(R.string.pos_chair, R.string.pos_deputy, R.string.pos_secretary, R.string.pos_member)),
+    RoleBody(R.string.mode_body_working_group, listOf(R.string.pos_head, R.string.pos_member)),
 )
 
 /** A local council: generic names only. */
