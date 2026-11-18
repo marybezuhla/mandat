@@ -129,17 +129,18 @@ fun repeatText(context: android.content.Context, key: String?, day: Long): Strin
 
 fun EventKind.label(): Int = when (this) {
     EventKind.MEETING -> R.string.event_meeting
-    EventKind.SESSION -> forMode(R.string.event_session, R.string.event_session_plain)
+    EventKind.SESSION -> byMode(forMode(R.string.event_session, R.string.event_session_plain), official = R.string.event_session_office)
     EventKind.COMMITTEE -> when (AppMode.mode) {
         // (a local council works through standing commissions, not committees; an assistant may serve either)
         ua.mandat.data.Mode.COUNCIL -> R.string.event_committee_council
         ua.mandat.data.Mode.ASSISTANT -> R.string.event_committee_assistant
+        ua.mandat.data.Mode.OFFICIAL -> R.string.event_committee_office
         else -> forMode(R.string.event_committee, R.string.event_committee_plain)
     }
     EventKind.TRIP -> R.string.event_trip
-    EventKind.RECEPTION -> if (AppMode.mode.civic) R.string.event_reception_citizen else R.string.event_reception
+    EventKind.RECEPTION -> if (AppMode.mode.civic) R.string.event_reception_citizen else byMode(R.string.event_reception, official = R.string.event_reception_office)
     EventKind.CALL -> R.string.event_call
-    EventKind.MEDIA -> R.string.event_media
+    EventKind.MEDIA -> byMode(R.string.event_media, official = R.string.event_media_office)
     EventKind.OTHER -> R.string.event_other
 }
 

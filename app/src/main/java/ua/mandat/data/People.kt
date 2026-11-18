@@ -387,6 +387,9 @@ interface DelegationDao {
     @Query("UPDATE delegations SET personId = NULL WHERE personId = :personId")
     suspend fun clearPerson(personId: Long)
 
+    @Query("DELETE FROM delegations WHERE personId = :personId")
+    suspend fun deleteForPerson(personId: Long)
+
     @Query("UPDATE delegations SET matterId = NULL WHERE matterId = :matterId")
     suspend fun clearMatter(matterId: Long)
 }
@@ -423,6 +426,12 @@ interface PromiseDao {
 
     @Query("UPDATE promises SET personId = NULL WHERE personId = :personId")
     suspend fun clearPerson(personId: Long)
+
+    @Query("SELECT id FROM promises WHERE personId = :personId")
+    suspend fun idsForPerson(personId: Long): List<Long>
+
+    @Query("DELETE FROM promises WHERE personId = :personId")
+    suspend fun deleteForPerson(personId: Long)
 
     @Query("UPDATE promises SET matterId = NULL WHERE matterId = :matterId")
     suspend fun clearMatter(matterId: Long)

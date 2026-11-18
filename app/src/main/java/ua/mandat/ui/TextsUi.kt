@@ -109,6 +109,8 @@ private val CITIZEN_TEMPLATES = listOf(
 /** A reply, a covering letter and an explanatory note as an office writes them (a deputy's own are in [TEXT_TEMPLATES]). */
 private val OFFICE_TEMPLATES = listOf(
     TextTemplate("reply", TextKind.LETTER, R.string.tpl_office_reply_title, R.string.tpl_office_reply_body),
+    TextTemplate("deputy_reply", TextKind.LETTER, R.string.tpl_office_deputy_title, R.string.tpl_office_deputy_body),
+    TextTemplate("foi_reply", TextKind.LETTER, R.string.tpl_office_foi_title, R.string.tpl_office_foi_body),
     TextTemplate("invite", TextKind.LETTER, R.string.tpl_invite_title, R.string.tpl_invite_body),
     TextTemplate("cover", TextKind.LETTER, R.string.tpl_cover_title, R.string.tpl_office_cover_body),
     TextTemplate("note", TextKind.NOTE, R.string.tpl_note_title, R.string.tpl_office_note_body),

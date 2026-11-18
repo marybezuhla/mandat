@@ -219,11 +219,11 @@ fun PromisesScreen(db: MandatDb, session: Session) {
             }
             // What others promised to the owner: never counted above
             item(key = "toMe") {
-                SectionCard(Sym.checkCircle, stringResource(R.string.kind_promise_in), count = toMe.size) {
+                SectionCard(Sym.checkCircle, stringResource(ua.mandat.ui.dirLabel(R.string.kind_promise_in)), count = toMe.size) {
                     Text(stringResource(R.string.promises_to_me_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                     Spacer(Modifier.height(4.dp))
                     Paged(toMe) { p -> PromiseRow(p, p.personId?.let(nameOf::get), p.matterId?.let(titleOf::get), session) }
-                    TextButton(onClick = { session.promiseDraft = newPromise(incoming = true) }) { Text("+ " + stringResource(R.string.kind_promise_in)) }
+                    TextButton(onClick = { session.promiseDraft = newPromise(incoming = true) }) { Text("+ " + stringResource(ua.mandat.ui.dirLabel(R.string.kind_promise_in))) }
                 }
             }
         }

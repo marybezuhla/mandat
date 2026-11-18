@@ -473,16 +473,34 @@ fun PersonEditor(db: MandatDb, session: Session, draft: PersonDraft) {
     }
 
     if (confirmDelete) {
+        // With everything tied to the person, or only the card (the records stay, without the name).
+        // A person hidden in trip mode takes everything by default: left behind, it would no longer be hidden
+        var all by remember { mutableStateOf(draft.person.sensitive) }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            // What was tied to a sensitive person stays, and nothing hides it any more
-            text = { Text(stringResource(R.string.person_delete_confirm) + if (draft.person.sensitive) "\n\n" + stringResource(R.string.person_delete_sensitive) else "") },
+            text = {
+                Column {
+                    Text(stringResource(if (all) R.string.person_delete_all_confirm else R.string.person_delete_confirm) +
+                        if (draft.person.sensitive && !all) "\n\n" + stringResource(R.string.person_delete_sensitive) else "")
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp).checkRow(all) { all = it }) {
+                        androidx.compose.material3.Checkbox(checked = all, onCheckedChange = null)
+                        Text(stringResource(R.string.person_delete_all), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
                     session.personDraft = null
                     session.write { db ->
                         db.withTransaction {
+                            if (all) {
+                                db.promises().idsForPerson(id).forEach { db.communities().unlinkRef(ua.mandat.data.LinkKind.PROMISE, it) }
+                                db.promises().deleteForPerson(id)
+                                db.delegations().deleteForPerson(id)
+                                db.info().deleteForPerson(id)
+                                db.info().deleteAlliancesForPerson(id)
+                            }
                             db.people().unlinkPerson(id)
                             db.events().unlinkPerson(id)
                             db.info().clearPerson(id)
@@ -533,7 +551,7 @@ private fun PersonLinks(db: MandatDb, session: Session, personId: Long) {
     // (one under the other: two side by side do not fit a narrow phone)
     Column {
         TextButton(onClick = { session.delegationDraft = newDelegation(personId = personId) }) { Text("+ " + stringResource(R.string.add_delegation)) }
-        TextButton(onClick = { session.delegationDraft = newDelegation(personId = personId, incoming = true) }) { Text("+ " + stringResource(R.string.kind_delegation_in)) }
+        TextButton(onClick = { session.delegationDraft = newDelegation(personId = personId, incoming = true) }) { Text("+ " + stringResource(ua.mandat.ui.dirLabel(R.string.kind_delegation_in))) }
     }
 
     LinkSection(stringResource(R.string.promises))
@@ -542,7 +560,7 @@ private fun PersonLinks(db: MandatDb, session: Session, personId: Long) {
     openP.forEach { PromiseRow(it, null, it.matterId?.let(titleOf::get), session) }
     Column {
         TextButton(onClick = { session.promiseDraft = newPromise(personId = personId) }) { Text("+ " + stringResource(R.string.add_promise)) }
-        TextButton(onClick = { session.promiseDraft = newPromise(personId = personId, incoming = true) }) { Text("+ " + stringResource(R.string.kind_promise_in)) }
+        TextButton(onClick = { session.promiseDraft = newPromise(personId = personId, incoming = true) }) { Text("+ " + stringResource(ua.mandat.ui.dirLabel(R.string.kind_promise_in))) }
     }
 
     if (closedD.isNotEmpty() || closedP.isNotEmpty()) {

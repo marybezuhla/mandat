@@ -38,6 +38,27 @@ fun Mode.label(): Int = when (this) {
  */
 fun forMode(elected: Int, plain: Int): Int = if (AppMode.mode.elected) elected else plain
 
+/**
+ * The words of direction ("promised to me", "I promise"): an assistant speaks for the deputy's
+ * office, so for them it is "to us" and "we promise".
+ */
+fun dirLabel(id: Int): Int = if (AppMode.mode != Mode.ASSISTANT) id else when (id) {
+    R.string.kind_promise_in -> R.string.kind_promise_in_assistant
+    R.string.kind_delegation_in -> R.string.kind_delegation_in_assistant
+    R.string.dir_promise_out -> R.string.dir_promise_out_assistant
+    R.string.dir_delegation_out -> R.string.dir_delegation_out_assistant
+    R.string.chip_to_me -> R.string.chip_to_us
+    else -> id
+}
+
+/** A word of its own for an official, an activist or a citizen where one exists; [other] for the rest. */
+fun byMode(other: Int, official: Int? = null, activist: Int? = null, citizen: Int? = null): Int = when (AppMode.mode) {
+    Mode.OFFICIAL -> official ?: other
+    Mode.ACTIVIST -> activist ?: other
+    Mode.CITIZEN -> citizen ?: other
+    else -> other
+}
+
 /** Types that do not fit the chosen mode are not offered for new matters (old ones keep theirs). */
 fun matterTypesForMode(): List<MatterType> {
     // A grant, a public action and a dispute belong to civic work and to a citizen's own affairs (a dispute also to an office)
@@ -248,16 +269,18 @@ fun ua.mandat.data.PersonCategory.label(): Int = when (this) {
     ua.mandat.data.PersonCategory.EXPERT -> R.string.cat_EXPERT
     ua.mandat.data.PersonCategory.JOURNALIST -> R.string.cat_JOURNALIST
     ua.mandat.data.PersonCategory.NGO -> R.string.cat_NGO
-    ua.mandat.data.PersonCategory.BUSINESS -> R.string.cat_BUSINESS
-    ua.mandat.data.PersonCategory.INTERNATIONAL -> R.string.cat_INTERNATIONAL
-    ua.mandat.data.PersonCategory.VOTER -> forMode(R.string.cat_VOTER, R.string.cat_VOTER_plain)
+    // (for a citizen the same keys name the people of a home life; for civic work, its partners)
+    ua.mandat.data.PersonCategory.BUSINESS -> byMode(R.string.cat_BUSINESS, citizen = R.string.cat_BUSINESS_home)
+    ua.mandat.data.PersonCategory.INTERNATIONAL -> byMode(R.string.cat_INTERNATIONAL, activist = R.string.cat_INTERNATIONAL_civic, citizen = R.string.cat_FAMILY)
+    ua.mandat.data.PersonCategory.VOTER -> byMode(forMode(R.string.cat_VOTER, R.string.cat_VOTER_plain), citizen = R.string.cat_NEIGHBOUR)
     ua.mandat.data.PersonCategory.OTHER -> R.string.cat_OTHER
 }
 
 fun ua.mandat.data.Stance.label(): Int = when (this) {
-    ua.mandat.data.Stance.ALLY -> R.string.stance_ALLY
+    // (an office speaks of support and objection, not of allies and opponents)
+    ua.mandat.data.Stance.ALLY -> byMode(R.string.stance_ALLY, official = R.string.stance_ALLY_office)
     ua.mandat.data.Stance.UNDECIDED -> R.string.stance_UNDECIDED
-    ua.mandat.data.Stance.OPPONENT -> R.string.stance_OPPONENT
+    ua.mandat.data.Stance.OPPONENT -> byMode(R.string.stance_OPPONENT, official = R.string.stance_OPPONENT_office)
     ua.mandat.data.Stance.NEUTRAL -> R.string.stance_NEUTRAL
 }
 
@@ -334,8 +357,8 @@ fun riskLabel(level: Int): Int = when (level) {
 
 fun ua.mandat.data.InfoKind.label(): Int = when (this) {
     ua.mandat.data.InfoKind.DISCUSSION -> R.string.info_discussion
-    ua.mandat.data.InfoKind.CRITIQUE -> R.string.info_critique
-    ua.mandat.data.InfoKind.ATTACK -> R.string.info_attack
+    ua.mandat.data.InfoKind.CRITIQUE -> byMode(R.string.info_critique, official = R.string.info_critique_office, citizen = R.string.info_critique_office)
+    ua.mandat.data.InfoKind.ATTACK -> byMode(R.string.info_attack, official = R.string.info_attack_office)
     ua.mandat.data.InfoKind.CORRECTION -> R.string.info_correction
 }
 

@@ -154,8 +154,9 @@ class DelegationDraft(val delegation: ua.mandat.data.Delegation, val isNew: Bool
         val edited = delegation.copy(
             what = text, personId = personId, matterId = matterId, due = due, status = status.name, closedAt = closed,
             purpose = purpose.trim().take(2_000), doneMeans = doneMeans.trim().take(2_000),
-            // How much freedom was given, a check-in and "it came back" belong only to what the owner handed out
-            freedom = if (incoming) null else freedom?.name, checkIn = if (incoming) null else checkIn, returned = !incoming && returned,
+            // How much freedom was given and "it came back" belong only to what the owner handed out;
+            // an interim day is kept both ways (a control document often has one)
+            freedom = if (incoming) null else freedom?.name, checkIn = checkIn, returned = !incoming && returned,
             incoming = incoming,
         )
         if (isNew) db.delegations().insert(edited.copy(id = 0, createdAt = now)) else db.delegations().update(edited)

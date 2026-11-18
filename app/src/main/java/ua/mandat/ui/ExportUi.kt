@@ -928,13 +928,13 @@ private suspend fun matterDossier(context: Context, db: MandatDb, m: ua.mandat.d
     val ds = db.delegations().observeForMatter(m.id).first().filterNot { tied(it.personId, null) || people.named(ua.mandat.data.HideRules.DELEGATION.text(it)) }
     if (ds.isNotEmpty()) {
         append("\n## ").append(context.getString(R.string.delegations)).append("\n\n")
-        ds.forEach { d -> append("- ").append(if (d.incoming) context.getString(R.string.kind_delegation_in) + ": " else "").append(Export.md(d.what)).append(d.personId?.let(nameOf::get)?.let { " — " + Export.md(it) }.orEmpty())
+        ds.forEach { d -> append("- ").append(if (d.incoming) context.getString(ua.mandat.ui.dirLabel(R.string.kind_delegation_in)) + ": " else "").append(Export.md(d.what)).append(d.personId?.let(nameOf::get)?.let { " — " + Export.md(it) }.orEmpty())
             .append(d.due?.let { " (" + Export.day(it) + ")" }.orEmpty()).append(" · ").append(context.getString(TaskStatus.of(d.status).delegationLabel())).append("\n") }
     }
     val ps = db.promises().observeForMatter(m.id).first().filterNot { tied(it.personId, null) || people.named(ua.mandat.data.HideRules.PROMISE.text(it)) }
     if (ps.isNotEmpty()) {
         append("\n## ").append(context.getString(R.string.promises)).append("\n\n")
-        ps.forEach { p -> append("- ").append(if (p.incoming) context.getString(R.string.kind_promise_in) + ": " else "").append(Export.md(p.what)).append(" · ").append(context.getString(TaskStatus.of(p.status).promiseLabel())).append("\n") }
+        ps.forEach { p -> append("- ").append(if (p.incoming) context.getString(ua.mandat.ui.dirLabel(R.string.kind_promise_in)) + ": " else "").append(Export.md(p.what)).append(" · ").append(context.getString(TaskStatus.of(p.status).promiseLabel())).append("\n") }
     }
     val es = db.events().observeForMatter(m.id).first().filterNot { tied(null, it.id) || people.named(ua.mandat.data.HideRules.EVENT.text(it)) }
     if (es.isNotEmpty()) {
