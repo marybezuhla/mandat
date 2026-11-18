@@ -28,6 +28,9 @@ import java.time.ZoneId
  * "Людина А", nothing about any real person. Dates are counted from today.
  */
 object NeutralData {
+    /** The people categories of a deputy, and "other": the screenshots show one mode. */
+    private val deputyCats = PersonCategory.entries.filter { it != PersonCategory.DONOR && it != PersonCategory.FAMILY && it != PersonCategory.NEIGHBOUR }
+
     private val today = LocalDate.now().toEpochDay()
     private fun ms(daysFromToday: Long) =
         LocalDate.ofEpochDay(today + daysFromToday).atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -82,7 +85,7 @@ object NeutralData {
                     contact = "", notes = "",
                     teamRole = if (inTeam) team[i].name else null,
                     createdAt = ms(-100), updatedAt = ms(-100),
-                    category = if (inTeam) null else PersonCategory.entries[i % PersonCategory.entries.size].name,
+                    category = if (inTeam) null else deputyCats[i % deputyCats.size].name,
                     influence = if (inTeam || i % 7 == 0) null else 1 + i % 3,
                     stance = if (inTeam) null else listOf("ALLY", "UNDECIDED", "OPPONENT", "NEUTRAL")[i % 4],
                     isGroup = i == 12,
@@ -96,7 +99,7 @@ object NeutralData {
             db.people().insert(
                 Person(name = "${listOf("Особа", "Учасник", "Мешканка", "Експерт")[i % 4]} $i", organization = "Громада ${i % 7}", jobTitle = "",
                     contact = "", notes = "", teamRole = null, createdAt = ms(-50), updatedAt = ms(-50),
-                    category = PersonCategory.entries[i % PersonCategory.entries.size].name, influence = 1 + i % 3),
+                    category = deputyCats[i % deputyCats.size].name, influence = 1 + i % 3),
             )
         }
         val stances = listOf("ALLY", "UNDECIDED", "OPPONENT", "NEUTRAL", null)
@@ -233,8 +236,9 @@ object NeutralData {
             if (allEvents.size > i) db.communities().link(ua.mandat.data.CommunityLink(cid, "event", allEvents[i].id))
         }
         // Budget: made-up amounts over a year; charity; one compensation pending; organised aid
-        val inCats = ua.mandat.data.IncomeCategory.entries
-        val outCats = ua.mandat.data.ExpenseCategory.entries
+        // (the deputy's own categories: the screenshots show one mode)
+        val inCats = ua.mandat.data.incomeFor(ua.mandat.data.Mode.RADA)
+        val outCats = ua.mandat.data.expenseFor(ua.mandat.data.Mode.RADA)
         (0..360 step 4).forEachIndexed { n, back ->
             val income = n % 6 == 0
             val cat = if (income) inCats[n % inCats.size].name else outCats[n % outCats.size].name

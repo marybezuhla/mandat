@@ -1,5 +1,4 @@
 Version 1.0.
-• New signing key: a test version cannot be updated in place, only through a backup.
 • Repeats on several weekdays, "the second Tuesday", "this and later dates".
 • Control-document fields for tasks handed to you at work.
 • Own words and categories in every mode; reply templates for an official.

@@ -167,10 +167,16 @@ class Backups(private val context: Context, private val session: Session) {
      */
     fun checkAutoPassword(password: String) = run(onCrash = { BackupNotice.AutoFailed }) {
         val chars = password.toCharArray()
+        var pair: Pair<ByteArray, ByteArray>? = null
         try {
-            val pair = session.withRealDb { ua.mandat.backup.AutoBackup.storedPair(it) } ?: return@run BackupNotice.AutoFailed
-            BackupNotice.PasswordChecked(withContext(Dispatchers.Default) { ua.mandat.backup.AutoBackup.passwordMatches(pair, chars) })
-        } finally { chars.fill(' ') }
+            pair = session.withRealDb { ua.mandat.backup.AutoBackup.storedPair(it) } ?: return@run BackupNotice.AutoFailed
+            val p = pair
+            BackupNotice.PasswordChecked(withContext(Dispatchers.Default) { ua.mandat.backup.AutoBackup.passwordMatches(p, chars) })
+        } finally {
+            chars.fill(' ')
+            // (the stored key is wiped whatever happened, also when the check was cancelled)
+            pair?.second?.fill(0)
+        }
     }
 
     /** Makes an automatic copy right now, without waiting a day. */

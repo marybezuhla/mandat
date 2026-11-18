@@ -477,7 +477,8 @@ fun PersonEditor(db: MandatDb, session: Session, draft: PersonDraft) {
         // With everything tied to the person, or only the card (the records stay, without the name).
         // A person hidden in trip mode takes everything by default: left behind, it would no longer be hidden
         // While trip mode or the lens hides something, "everything" could take records the owner cannot see: only the card then
-        val nothingHidden = session.hidden.value.isEmpty
+        val hiddenNow by session.hidden.collectAsStateWithLifecycle()
+        val nothingHidden = hiddenNow.isEmpty
         var all by remember { mutableStateOf(draft.person.sensitive && nothingHidden) }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -498,7 +499,8 @@ fun PersonEditor(db: MandatDb, session: Session, draft: PersonDraft) {
                     session.personDraft = null
                     session.write { db ->
                         db.withTransaction {
-                            if (all) {
+                            // (checked again now: trip mode may have come on while the dialog was open)
+                            if (all && session.hidden.value.isEmpty) {
                                 db.promises().idsForPerson(id).forEach { db.communities().unlinkRef(ua.mandat.data.LinkKind.PROMISE, it) }
                                 db.promises().deleteForPerson(id)
                                 db.delegations().deleteForPerson(id)

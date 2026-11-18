@@ -476,7 +476,9 @@ fun MoneyDialog(db: MandatDb, session: Session, d: MoneyDraft) {
 /** Monthly limits per expense category (empty means no limit). */
 @Composable
 private fun LimitsDialog(session: Session, settings: Map<String, String>, onClose: () -> Unit) {
-    val cats = (ua.mandat.data.expenseFor(AppMode.mode).map { it.name } + decodeCategories(settings[SETTING_EXPENSE_CATEGORIES])).distinct()
+    // (a limit set in another mode stays editable here)
+    val cats = (ua.mandat.data.expenseFor(AppMode.mode).map { it.name } + decodeCategories(settings[SETTING_EXPENSE_CATEGORIES]) +
+        settings.keys.filter { it.startsWith(SETTING_LIMIT_PREFIX) }.map { it.removePrefix(SETTING_LIMIT_PREFIX) }).distinct()
     val texts = remember { mutableStateOf(cats.associateWith { c -> settings[SETTING_LIMIT_PREFIX + c]?.toLongOrNull()?.let { formatAmount(it).replace(" ", "") }.orEmpty() }) }
     EditSheet(
         title = stringResource(R.string.money_limits),

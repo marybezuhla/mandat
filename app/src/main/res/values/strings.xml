@@ -1585,7 +1585,7 @@
     <string name="ordinals_m">first|second|third|fourth|last</string>
     <string name="ordinals_f">first|second|third|fourth|last</string>
     <string name="event_choice_following">This and later dates</string>
-    <string name="event_following_note">This and later dates. If you change something, once saved a new event begins on this date (with the same repeat unless you change it), and the earlier one ends the day before.</string>
+    <string name="event_following_note">This and later dates. If you change something, once saved a new event begins on its first date (with the same repeat unless you change it), and the earlier one ends the day before. If you move the first date earlier, the earlier dates from that day on go.</string>
     <string name="delegation_in_source">Where from: who, the document, its number and date</string>
     <string name="delegation_in_closing">Mark of completion: how and when it was closed</string>
     <string name="delegation_in_interim">Interim date (progress report)</string>

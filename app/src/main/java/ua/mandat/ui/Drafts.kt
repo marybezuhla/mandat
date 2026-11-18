@@ -360,14 +360,18 @@ class EventDraft(
                 // The new event stays in the communities of the repeating one, and that one no longer comes on this day
                 db.communities().communitiesOf(ua.mandat.data.LinkKind.EVENT, detachFrom).forEach { c -> db.communities().link(ua.mandat.data.CommunityLink(c, ua.mandat.data.LinkKind.EVENT, id)) }
                 db.events().get(detachFrom)?.let { base ->
-                    // (the old one ends the day before the new one begins, wherever its first date was moved)
-                    val rest = if (following) base.copy(repeatUntil = minOf(detachDay, edited.day) - 1, updatedAt = now) else ua.mandat.data.Repeats.skipping(base, detachDay)
+                    // (the old one ends the day before the new one begins, if that is still after its own first
+                    // date; otherwise the day before the chosen date, so it never loses its end)
+                    val end = minOf(detachDay, edited.day) - 1
+                    val rest = if (following) base.copy(repeatUntil = if (end >= base.day) end else detachDay - 1, updatedAt = now) else ua.mandat.data.Repeats.skipping(base, detachDay)
                     ua.mandat.data.cleanEvent(rest)?.let { db.events().update(it) }
                 }
             }
             // A meeting that has happened is the last contact with the people in it (for a repeating one, its last time so far)
             val today = Dates.today()
-            val held = if (edited.repeats) ua.mandat.data.Repeats.starts(edited, today - 400, today).lastOrNull { it <= today } else edited.day.takeIf { it <= today }
+            // (only a meeting, a reception or a call is a contact: not a birthday or a trip)
+            val contact = edited.kind in setOf(ua.mandat.data.EventKind.MEETING.name, ua.mandat.data.EventKind.RECEPTION.name, ua.mandat.data.EventKind.CALL.name)
+            val held = if (!contact) null else if (edited.repeats) ua.mandat.data.Repeats.starts(edited, today - 400, today).lastOrNull { it <= today } else edited.day.takeIf { it <= today }
             if (held != null) people.forEach { db.people().touchLastContact(it, held) }
         }
     }

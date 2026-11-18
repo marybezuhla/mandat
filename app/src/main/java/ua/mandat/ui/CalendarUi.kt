@@ -628,7 +628,9 @@ private fun RepeatPicker(draft: EventDraft) {
             if (r == ua.mandat.data.Repeat.MONTHLY_LAST && !last) return@forEach
             // (what is saved: a weekday rule the first date does not fit becomes the one it fits)
             val saved = ua.mandat.data.Repeat.of(ua.mandat.data.Repeat.key(draft.repeat, draft.days, draft.day))
-            QuickChip(name, saved == r) { draft.repeat = r }
+            // (several weekdays stay chosen while only the first date's own is picked)
+            val chosen = if (draft.repeat == ua.mandat.data.Repeat.DAYS) ua.mandat.data.Repeat.DAYS else saved
+            QuickChip(name, chosen == r) { draft.repeat = r }
         }
     }
     val r = draft.repeat ?: return
