@@ -182,6 +182,8 @@ object Packet {
         db: MandatDb, p: P, personChoice: Map<Long, Long?>, matterChoice: Map<Long, Long?>,
         // What is hidden now (trip mode, lens): never compared with, so "skipped" cannot tell that it exists
         hidden: (Long?, String) -> Boolean = { _, _ -> false },
+        // A record tied to a hidden person, or an event one takes part in, is not compared with either
+        tied: (Long?, Long?) -> Boolean = { _, _ -> false },
     ): Result = db.withTransaction {
         // Only choices that point to records really here count; anything else is added as new
         val herePeople = db.people().all().map { it.id }.toSet()
@@ -220,13 +222,13 @@ object Packet {
         }
         var tasks = 0
         var skipped = 0
-        val haveD = db.delegations().observeAll().first().filterNot { hidden(it.matterId, HideRules.DELEGATION.text(it)) }.map { Triple(key(it.what), it.matterId, it.due) }.toHashSet()
+        val haveD = db.delegations().observeAll().first().filterNot { hidden(it.matterId, HideRules.DELEGATION.text(it)) || tied(it.personId, null) }.map { Triple(key(it.what), it.matterId, it.due) }.toHashSet()
         p.delegations.forEach { d ->
             val m = d.matterId?.let(matterId::get)
             if (!haveD.add(Triple(key(d.what), m, d.due))) { skipped++; return@forEach }
             db.delegations().insert(d.copy(personId = d.personId?.let(personId::get), matterId = m, createdAt = now)); tasks++
         }
-        val haveP = db.promises().observeAll().first().filterNot { hidden(it.matterId, HideRules.PROMISE.text(it)) }.map { Triple(key(it.what), it.matterId, it.due) }.toHashSet()
+        val haveP = db.promises().observeAll().first().filterNot { hidden(it.matterId, HideRules.PROMISE.text(it)) || tied(it.personId, null) }.map { Triple(key(it.what), it.matterId, it.due) }.toHashSet()
         p.promises.forEach { x ->
             val m = x.matterId?.let(matterId::get)
             if (!haveP.add(Triple(key(x.what), m, x.due))) { skipped++; return@forEach }
@@ -241,7 +243,7 @@ object Packet {
         }
         var events = 0
         // (a repeating event and one time of it changed on its own may share a title, a day and an hour: they are two events)
-        val haveE = db.events().observeAll().first().filterNot { hidden(it.matterId, HideRules.EVENT.text(it)) }.map { Triple(key(it.title) + "|" + it.repeat.orEmpty(), it.day, it.startMin) }.toHashSet()
+        val haveE = db.events().observeAll().first().filterNot { hidden(it.matterId, HideRules.EVENT.text(it)) || tied(null, it.id) }.map { Triple(key(it.title) + "|" + it.repeat.orEmpty(), it.day, it.startMin) }.toHashSet()
         val eventId = HashMap<Long, Long>()
         p.events.forEach { e ->
             if (!haveE.add(Triple(key(e.title) + "|" + e.repeat.orEmpty(), e.day, e.startMin))) { skipped++; return@forEach }

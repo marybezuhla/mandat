@@ -382,12 +382,12 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
                 DueField(draft.due) { draft.due = it }
                 // (the simple view leaves out the check-in day and "it came back")
                 if (!AppMode.simple || draft.delegation.checkIn != null) DueField(draft.checkIn, label = if (draft.incoming) R.string.delegation_in_interim else R.string.delegation_check_in) { draft.checkIn = it }
-                if (!draft.incoming && (!AppMode.simple || draft.delegation.returned)) Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!draft.incoming && (!AppMode.simple || draft.delegation.returned)) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().switchRow(draft.returned) { draft.returned = it }) {
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.delegation_returned), style = MaterialTheme.typography.bodyLarge)
                         Text(stringResource(R.string.delegation_returned_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                     }
-                    androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.delegation_returned)), checked = draft.returned, onCheckedChange = { draft.returned = it })
+                    androidx.compose.material3.Switch(checked = draft.returned, onCheckedChange = null)
                 }
         }
         if (!draft.isNew) SheetGroup {

@@ -44,6 +44,8 @@ sealed interface BackupNotice {
     data object ExistingFile : BackupNotice
     /** The data is larger than a backup file can hold. */
     data object TooBig : BackupNotice
+    /** The owner checked the password of automatic copies: right or not. */
+    data class PasswordChecked(val right: Boolean) : BackupNotice
 }
 
 /**
@@ -154,6 +156,15 @@ class Backups(private val context: Context, private val session: Session) {
         session.withRealDb { ua.mandat.backup.AutoBackup.disable(context, it) }
         refreshAuto()
         BackupNotice.AutoOff
+    }
+
+    /** Checks that the owner still remembers the password of automatic copies (Argon2id: a second or two). */
+    fun checkAutoPassword(password: String) = run(onCrash = { BackupNotice.AutoFailed }) {
+        val chars = password.toCharArray()
+        val right = try {
+            session.withRealDb { db -> withContext(Dispatchers.Default) { ua.mandat.backup.AutoBackup.checkPassword(db, chars) } }
+        } finally { chars.fill(' ') }
+        right?.let { BackupNotice.PasswordChecked(it) } ?: BackupNotice.AutoFailed
     }
 
     /** Makes an automatic copy right now, without waiting a day. */

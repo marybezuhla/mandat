@@ -466,7 +466,8 @@ fun MatterEditor(db: MandatDb, session: Session, draft: MatterDraft) {
 
     if (confirmDelete) {
         val aidRecords by remember(db, request.matter.id) { db.money().observeAidFor(request.matter.id).hiding(session, ua.mandat.data.HideRules.AID) }.collectAsStateWithLifecycle(emptyList())
-        val matterTexts by remember(db, request.matter.id) { db.texts().observeForMatter(request.matter.id) }.collectAsStateWithLifecycle(emptyList())
+        // (a text hidden in trip mode is neither counted nor deleted here: the number would give it away)
+        val matterTexts by remember(db, request.matter.id) { db.texts().observeForMatter(request.matter.id).hiding(session, ua.mandat.data.HideRules.TEXT) }.collectAsStateWithLifecycle(emptyList())
         var deleteTexts by remember { mutableStateOf(false) }
         // A sensitive matter takes everything tied to it by default: left behind, it would no longer be hidden
         var deleteAll by remember { mutableStateOf(request.matter.sensitive) }

@@ -421,12 +421,13 @@ fun PersonEditor(db: MandatDb, session: Session, draft: PersonDraft) {
                     onPick = { draft.reportsToId = it },
                 )
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // (the whole row is the switch: a screen reader says its text once, with on or off)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().switchRow(draft.isGroup) { draft.isGroup = it }) {
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.person_is_group), style = MaterialTheme.typography.bodyLarge)
                         Text(stringResource(R.string.person_is_group_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                     }
-                    androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.person_is_group)), checked = draft.isGroup, onCheckedChange = { draft.isGroup = it })
+                    androidx.compose.material3.Switch(checked = draft.isGroup, onCheckedChange = null)
                 }
                 // Influence and stance: for the influence map; never for the team (no rating of people)
                 Text(stringResource(R.string.influence), style = MaterialTheme.typography.labelLarge)

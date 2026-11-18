@@ -148,11 +148,12 @@ class AiRun {
     fun start(scope: CoroutineScope, session: Session, task: LocalAi.Task, label: String? = null, facts: suspend () -> String) {
         job?.cancel()
         busy = true; failed = false; answer = null; this.label = label
-        val askedWith = session.hiddenMatters.value
+        // (hidden people count too: trip mode can hide a person without hiding any matter)
+        val askedWith = session.hiddenMatters.value to session.hidden.value.people
         job = scope.launch {
             val f = try { facts() } catch (e: CancellationException) { throw e } catch (e: Throwable) { "" }
             val a = if (f.isBlank()) null else try { session.ai.write(task, f) } catch (e: CancellationException) { throw e } catch (e: Throwable) { null }
-            val still = session.hiddenMatters.value == askedWith
+            val still = (session.hiddenMatters.value to session.hidden.value.people) == askedWith
             answer = a?.trim()?.takeIf { it.isNotBlank() && still }
             failed = answer == null && still
             busy = false
@@ -164,7 +165,8 @@ class AiRun {
 @Composable
 fun rememberAiRun(session: Session, key: Any? = null): AiRun {
     val hidden by session.hiddenMatters.collectAsStateWithLifecycle()
-    val run = remember(hidden, key) { AiRun() }
+    val hiddenPeople by session.hidden.collectAsStateWithLifecycle()
+    val run = remember(hidden, hiddenPeople.people, key) { AiRun() }
     // A request whose answer can no longer be shown is stopped, so the model is free for the next one
     androidx.compose.runtime.DisposableEffect(run) { onDispose { run.job?.cancel() } }
     return run

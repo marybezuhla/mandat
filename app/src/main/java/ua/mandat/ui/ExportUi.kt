@@ -171,6 +171,7 @@ fun ExportScreen(db: MandatDb, session: Session) {
     androidx.compose.runtime.LaunchedEffect(plan.period) { if (plan.period != ExportPeriod.ALL) plan.everything = false }
     val cadenceSet by remember(db) { db.settings().observe(ua.mandat.data.SETTING_CADENCE_START) }.collectAsStateWithLifecycle(null)
     val sensitiveIds by remember(db) { db.matters().observeSensitiveIds() }.collectAsStateWithLifecycle(emptyList())
+    val sensitivePeople by remember(db) { db.people().observeSensitiveIds() }.collectAsStateWithLifecycle(emptyList())
 
     var tooBigForMandat by remember { mutableStateOf(false) }
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
@@ -269,6 +270,8 @@ fun ExportScreen(db: MandatDb, session: Session) {
         ) {
             if (trip) Text(stringResource(R.string.export_trip_note), style = MaterialTheme.typography.labelMedium, color = Muted)
             else if (hidden.isNotEmpty()) Text(stringResource(R.string.export_lens_note), style = MaterialTheme.typography.labelMedium, color = Muted)
+            // Trip mode off: what it would hide goes into the files too, and that is said before anything is written
+            if (!trip && (sensitiveIds.isNotEmpty() || sensitivePeople.isNotEmpty())) Text(stringResource(R.string.export_sensitive_note), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
             // One period for everything chosen below; each kind of record is taken by its own dates
             SectionCard(Sym.calendar, stringResource(R.string.export_period)) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -437,7 +440,7 @@ fun ExportScreen(db: MandatDb, session: Session) {
             // Started outside this screen: leaving it (or turning the phone) does not stop it halfway
             session.detached {
                 val r = session.withOpenDb { d ->
-                    try { ua.mandat.data.Packet.apply(d, pk, personChoice, matterChoice, session.hidden.value.let { h -> { m: Long?, t: String -> h.item(m, t) } }) } catch (e: Exception) { ua.mandat.data.Packet.Result(0, 0, 0, 0, 0, failed = true) }
+                    try { ua.mandat.data.Packet.apply(d, pk, personChoice, matterChoice, session.hidden.value.let { h -> { m: Long?, t: String -> h.item(m, t) } }, session.hidden.value.let { h -> { person: Long?, event: Long? -> h.tied(person, event) } }) } catch (e: Exception) { ua.mandat.data.Packet.Result(0, 0, 0, 0, 0, failed = true) }
                 } ?: ua.mandat.data.Packet.Result(0, 0, 0, 0, 0, failed = true)
                 session.packetResult = r
                 // Deleting the file is offered only once everything from it is written

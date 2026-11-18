@@ -94,6 +94,18 @@ object AutoBackup {
         }
     }
 
+    /**
+     * True when [password] is the one automatic copies are made with (the owner checks that they
+     * still remember it); null when automatic copies are off. Nothing is written or kept.
+     */
+    suspend fun checkPassword(db: MandatDb, password: CharArray): Boolean? {
+        val s = db.settings()
+        val salt = s.get(KEY_SALT)?.value?.unhex() ?: return null
+        val stored = s.get(KEY_KEY)?.value?.unhex() ?: return null
+        val made = BackupCrypto.deriveKey(password, salt, BackupCrypto.DEFAULT)
+        return try { java.security.MessageDigest.isEqual(made, stored) } finally { made.fill(0); stored.fill(0) }
+    }
+
     /** Forgets the automatic copies; when a copy was last made by hand stays known. */
     private suspend fun forget(s: ua.mandat.data.SettingDao) {
         val kept = s.get(KEY_MANUAL)

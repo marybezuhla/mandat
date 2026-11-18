@@ -74,6 +74,7 @@ fun observeHidden(db: MandatDb, matters: Set<Long>, byName: Set<Long> = matters,
         db.matters().observeAllTitles(), h.personMatter(), db.reviews().observeAll(), db.reviews().observeLinks(),
         db.communities().observeLinks(), h.eventMatter(), h.promiseMatter(),
         db.events().observeLinks(), h.promisePerson(), if (marked.isEmpty()) flowOf(emptyList<ua.mandat.data.Person>()) else db.people().observeAll(),
+        if (marked.isEmpty()) flowOf(emptyList<ua.mandat.data.MatterTitle>()) else db.matters().observeOwnTexts(),
     )
     return combine(sources) { arr ->
         @Suppress("UNCHECKED_CAST") val titles = arr[0] as List<ua.mandat.data.MatterTitle>
@@ -86,9 +87,10 @@ fun observeHidden(db: MandatDb, matters: Set<Long>, byName: Set<Long> = matters,
         @Suppress("UNCHECKED_CAST") val eventPeople = arr[7] as List<ua.mandat.data.EventPerson>
         @Suppress("UNCHECKED_CAST") val promisePerson = (arr[8] as List<ua.mandat.data.IdRef>).associate { it.a to it.b }
         @Suppress("UNCHECKED_CAST") val peopleNames = (arr[9] as List<ua.mandat.data.Person>).filter { it.id in marked }.map { it.name }
-        // A matter whose own title names a hidden person is hidden with that person (trip mode)
-        // (a name of two words or more: one word alone would take too many matters with it)
-        val byPerson = HiddenNames.full(peopleNames).let { full -> if (full.isEmpty()) emptySet() else HiddenNames(full).let { w -> titles.filter { w.named(it.title) }.mapTo(HashSet()) { it.id } } }
+        @Suppress("UNCHECKED_CAST") val ownTexts = arr[10] as List<ua.mandat.data.MatterTitle>
+        // A matter whose own words (title, description, goal, next step) name a hidden person is hidden
+        // with that person (trip mode): a name of two words or more, one word alone would take too many
+        val byPerson = HiddenNames.full(peopleNames).let { full -> if (full.isEmpty()) emptySet() else HiddenNames(full).let { w -> ownTexts.filter { w.named(it.title) }.mapTo(HashSet()) { it.id } } }
         @Suppress("NAME_SHADOWING") val matters = matters + byPerson
         val names = HiddenNames(titles.filter { it.id in byName || it.id in byPerson }.map { it.title } + peopleNames)
         val people = Hiding.people(matters, personMatter, marked)
