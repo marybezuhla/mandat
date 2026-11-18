@@ -1,8 +1,8 @@
 # Мандат · Mandat
 
-Приватний офлайн-органайзер для Android: справи, люди, календар, доручення й обіцянки в одному зашифрованому місці. Українська та англійська. Безкоштовно, без реклами й акаунтів.
+Приватний офлайн-органайзер для Android: справи, люди, календар, доручення й обіцянки в одному зашифрованому місці. Українська та англійська. Безкоштовно, без реклами й акаунтів. Потрібен Android 12 або новіший.
 
-> **Статус: версія 1.0.** Формат резервної копії й бази даних далі змінюватиметься лише так, щоб копії версії 1.0 і новіших відкривалися. Помилки й побажання: [Issues](../../issues).
+> Відгуки й помилки: [Issues](../../issues).
 
 ## Особливості
 
@@ -11,7 +11,7 @@
 - 👥 **Люди.** Свої категорії, позиції в справах, команда, розмова віч-на-віч, довідник контактів з імпортом .vcf і CSV.
 - 📅 **Календар і час.** Місяць, тиждень із сіткою годин, список; повторювані події (щодня, у кілька днів тижня, що два тижні, щомісяця, «другий вівторок», щороку; змінити можна одну дату або «цю й наступні»); щільність тижня з вільними вікнами; строки, доручення й обіцянки на одній стрічці.
 - 📊 **Наочність.** Зведення за тиждень, місяць, рік; кожне число відкриває записи, з яких воно складається. Кольори завжди з підписом чи відсотком.
-- 🧳 **Режим поїздки й лінза.** Позначені справи й усе пов'язане з ними (люди, записи щоденника, громади) зникають з екранів, пошуку, ШІ й експорту. Вимкнути режим можна лише відбитком чи PIN телефона. Числа й списки схованого не видають, але сам перемикач в Опціях видно; від того, хто змусить відкрити телефон, режим не захищає. Сховати можна й людину: тоді зникають її картка, прив'язані до неї доручення, обіцянки й події, а також записи з її повним іменем і справи, де воно є в назві, описі, цілі чи наступному кроці. Згадка самим прізвищем лишається видимою, а нотатка без прив'язки ховається, лише якщо містить усі слова назви справи чи імені людини.
+- 🧳 **Режим поїздки й лінза.** Позначені справи й люди з усім пов'язаним зникають з екранів, пошуку, ШІ й експорту; вимкнути режим можна лише відбитком чи PIN-кодом телефона. Від того, хто змусить відкрити телефон, режим не захищає.
 - 📤 **Експорт і імпорт.** .vcf, .ics, CSV, Markdown, PDF, сховище для Obsidian, пакет справ для колеги; за будь-який період. За замовчуванням зашифрований файл Мандата, ZIP з паролем — для інших застосунків.
 - 🔭 **Ретроспектива.** Напрямки, пріоритети минулого й динаміка за місяцями з журналу змін.
 - ✍️ **Тексти.** Листи, виступи, колонки, записки з шаблонами, версіями й експортом у Word і PDF.
@@ -22,19 +22,19 @@
 
 ## Встановлення
 
-Завантажте `.apk` з [Releases](../../releases/latest). Для автооновлень — [Obtainium](https://obtainium.imranr.dev/). Перед оновленням радимо зробити резервну копію.
-
-ШІ (необов'язково): Опції → «ШІ» → «Завантажити модель» (≈2,6 ГБ) → «Обрати файл моделі». Файл перевіряється за контрольною сумою.
+- 📲 **Напряму:** завантажте файл `.apk` звідси: [github.com/marybezuhla/mandat/releases/latest](https://github.com/marybezuhla/mandat/releases/latest).
+- 🔄 **З оновленнями:** скористайтеся безкоштовним застосунком Obtainium. Його можна встановити з F-Droid: [f-droid.org/packages/dev.imranr.obtainium.fdroid](https://f-droid.org/packages/dev.imranr.obtainium.fdroid) (F-Droid — це безкоштовний каталог застосунків для Android, щось на зразок Google Play. Усі застосунки там мають відкритий код, без реклами й стеження, а перед публікацією їх перевіряють і збирають самі укладачі каталогу). В Obtainium натисніть «Додати застосунок» і вставте посилання `github.com/marybezuhla/mandat`. Перед оновленням радимо зробити резервну копію.
+- 🤖 **ШІ (необов'язково):** Опції → «ШІ» → «Завантажити модель» (≈2,6 ГБ) → «Обрати файл моделі». Файл перевіряється за контрольною сумою.
 
 ## Прозорість
 
 - **Дозволи:** сповіщення й перезапуск нагадувань після ввімкнення телефона; читання календаря телефона — лише якщо ви ввімкнете його показ; відбиток чи PIN телефона для входу; приховування чужих вікон поверх Мандата (лише захист, без даних). Збірка зупиняється, якщо з'являється дозвіл на інтернет.
 - **Шифрування:** не шифруються лише налаштування вигляду й безпеки (тема, «Лише PIN», знімки екрана, автоблокування, нейтральна іконка), вмикачі нагадувань і календаря телефона, позначка «Мандат щось скопіював у буфер» (без тексту), технічні позначки й файл моделі ШІ (без ваших даних) і дати, на які є нагадування (щоб сповіщення приходили без розблокування; у тексті сповіщення нічого немає). Android також пам'ятає вибрану теку автокопій. Відкритий файл експорту — лише за вашим вибором і з попередженням.
-- **Збірка:** APK збирається з цього коду в GitHub Actions окремо від тестів і підписується лише після схвалення автора. Контрольні суми залежностей і самого Gradle перевіряються; SHA-256 кожного APK опубліковано в релізі.
-- **Підпис:** справжній APK підписано сертифікатом із відбитком SHA-256 `A7:06:53:16:67:2A:C1:5B:C3:87:A6:8C:2E:A2:96:EC:8E:A2:79:42:09:13:D6:9E:C5:02:05:BB:54:8D:77:3E`. Перевірити без жодного застосунку: `apksigner verify --print-certs mandat-<версія>.apk` (з Android SDK Build Tools).
+- **Збірка:** APK збирається з цього коду в GitHub Actions окремо від тестів і підписується лише після схвалення авторки. Контрольні суми залежностей і самого Gradle перевіряються; SHA-256 кожного APK опубліковано в релізі.
+- **Підпис:** справжній APK підписано сертифікатом із відбитком SHA-256 `A7:06:53:16:67:2A:C1:5B:C3:87:A6:8C:2E:A2:96:EC:8E:A2:79:42:09:13:D6:9E:C5:02:05:BB:54:8D:77:3E`. Перевірити без жодного застосунку: `apksigner verify --print-certs mandat-<версія>.apk` (з Android SDK Build Tools) має показати саме цей відбиток.
 - **Копія без застосунку:** резервну копію можна відкрити на комп'ютері своїм паролем, без Мандата: `scripts/decrypt_backup.py` (там же описано будову файлу). Копія не має жодної позначки: без пароля це просто випадкові байти.
 - **Межі:** не призначено для таємної та службової інформації — для неї потрібні спеціально захищені системи, а не застосунок на особистому телефоні. Режим поїздки не захищає від того, хто змусить відкрити Мандат і підтвердити вимкнення; резервні копії містять усе.
-- **Як створено:** код написано за допомогою ШІ (Claude, Anthropic) під керівництвом і з тестуванням автора.
+- **Як створено:** код написано за допомогою ШІ (Claude, Anthropic) під керівництвом і з тестуванням авторки.
 
 Kotlin · Jetpack Compose · Room · SQLCipher · [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM). Ліцензія GNU GPL версії 3 або (на ваш вибір) будь-якої пізнішої (GPL-3.0-or-later). Сторонні матеріали — [NOTICE.md](NOTICE.md), приватність — [PRIVACY.md](PRIVACY.md), вразливості — [SECURITY.md](SECURITY.md).
 
@@ -42,9 +42,9 @@ Kotlin · Jetpack Compose · Room · SQLCipher · [LiteRT-LM](https://github.com
 
 # Mandat · English
 
-A private, offline organiser for Android: matters, people, calendar, delegations and promises in one encrypted place. Ukrainian and English. Free, no ads, no accounts.
+A private, offline organiser for Android: matters, people, calendar, delegations and promises in one encrypted place. Ukrainian and English. Free, no ads, no accounts. Requires Android 12 or newer.
 
-> **Status: version 1.0.** From here on the backup and database formats change only in ways that keep backups from 1.0 on opening. Bugs and wishes: [Issues](../../issues).
+> Feedback and bugs: [Issues](../../issues).
 
 ## Features
 
@@ -53,7 +53,7 @@ A private, offline organiser for Android: matters, people, calendar, delegations
 - 👥 **People.** Your own categories, stances in matters, a team, one-to-one talks, an address book with .vcf and CSV import.
 - 📅 **Calendar and time.** Month, week with an hour grid, list; repeating events (every day, on several weekdays, every two weeks, monthly, "the second Tuesday", yearly; one date or "this and later dates" can be changed on their own); week density with free windows; deadlines, delegations and promises on one strip.
 - 📊 **At a glance.** Week, month and year overviews; every number opens the records it counts. Colours always come with a label or a percentage.
-- 🧳 **Trip mode and lens.** Marked matters and everything linked to them (people, diary entries, communities) disappear from screens, search, AI and export. Turning trip mode off needs the phone's fingerprint or PIN. Numbers and lists do not give away what is hidden, but the switch itself is visible in Options, and the mode does not protect against someone who forces you to open the phone. A person can be hidden too: then their card, the delegations, promises and events tied to them, and the records with their full name and the matters with it in the title, description, goal or next step disappear. A mention by the surname alone stays visible, and a note not tied to anything is hidden only when it contains every word of the matter's title or the person's name.
+- 🧳 **Trip mode and lens.** Marked matters and people, with everything linked to them, disappear from screens, search, AI and export; turning trip mode off needs the phone's fingerprint or PIN. It does not protect against someone who forces you to open the phone.
 - 📤 **Export and import.** .vcf, .ics, CSV, Markdown, PDF, an Obsidian vault, a packet of matters for a colleague; for any period. By default an encrypted Mandat file; a ZIP with a password for other apps.
 - 🔭 **Retrospective.** Directions, past priorities and month-by-month movement from a journal of changes.
 - ✍️ **Texts.** Letters, speeches, columns, notes with templates, versions and export to Word and PDF.
@@ -64,18 +64,18 @@ A private, offline organiser for Android: matters, people, calendar, delegations
 
 ## Install
 
-Download the `.apk` from [Releases](../../releases/latest). For updates, use [Obtainium](https://obtainium.imranr.dev/). Make a backup before updating.
-
-AI (optional): Options → AI → Download the model (≈2.6 GB) → Choose the model file. The file is checked by its checksum.
+- 📲 **Directly:** download the `.apk` file from [github.com/marybezuhla/mandat/releases/latest](https://github.com/marybezuhla/mandat/releases/latest).
+- 🔄 **With updates:** use the free app Obtainium, available on F-Droid: [f-droid.org/packages/dev.imranr.obtainium.fdroid](https://f-droid.org/packages/dev.imranr.obtainium.fdroid) (F-Droid is a free catalogue of Android apps, a bit like Google Play: every app there is open source, without ads or tracking, and is checked and built by the catalogue's maintainers before publishing). In Obtainium tap "Add App" and paste `github.com/marybezuhla/mandat`. Make a backup before updating.
+- 🤖 **AI (optional):** Options → AI → Download the model (≈2.6 GB) → Choose the model file. The file is checked by its checksum.
 
 ## Transparency
 
 - **Permissions:** notifications and restoring reminders after a restart; reading the phone's calendar only if you turn on showing it; the phone's fingerprint or PIN to open; hiding other apps' windows over Mandat (protection only, no data). The build stops if an internet permission appears.
 - **Encryption:** the only things not encrypted are appearance and security settings (theme, PIN only, screenshots, automatic lock, neutral icon), the reminder and phone-calendar switches, a mark that Mandat copied something to the clipboard (without the text), technical AI marks and the model file (none of your data) and the dates that have reminders (so notifications arrive without unlocking; the notification text says nothing). Android also remembers the folder chosen for automatic backups. An open export file only by your choice and after a warning.
 - **Build:** the APK is built from this code in GitHub Actions apart from the tests and signed only after the author's approval. Checksums of the dependencies and of Gradle itself are verified; each APK's SHA-256 is published with the release.
-- **Signature:** the genuine APK is signed with a certificate whose SHA-256 fingerprint is `A7:06:53:16:67:2A:C1:5B:C3:87:A6:8C:2E:A2:96:EC:8E:A2:79:42:09:13:D6:9E:C5:02:05:BB:54:8D:77:3E`. To check it without any app: `apksigner verify --print-certs mandat-<version>.apk` (from the Android SDK Build Tools).
+- **Signature:** the genuine APK is signed with a certificate whose SHA-256 fingerprint is `A7:06:53:16:67:2A:C1:5B:C3:87:A6:8C:2E:A2:96:EC:8E:A2:79:42:09:13:D6:9E:C5:02:05:BB:54:8D:77:3E`. To check it without any app: `apksigner verify --print-certs mandat-<version>.apk` (from the Android SDK Build Tools) must show this fingerprint.
 - **A backup without the app:** a backup opens on a computer with your password, without Mandat: `scripts/decrypt_backup.py` (the file layout is described there). A backup carries no marker at all: without the password it is just random bytes.
 - **Limits:** not for classified or restricted official information, which needs specially protected systems rather than an app on a personal phone. Trip mode does not protect against someone who forces you to open Mandat and confirm turning it off; backups contain everything.
-- **How it was made:** written with AI assistance (Claude, Anthropic), directed and tested by the author.
+- **How it was made:** the code was written with AI (Claude, Anthropic), directed and tested by the author.
 
 Kotlin · Jetpack Compose · Room · SQLCipher · [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM). Licence: GNU GPL version 3 or (at your option) any later version (GPL-3.0-or-later). Third-party material: [NOTICE.md](NOTICE.md), privacy: [PRIVACY.md](PRIVACY.md), vulnerabilities: [SECURITY.md](SECURITY.md).
