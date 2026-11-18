@@ -154,8 +154,9 @@ class DelegationDraft(val delegation: ua.mandat.data.Delegation, val isNew: Bool
         val edited = delegation.copy(
             what = text, personId = personId, matterId = matterId, due = due, status = status.name, closedAt = closed,
             purpose = purpose.trim().take(2_000), doneMeans = doneMeans.trim().take(2_000),
-            // How much freedom was given, a check-in and "it came back" belong only to what the owner handed out
-            freedom = if (incoming) null else freedom?.name, checkIn = if (incoming) null else checkIn, returned = !incoming && returned,
+            // How much freedom was given and "it came back" belong only to what the owner handed out;
+            // an interim day is kept both ways (a control document often has one)
+            freedom = if (incoming) null else freedom?.name, checkIn = checkIn, returned = !incoming && returned,
             incoming = incoming,
         )
         if (isNew) db.delegations().insert(edited.copy(id = 0, createdAt = now)) else db.delegations().update(edited)
@@ -304,15 +305,17 @@ suspend fun persistReview(db: MandatDb, text: String?, append: Boolean = false, 
  *
  * One time of a repeating event changed on its own ([detachFrom], [detachDay]) is a new event of
  * that one day: saving it leaves that day out of the repeating one, so the two never show together.
+ * With [following], it is that time and every later one: a new repeating event from that day, and
+ * the old one ends the day before.
  */
 class EventDraft(
     val event: ua.mandat.data.Event, val isNew: Boolean, people: Set<Long> = emptySet(), val communityId: Long? = null,
-    val detachFrom: Long? = null, val detachDay: Long? = null,
+    val detachFrom: Long? = null, val detachDay: Long? = null, val following: Boolean = false,
 ) {
     private val initialPeople = people
     val detached: Boolean get() = detachFrom != null && detachDay != null
     /** Something was typed or chosen since the sheet opened: closing it asks before throwing that away. */
-    fun changed(): Boolean = repeat?.name != event.repeat || repeatUntil != event.repeatUntil || skipped != ua.mandat.data.Repeats.skipped(event) || title != event.title || notes != event.notes || outcome != event.outcome || place != event.place || day != event.day || startMin != event.startMin || matterId != event.matterId || endDay != event.endDay || endMin != event.endMin || kind.name != event.kind || remind != event.remind || people != initialPeople
+    fun changed(): Boolean = ua.mandat.data.Repeat.key(repeat, days, day) != event.repeat || repeatUntil != event.repeatUntil || skipped != ua.mandat.data.Repeats.skipped(event) || title != event.title || notes != event.notes || outcome != event.outcome || place != event.place || day != event.day || startMin != event.startMin || matterId != event.matterId || endDay != event.endDay || endMin != event.endMin || kind.name != event.kind || remind != event.remind || people != initialPeople
 
     var title by mutableStateOf(event.title)
     var day by mutableStateOf(event.day)
@@ -327,6 +330,8 @@ class EventDraft(
     var remind by mutableStateOf(event.remind)
     var people by mutableStateOf(people)
     var repeat by mutableStateOf(ua.mandat.data.Repeat.of(event.repeat))
+    /** The weekdays of [ua.mandat.data.Repeat.DAYS] (1 is Monday); the first date's own is added on saving. */
+    var days by mutableStateOf(ua.mandat.data.Repeat.daysOf(event.repeat))
     var repeatUntil by mutableStateOf(event.repeatUntil)
     /** The days on which a repeating event does not come; taking one out of here brings that time back. */
     var skipped by mutableStateOf(ua.mandat.data.Repeats.skipped(event))
@@ -336,7 +341,7 @@ class EventDraft(
     fun current(now: Long) = event.copy(
         title = title, day = day, endDay = endDay, startMin = startMin, endMin = endMin, kind = kind.name,
         place = place, matterId = matterId, notes = notes, outcome = outcome, remind = remind, updatedAt = now,
-        repeat = repeat?.name, repeatUntil = if (repeat == null) null else repeatUntil,
+        repeat = ua.mandat.data.Repeat.key(repeat, days, day), repeatUntil = if (repeat == null) null else repeatUntil,
         skipDays = if (repeat == null) "" else skipped.sorted().joinToString(","),
     )
 
@@ -354,11 +359,19 @@ class EventDraft(
             if (detachFrom != null && detachDay != null) {
                 // The new event stays in the communities of the repeating one, and that one no longer comes on this day
                 db.communities().communitiesOf(ua.mandat.data.LinkKind.EVENT, detachFrom).forEach { c -> db.communities().link(ua.mandat.data.CommunityLink(c, ua.mandat.data.LinkKind.EVENT, id)) }
-                db.events().get(detachFrom)?.let { base -> ua.mandat.data.cleanEvent(ua.mandat.data.Repeats.skipping(base, detachDay))?.let { db.events().update(it) } }
+                db.events().get(detachFrom)?.let { base ->
+                    // (the old one ends the day before the new one begins, if that is still after its own first
+                    // date; otherwise the day before the chosen date, so it never loses its end)
+                    val end = minOf(detachDay, edited.day) - 1
+                    val rest = if (following) base.copy(repeatUntil = if (end >= base.day) end else detachDay - 1, updatedAt = now) else ua.mandat.data.Repeats.skipping(base, detachDay)
+                    ua.mandat.data.cleanEvent(rest)?.let { db.events().update(it) }
+                }
             }
             // A meeting that has happened is the last contact with the people in it (for a repeating one, its last time so far)
             val today = Dates.today()
-            val held = if (edited.repeats) ua.mandat.data.Repeats.starts(edited, today - 400, today).lastOrNull { it <= today } else edited.day.takeIf { it <= today }
+            // (only a meeting, a reception or a call is a contact: not a birthday or a trip)
+            val contact = edited.kind in setOf(ua.mandat.data.EventKind.MEETING.name, ua.mandat.data.EventKind.RECEPTION.name, ua.mandat.data.EventKind.CALL.name)
+            val held = if (!contact) null else if (edited.repeats) ua.mandat.data.Repeats.starts(edited, today - 400, today).lastOrNull { it <= today } else edited.day.takeIf { it <= today }
             if (held != null) people.forEach { db.people().touchLastContact(it, held) }
         }
     }

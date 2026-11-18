@@ -270,6 +270,29 @@ class Session(app: Application) : AndroidViewModel(app) {
         eventDraft = EventDraft(one, isNew = true, c.people, detachFrom = c.event.id, detachDay = c.day)
     }
 
+    /**
+     * This time and every later one: the repeating event ends the day before, and a new one with the
+     * same rule begins on this day (saved only when something in it is changed). On the first time
+     * itself that is simply the whole event.
+     */
+    fun openEventFollowing(c: EventChoice) {
+        if (c.day <= c.event.day || !followingFits(c)) return openEventSeries(c)
+        eventChoice = null
+        val from = ua.mandat.data.Repeats.at(c.event, c.day).copy(id = 0, outcome = "",
+            skipDays = ua.mandat.data.Repeats.skipped(c.event).filter { it > c.day }.sorted().joinToString(","))
+        eventDraft = EventDraft(from, isNew = true, c.people, detachFrom = c.event.id, detachDay = c.day, following = true)
+    }
+
+    /**
+     * A new event from [EventChoice.day] keeps the rhythm only when that day is the same day of the
+     * month as the first one (a monthly event on the 31st met on the 30th would move to the 30th).
+     */
+    fun followingFits(c: EventChoice): Boolean {
+        val kind = ua.mandat.data.Repeat.of(c.event.repeat)
+        if (kind != ua.mandat.data.Repeat.MONTHLY && kind != ua.mandat.data.Repeat.YEARLY) return true
+        return java.time.LocalDate.ofEpochDay(c.day).dayOfMonth == java.time.LocalDate.ofEpochDay(c.event.day).dayOfMonth
+    }
+
     /** A repeating event does not come on this one day. */
     fun skipEventTime(c: EventChoice) {
         eventChoice = null
@@ -1157,6 +1180,12 @@ class Session(app: Application) : AndroidViewModel(app) {
                             { persistInboxDraft(current.db, openSplit) },
                             { openContact?.takeIf { !it.isNew || it.touched }?.persist(current.db) },
                             { persistReview(current.db, openReview, openReviewAppend, openReviewDay) },
+                            // A repeating meeting that has happened since is the last contact with its people
+                            {
+                                val db = current.db
+                                ua.mandat.data.Repeats.lastHeld(db.events().observeAll().first(), db.events().observeLinks().first(), Dates.today())
+                                    .forEach { (person, day) -> db.people().touchLastContact(person, day) }
+                            },
                             // Last: only the days on which something is due, for reminders
                             { storeReminderDays(current.db, tripAtLock) },
                         ).forEach { save ->

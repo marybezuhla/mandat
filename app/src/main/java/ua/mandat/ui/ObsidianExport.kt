@@ -181,7 +181,7 @@ internal suspend fun obsidianVault(
     events.forEach { e ->
         note(fEvents, eName.getValue(e.id), "event",
             "date: ${Export.day(e.day)}\n" + yamlLine("kind", s(ua.mandat.data.EventKind.of(e.kind).label())) + yamlLine("place", e.place) +
-                (ua.mandat.data.Repeat.of(e.repeat)?.let { r -> yamlLine("repeat", s(r.label())) + (e.repeatUntil?.let { "until: ${Export.day(it)}\n" } ?: "") } ?: ""),
+                (repeatText(context, e.repeat, e.day)?.let { r -> yamlLine("repeat", r) + (e.repeatUntil?.let { "until: ${Export.day(it)}\n" } ?: "") } ?: ""),
             buildString {
                 ml(e.matterId)?.let { append("**").append(s(R.string.obs_matter)).append(":** ").append(it).append("\n\n") }
                 val who = eventPeople[e.id].orEmpty().mapNotNull { pl(it) }
@@ -203,7 +203,7 @@ internal suspend fun obsidianVault(
             note(fDeleg, dgName.getValue(d.id), "delegation", yamlLine("status", status(d.status)) + (d.due?.let { "due: ${Export.day(it)}\n" } ?: "") + (if (d.incoming) "direction: to-me\n" else ""),
                 buildString {
                     append(d.what).append("\n\n")
-                    if (d.incoming && d.personId == null) append("**").append(s(R.string.kind_delegation_in)).append("**\n")
+                    if (d.incoming && d.personId == null) append("**").append(s(ua.mandat.ui.dirLabel(R.string.kind_delegation_in))).append("**\n")
                     pl(d.personId)?.let { append("**").append(s(if (d.incoming) R.string.from_whom else R.string.obs_to_whom)).append(":** ").append(it).append("\n") }
                     ml(d.matterId)?.let { append("**").append(s(R.string.obs_matter)).append(":** ").append(it).append("\n") }
                     if (d.purpose.isNotBlank()) append("\n").append(d.purpose).append("\n")
@@ -215,7 +215,7 @@ internal suspend fun obsidianVault(
                 buildString {
                     append(p.what).append("\n\n")
                     val who = pl(p.personId) ?: p.toWhom.takeIf { it.isNotBlank() }
-                    if (p.incoming && who == null) append("**").append(s(R.string.kind_promise_in)).append("**\n")
+                    if (p.incoming && who == null) append("**").append(s(ua.mandat.ui.dirLabel(R.string.kind_promise_in))).append("**\n")
                     who?.let { append("**").append(s(if (p.incoming) R.string.from_whom else R.string.obs_to_whom)).append(":** ").append(it).append("\n") }
                     ml(p.matterId)?.let { append("**").append(s(R.string.obs_matter)).append(":** ").append(it).append("\n") }
                     if (p.source.isNotBlank()) append("\n").append(p.source).append("\n")

@@ -466,7 +466,8 @@ fun MatterEditor(db: MandatDb, session: Session, draft: MatterDraft) {
 
     if (confirmDelete) {
         val aidRecords by remember(db, request.matter.id) { db.money().observeAidFor(request.matter.id).hiding(session, ua.mandat.data.HideRules.AID) }.collectAsStateWithLifecycle(emptyList())
-        val matterTexts by remember(db, request.matter.id) { db.texts().observeForMatter(request.matter.id) }.collectAsStateWithLifecycle(emptyList())
+        // (a text hidden in trip mode is neither counted nor deleted here: the number would give it away)
+        val matterTexts by remember(db, request.matter.id) { db.texts().observeForMatter(request.matter.id).hiding(session, ua.mandat.data.HideRules.TEXT) }.collectAsStateWithLifecycle(emptyList())
         var deleteTexts by remember { mutableStateOf(false) }
         // A sensitive matter takes everything tied to it by default: left behind, it would no longer be hidden
         var deleteAll by remember { mutableStateOf(request.matter.sensitive) }
@@ -580,7 +581,8 @@ private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: M
                 Text(
                     listOfNotNull(
                         ua.mandat.data.Raci.of(row.raci)?.let { stringResource(it.label()) },
-                        ua.mandat.data.Stance.of(row.stance)?.let { stringResource(it.label()) } ?: stringResource(R.string.stance_none),
+                        // (the simple view does not name a missing stance)
+                        ua.mandat.data.Stance.of(row.stance)?.let { stringResource(it.label()) } ?: if (AppMode.simple) null else stringResource(R.string.stance_none),
                     ).joinToString(" · "),
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary,
                 )
@@ -611,14 +613,14 @@ private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: M
     delegations.forEach { DelegationRow(it, it.personId?.let(nameOf::get), null, session) }
     Column {
         TextButton(onClick = { session.delegationDraft = newDelegation(matterId = matterId) }) { Text("+ " + stringResource(R.string.add_delegation)) }
-        TextButton(onClick = { session.delegationDraft = newDelegation(matterId = matterId, incoming = true) }) { Text("+ " + stringResource(R.string.kind_delegation_in)) }
+        TextButton(onClick = { session.delegationDraft = newDelegation(matterId = matterId, incoming = true) }) { Text("+ " + stringResource(ua.mandat.ui.dirLabel(R.string.kind_delegation_in))) }
     }
 
     LinkSection(stringResource(R.string.promises))
     promises.forEach { PromiseRow(it, it.personId?.let(nameOf::get), null, session) }
     Column {
         TextButton(onClick = { session.promiseDraft = newPromise(matterId = matterId) }) { Text("+ " + stringResource(R.string.add_promise)) }
-        TextButton(onClick = { session.promiseDraft = newPromise(matterId = matterId, incoming = true) }) { Text("+ " + stringResource(R.string.kind_promise_in)) }
+        TextButton(onClick = { session.promiseDraft = newPromise(matterId = matterId, incoming = true) }) { Text("+ " + stringResource(ua.mandat.ui.dirLabel(R.string.kind_promise_in))) }
     }
 
     if (adding) {
@@ -637,7 +639,8 @@ private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: M
         var stance by remember(row) { mutableStateOf(ua.mandat.data.Stance.of(row.stance)) }
         var raci by remember(row) { mutableStateOf(ua.mandat.data.Raci.of(row.raci)) }
         EditSheet(title = row.name, onDismiss = { stanceFor = null }, onSave = null) {
-            SheetGroup(stringResource(R.string.stance)) {
+            // The simple view shows the stance and the role only where one is already set
+            if (!AppMode.simple || row.stance != null) SheetGroup(stringResource(R.string.stance)) {
                 ChoiceTiles(listOf<ua.mandat.data.Stance?>(null) + ua.mandat.data.Stance.entries, stance,
                     label = { st -> st?.let { stringResource(it.label()) } ?: stringResource(R.string.stance_none) },
                     onPick = { st ->
@@ -655,7 +658,7 @@ private fun MatterLinks(db: MandatDb, session: Session, matterId: Long, draft: M
                 )
             }
             // Who does what (RACI); only one person leads
-            SheetGroup(stringResource(R.string.raci_title)) {
+            if (!AppMode.simple || row.raci != null) SheetGroup(stringResource(R.string.raci_title)) {
                 ChoiceTiles(listOf<ua.mandat.data.Raci?>(null) + ua.mandat.data.Raci.entries, raci,
                     label = { r -> r?.let { stringResource(it.label()) } ?: stringResource(R.string.raci_none) },
                     onPick = { r ->
@@ -713,9 +716,9 @@ private fun MatterStrip(db: MandatDb, matter: Matter, session: Session) {
             Text(stringResource(R.string.stances_people), style = MaterialTheme.typography.labelMedium, color = Muted)
             Spacer(Modifier.height(4.dp))
             StackBar(listOf(
-                Slice("a", stringResource(R.string.strip_allies), withStance.count { it.stance == "ALLY" }, ChartColors.teal),
+                Slice("a", stringResource(byMode(R.string.strip_allies, official = R.string.strip_allies_office)), withStance.count { it.stance == "ALLY" }, ChartColors.teal),
                 Slice("u", stringResource(R.string.strip_undecided), withStance.count { it.stance == "UNDECIDED" }, ChartColors.amberLight),
-                Slice("o", stringResource(R.string.strip_opponents), withStance.count { it.stance == "OPPONENT" }, ChartColors.salmon),
+                Slice("o", stringResource(byMode(R.string.strip_opponents, official = R.string.strip_opponents_office)), withStance.count { it.stance == "OPPONENT" }, ChartColors.salmon),
                 Slice("n", stringResource(R.string.stance_neutral_many), withStance.count { it.stance == "NEUTRAL" }, ChartColors.grayLight),
             ), selected = stancePick, onPick = { stancePick = it })
             // The people behind the chosen part, right under the bar; a name opens the brief
@@ -796,9 +799,9 @@ private fun VoteCounter(linked: List<ua.mandat.data.MatterPersonRow>, draft: Mat
                 rows.forEach { r -> MiniChip(r.name, onClick = { session.saveDraft(); session.oneOnOne = r.personId }) }
             }
         }
-        Group(stringResource(R.string.strip_allies), forThem, ChartColors.teal)
+        Group(stringResource(byMode(R.string.strip_allies, official = R.string.strip_allies_office)), forThem, ChartColors.teal)
         Group(stringResource(R.string.strip_undecided), undecided, ChartColors.amberLight)
-        Group(stringResource(R.string.strip_opponents), against, ChartColors.salmon)
+        Group(stringResource(byMode(R.string.strip_opponents, official = R.string.strip_opponents_office)), against, ChartColors.salmon)
         // Who moved in the last 30 days
         val moved = linked.filter { it.stanceSince != null && it.stanceSince > today - 30 && it.previousStance != null }
         if (moved.isNotEmpty()) {

@@ -163,6 +163,10 @@ interface MatterDao {
     @Query("SELECT id, title FROM matters ORDER BY title COLLATE NOCASE")
     fun observeAllTitles(): Flow<List<MatterTitle>>
 
+    /** Each matter's own words (title, description, goal, next step) in one text: to find a hidden person's name in them. */
+    @Query("SELECT id, title || ' ' || description || ' ' || goal || ' ' || nextStep AS title FROM matters")
+    fun observeOwnTexts(): Flow<List<MatterTitle>>
+
     @Query("SELECT id FROM matters WHERE sensitive = 1")
     fun observeSensitiveIds(): Flow<List<Long>>
 

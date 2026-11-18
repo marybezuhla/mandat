@@ -65,8 +65,8 @@ private fun TaskKind.label(): Int = when (this) {
     TaskKind.SOFT -> R.string.deadline_soft
     TaskKind.DELEGATION -> R.string.kind_delegation
     TaskKind.PROMISE -> R.string.kind_promise
-    TaskKind.DELEGATION_IN -> R.string.kind_delegation_in
-    TaskKind.PROMISE_IN -> R.string.kind_promise_in
+    TaskKind.DELEGATION_IN -> ua.mandat.ui.dirLabel(R.string.kind_delegation_in)
+    TaskKind.PROMISE_IN -> ua.mandat.ui.dirLabel(R.string.kind_promise_in)
 }
 
 @Composable
@@ -191,14 +191,14 @@ fun TaskRow(
 @Composable
 fun DelegationRow(d: Delegation, personName: String?, matterTitle: String?, session: Session) {
     // Handed to the owner: said in words too, with who handed it
-    val who = if (d.incoming) personName?.let { stringResource(R.string.chip_from, it) } ?: stringResource(R.string.chip_to_me) else personName
+    val who = if (d.incoming) personName?.let { stringResource(R.string.chip_from, it) } ?: stringResource(ua.mandat.ui.dirLabel(R.string.chip_to_me)) else personName
     TaskRow(
         what = d.what,
         kind = if (d.incoming) TaskKind.DELEGATION_IN else TaskKind.DELEGATION,
         chips = listOfNotNull(
             who, matterTitle,
-            d.checkIn?.takeIf { TaskStatus.of(d.status) == TaskStatus.OPEN }?.let { stringResource(R.string.check_in_chip, Dates.short(it)) },
-            if (d.returned) stringResource(R.string.returned_chip) else null,
+            d.checkIn?.takeIf { TaskStatus.of(d.status) == TaskStatus.OPEN }?.let { stringResource(if (d.incoming && controlDoc()) R.string.interim_chip else R.string.check_in_chip, Dates.short(it)) },
+            if (d.returned) stringResource(ua.mandat.ui.dirLabel(R.string.returned_chip)) else null,
             ua.mandat.data.Freedom.of(d.freedom)?.let { stringResource(it.label()) },
         ),
         due = d.due,
@@ -225,7 +225,7 @@ fun DelegationRow(d: Delegation, personName: String?, matterTitle: String?, sess
 fun PromiseRow(p: Promise, personName: String?, matterTitle: String?, session: Session, extra: String? = null) {
     val name = personName ?: p.toWhom.ifBlank { null }
     // Promised to the owner: said in words too, with who promised
-    val whom = if (p.incoming) name?.let { stringResource(R.string.chip_from, it) } ?: stringResource(R.string.chip_to_me) else name
+    val whom = if (p.incoming) name?.let { stringResource(R.string.chip_from, it) } ?: stringResource(ua.mandat.ui.dirLabel(R.string.chip_to_me)) else name
     fun toggle() {
         val next = if (TaskStatus.of(p.status) == TaskStatus.OPEN) TaskStatus.DONE else TaskStatus.OPEN
         session.write {
@@ -347,7 +347,7 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
     var confirmDelete by remember { mutableStateOf(false) }
 
     EditSheet(
-        title = stringResource(if (draft.incoming) R.string.kind_delegation_in else R.string.delegation_new),
+        title = stringResource(if (draft.incoming) ua.mandat.ui.dirLabel(R.string.kind_delegation_in) else R.string.delegation_new),
         onDismiss = { session.delegationDraft = null },
         changed = draft.changed(),
         onSave = { session.saveDelegationDraft() },
@@ -355,7 +355,7 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
     ) {
         SheetGroup {
                 // Who handed it to whom: the owner to someone, or someone to the owner
-                DirectionChips(draft.incoming, R.string.dir_delegation_out, R.string.kind_delegation_in) { draft.incoming = it }
+                DirectionChips(draft.incoming, ua.mandat.ui.dirLabel(R.string.dir_delegation_out), ua.mandat.ui.dirLabel(R.string.kind_delegation_in)) { draft.incoming = it }
 
                 OutlinedTextField(
                     value = draft.what, onValueChange = { draft.what = it },
@@ -367,11 +367,12 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
                 // The intent and what "done" means: the person can act sensibly when things change
                 OutlinedTextField(
                     value = draft.purpose, onValueChange = { draft.purpose = it },
-                    label = { Text(stringResource(R.string.delegation_purpose)) }, modifier = Modifier.fillMaxWidth(),
+                    // (for a task handed to the owner: where it came from, as a control document names it)
+                    label = { Text(stringResource(if (draft.incoming && controlDoc()) R.string.delegation_in_source else R.string.delegation_purpose)) }, modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = draft.doneMeans, onValueChange = { draft.doneMeans = it },
-                    label = { Text(stringResource(R.string.delegation_done_means)) }, modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(if (draft.incoming && controlDoc()) R.string.delegation_in_closing else R.string.delegation_done_means)) }, modifier = Modifier.fillMaxWidth(),
                 )
                 // (the simple view leaves these out, unless this record already has them: nothing is ever edited blind)
                 if (!draft.incoming && (!AppMode.simple || draft.delegation.freedom != null)) FreedomPicker(draft.freedom) { draft.freedom = it }
@@ -380,13 +381,13 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
                 MatterPicker(matters, allMatters, draft.matterId) { draft.matterId = it }
                 DueField(draft.due) { draft.due = it }
                 // (the simple view leaves out the check-in day and "it came back")
-                if (!draft.incoming && (!AppMode.simple || draft.delegation.checkIn != null)) DueField(draft.checkIn, label = R.string.delegation_check_in) { draft.checkIn = it }
-                if (!draft.incoming && (!AppMode.simple || draft.delegation.returned)) Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!AppMode.simple || draft.delegation.checkIn != null) DueField(draft.checkIn, label = if (draft.incoming && controlDoc()) R.string.delegation_in_interim else R.string.delegation_check_in) { draft.checkIn = it }
+                if (!draft.incoming && (!AppMode.simple || draft.delegation.returned)) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().switchRow(draft.returned) { draft.returned = it }) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.delegation_returned), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(ua.mandat.ui.dirLabel(R.string.delegation_returned)), style = MaterialTheme.typography.bodyLarge)
                         Text(stringResource(R.string.delegation_returned_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                     }
-                    androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.delegation_returned)), checked = draft.returned, onCheckedChange = { draft.returned = it })
+                    androidx.compose.material3.Switch(checked = draft.returned, onCheckedChange = null)
                 }
         }
         if (!draft.isNew) SheetGroup {
@@ -447,7 +448,7 @@ fun PromiseDialog(db: MandatDb, session: Session, draft: PromiseDraft) {
     var confirmDelete by remember { mutableStateOf(false) }
 
     EditSheet(
-        title = stringResource(if (draft.incoming) R.string.kind_promise_in else R.string.promise_new),
+        title = stringResource(if (draft.incoming) ua.mandat.ui.dirLabel(R.string.kind_promise_in) else R.string.promise_new),
         onDismiss = { session.promiseDraft = null },
         changed = draft.changed(),
         onSave = { session.savePromiseDraft() },
@@ -455,7 +456,7 @@ fun PromiseDialog(db: MandatDb, session: Session, draft: PromiseDraft) {
     ) {
         SheetGroup {
                 // Who promised whom: the owner to someone, or someone to the owner
-                DirectionChips(draft.incoming, R.string.dir_promise_out, R.string.kind_promise_in) { draft.incoming = it }
+                DirectionChips(draft.incoming, ua.mandat.ui.dirLabel(R.string.dir_promise_out), ua.mandat.ui.dirLabel(R.string.kind_promise_in)) { draft.incoming = it }
 
                 OutlinedTextField(
                     value = draft.what, onValueChange = { draft.what = it },

@@ -1,0 +1,6 @@
+Version 1.0.
+• Repeats on several weekdays, "the second Tuesday", "this and later dates".
+• Control-document fields for tasks handed to you at work.
+• Own words and categories in every mode; reply templates for an official.
+• Delete a person with their delegations and promises.
+• Check the password of automatic backups.

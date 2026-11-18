@@ -43,11 +43,29 @@ data class MoneyEntry(
 
 enum class MoneyKind { INCOME, EXPENSE }
 
-/** Default income categories; the owner can add own ones. */
-enum class IncomeCategory { SALARY, ACTIVITY_FUNDS, REFUNDS, ROYALTIES, PRACTICE, TEACHING, OTHER_IN }
+/**
+ * Default income categories; the owner can add own ones. Each mode offers its own set
+ * ([incomeFor]); a category is never renamed by the mode, so a record keeps its meaning.
+ */
+enum class IncomeCategory { SALARY, ACTIVITY_FUNDS, BONUSES, GRANTS, DONATIONS, BENEFITS, SIDE_JOB, REFUNDS, ROYALTIES, PRACTICE, TEACHING, OTHER_IN }
 
-/** Default expense categories; the owner can add own ones. */
-enum class ExpenseCategory { HOME, OFFICE, CHARITY, EXPERTS, TRIPS, PHONE, TRANSPORT, OTHER_OUT }
+/** Default expense categories; the owner can add own ones. Each mode offers its own set ([expenseFor]). */
+enum class ExpenseCategory { HOME, HOUSING, HEALTH, OFFICE, CHARITY, EXPERTS, CONTRACTORS, TRIPS, PHONE, TRANSPORT, OTHER_OUT }
+
+/** The income categories offered in [mode]. */
+fun incomeFor(mode: Mode): List<IncomeCategory> = when (mode) {
+    Mode.RADA, Mode.COUNCIL, Mode.ASSISTANT -> listOf(IncomeCategory.SALARY, IncomeCategory.ACTIVITY_FUNDS, IncomeCategory.REFUNDS, IncomeCategory.ROYALTIES, IncomeCategory.PRACTICE, IncomeCategory.TEACHING, IncomeCategory.OTHER_IN)
+    Mode.OFFICIAL -> listOf(IncomeCategory.SALARY, IncomeCategory.BONUSES, IncomeCategory.REFUNDS, IncomeCategory.ROYALTIES, IncomeCategory.TEACHING, IncomeCategory.OTHER_IN)
+    Mode.ACTIVIST -> listOf(IncomeCategory.SALARY, IncomeCategory.GRANTS, IncomeCategory.DONATIONS, IncomeCategory.REFUNDS, IncomeCategory.ROYALTIES, IncomeCategory.PRACTICE, IncomeCategory.TEACHING, IncomeCategory.OTHER_IN)
+    Mode.CITIZEN -> listOf(IncomeCategory.SALARY, IncomeCategory.BENEFITS, IncomeCategory.SIDE_JOB, IncomeCategory.REFUNDS, IncomeCategory.OTHER_IN)
+}
+
+/** The expense categories offered in [mode]. */
+fun expenseFor(mode: Mode): List<ExpenseCategory> = when (mode) {
+    Mode.RADA, Mode.COUNCIL, Mode.ASSISTANT, Mode.OFFICIAL -> listOf(ExpenseCategory.HOME, ExpenseCategory.OFFICE, ExpenseCategory.CHARITY, ExpenseCategory.EXPERTS, ExpenseCategory.TRIPS, ExpenseCategory.PHONE, ExpenseCategory.TRANSPORT, ExpenseCategory.OTHER_OUT)
+    Mode.ACTIVIST -> listOf(ExpenseCategory.HOME, ExpenseCategory.OFFICE, ExpenseCategory.CHARITY, ExpenseCategory.CONTRACTORS, ExpenseCategory.TRIPS, ExpenseCategory.PHONE, ExpenseCategory.TRANSPORT, ExpenseCategory.OTHER_OUT)
+    Mode.CITIZEN -> listOf(ExpenseCategory.HOME, ExpenseCategory.HOUSING, ExpenseCategory.HEALTH, ExpenseCategory.CHARITY, ExpenseCategory.TRIPS, ExpenseCategory.PHONE, ExpenseCategory.TRANSPORT, ExpenseCategory.OTHER_OUT)
+}
 
 /** Where a personal donation went. */
 enum class CharityKind {

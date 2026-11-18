@@ -171,6 +171,7 @@ fun ExportScreen(db: MandatDb, session: Session) {
     androidx.compose.runtime.LaunchedEffect(plan.period) { if (plan.period != ExportPeriod.ALL) plan.everything = false }
     val cadenceSet by remember(db) { db.settings().observe(ua.mandat.data.SETTING_CADENCE_START) }.collectAsStateWithLifecycle(null)
     val sensitiveIds by remember(db) { db.matters().observeSensitiveIds() }.collectAsStateWithLifecycle(emptyList())
+    val sensitivePeople by remember(db) { db.people().observeSensitiveIds() }.collectAsStateWithLifecycle(emptyList())
 
     var tooBigForMandat by remember { mutableStateOf(false) }
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
@@ -269,6 +270,8 @@ fun ExportScreen(db: MandatDb, session: Session) {
         ) {
             if (trip) Text(stringResource(R.string.export_trip_note), style = MaterialTheme.typography.labelMedium, color = Muted)
             else if (hidden.isNotEmpty()) Text(stringResource(R.string.export_lens_note), style = MaterialTheme.typography.labelMedium, color = Muted)
+            // Trip mode off: what it would hide goes into the files too, and that is said before anything is written
+            if (!trip && (sensitiveIds.isNotEmpty() || sensitivePeople.isNotEmpty())) Text(stringResource(R.string.export_sensitive_note), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
             // One period for everything chosen below; each kind of record is taken by its own dates
             SectionCard(Sym.calendar, stringResource(R.string.export_period)) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -437,7 +440,7 @@ fun ExportScreen(db: MandatDb, session: Session) {
             // Started outside this screen: leaving it (or turning the phone) does not stop it halfway
             session.detached {
                 val r = session.withOpenDb { d ->
-                    try { ua.mandat.data.Packet.apply(d, pk, personChoice, matterChoice, session.hidden.value.let { h -> { m: Long?, t: String -> h.item(m, t) } }) } catch (e: Exception) { ua.mandat.data.Packet.Result(0, 0, 0, 0, 0, failed = true) }
+                    try { ua.mandat.data.Packet.apply(d, pk, personChoice, matterChoice, session.hidden.value.let { h -> { m: Long?, t: String -> h.item(m, t) } }, session.hidden.value.let { h -> { person: Long?, event: Long? -> h.tied(person, event) } }) } catch (e: Exception) { ua.mandat.data.Packet.Result(0, 0, 0, 0, 0, failed = true) }
                 } ?: ua.mandat.data.Packet.Result(0, 0, 0, 0, 0, failed = true)
                 session.packetResult = r
                 // Deleting the file is offered only once everything from it is written
@@ -755,7 +758,7 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
             listOf(e.title, Export.day(e.day), Export.day(e.endDay), timeText(e.startMin), timeText(e.endMin),
                 context.getString(ua.mandat.data.EventKind.of(e.kind).label()), e.place, e.matterId?.let(titles::get).orEmpty(), e.notes, e.outcome,
                 // ("day" is then the first time)
-                ua.mandat.data.Repeat.of(e.repeat)?.let { context.getString(it.label()) }.orEmpty(), Export.day(e.repeatUntil))
+                repeatText(context, e.repeat, e.day).orEmpty(), Export.day(e.repeatUntil))
         },
     ))
     if ("money" in plan.tables) add("budget.csv", Export.csv(
@@ -928,13 +931,13 @@ private suspend fun matterDossier(context: Context, db: MandatDb, m: ua.mandat.d
     val ds = db.delegations().observeForMatter(m.id).first().filterNot { tied(it.personId, null) || people.named(ua.mandat.data.HideRules.DELEGATION.text(it)) }
     if (ds.isNotEmpty()) {
         append("\n## ").append(context.getString(R.string.delegations)).append("\n\n")
-        ds.forEach { d -> append("- ").append(if (d.incoming) context.getString(R.string.kind_delegation_in) + ": " else "").append(Export.md(d.what)).append(d.personId?.let(nameOf::get)?.let { " — " + Export.md(it) }.orEmpty())
+        ds.forEach { d -> append("- ").append(if (d.incoming) context.getString(ua.mandat.ui.dirLabel(R.string.kind_delegation_in)) + ": " else "").append(Export.md(d.what)).append(d.personId?.let(nameOf::get)?.let { " — " + Export.md(it) }.orEmpty())
             .append(d.due?.let { " (" + Export.day(it) + ")" }.orEmpty()).append(" · ").append(context.getString(TaskStatus.of(d.status).delegationLabel())).append("\n") }
     }
     val ps = db.promises().observeForMatter(m.id).first().filterNot { tied(it.personId, null) || people.named(ua.mandat.data.HideRules.PROMISE.text(it)) }
     if (ps.isNotEmpty()) {
         append("\n## ").append(context.getString(R.string.promises)).append("\n\n")
-        ps.forEach { p -> append("- ").append(if (p.incoming) context.getString(R.string.kind_promise_in) + ": " else "").append(Export.md(p.what)).append(" · ").append(context.getString(TaskStatus.of(p.status).promiseLabel())).append("\n") }
+        ps.forEach { p -> append("- ").append(if (p.incoming) context.getString(ua.mandat.ui.dirLabel(R.string.kind_promise_in)) + ": " else "").append(Export.md(p.what)).append(" · ").append(context.getString(TaskStatus.of(p.status).promiseLabel())).append("\n") }
     }
     val es = db.events().observeForMatter(m.id).first().filterNot { tied(null, it.id) || people.named(ua.mandat.data.HideRules.EVENT.text(it)) }
     if (es.isNotEmpty()) {

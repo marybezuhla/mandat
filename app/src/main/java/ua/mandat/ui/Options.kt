@@ -95,6 +95,7 @@ fun Options(session: Session, onBack: () -> Unit) {
     // Automatic backups: the folder is chosen first, then the password
     var autoFolder by remember { mutableStateOf<android.net.Uri?>(null) }
     var confirmAutoOff by remember { mutableStateOf(false) }
+    var checkingPassword by remember { mutableStateOf(false) }
     // Erasing everything: asked in words first, then confirmed with the phone's lock
     var confirmErase by remember { mutableStateOf(false) }
     var cloudFolder by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -226,6 +227,8 @@ fun Options(session: Session, onBack: () -> Unit) {
                             Text(stringResource(R.string.auto_may_sync), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
                         }
                         TextButton(onClick = { backups.autoNow() }, enabled = !backups.busy) { Text(stringResource(R.string.auto_now)) }
+                        // A forgotten password cannot be recovered: checking it now and then keeps it in memory
+                        TextButton(onClick = { checkingPassword = true }, enabled = !backups.busy) { Text(stringResource(R.string.auto_check_password)) }
                     }
 
                     Spacer(Modifier.height(8.dp))
@@ -349,6 +352,14 @@ fun Options(session: Session, onBack: () -> Unit) {
         )
     }
 
+    if (checkingPassword) PasswordDialog(
+        title = stringResource(R.string.auto_check_password),
+        onDone = { password ->
+            checkingPassword = false
+            if (password != null) backups.checkAutoPassword(password)
+        },
+    )
+
     askRestorePassword?.let { uri ->
         PasswordDialog(
             title = stringResource(R.string.restore_password_title),
@@ -379,6 +390,7 @@ fun Options(session: Session, onBack: () -> Unit) {
             BackupNotice.AutoTooBig -> stringResource(R.string.notice_auto_too_big)
             BackupNotice.ExistingFile -> stringResource(R.string.notice_existing_file)
             BackupNotice.TooBig -> stringResource(R.string.notice_too_big)
+            is BackupNotice.PasswordChecked -> stringResource(if (notice.right) R.string.notice_password_right else R.string.notice_password_wrong)
         }
         AlertDialog(
             onDismissRequest = { backups.notice = null },

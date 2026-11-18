@@ -62,6 +62,12 @@ class SuggestCategoryTest {
         org.junit.Assert.assertTrue(c in ua.mandat.data.standardCategories(true, listOf(someone("COLLEAGUE"))))
         org.junit.Assert.assertTrue(c in ua.mandat.data.standardCategories(true, listOf(someone("EXPERT", more = "COLLEAGUE"))))
         // An official or a citizen has both: colleagues at work, and deputies they deal with
+        // Categories of one kind of owner are offered in that mode, or where someone already has one
+        val citizen = ua.mandat.data.standardCategories(false, emptyList(), ua.mandat.data.Mode.CITIZEN)
+        org.junit.Assert.assertTrue(ua.mandat.data.PersonCategory.FAMILY in citizen && ua.mandat.data.PersonCategory.INTERNATIONAL !in citizen)
+        org.junit.Assert.assertTrue(ua.mandat.data.PersonCategory.DONOR !in citizen)
+        org.junit.Assert.assertTrue(ua.mandat.data.PersonCategory.DONOR in ua.mandat.data.standardCategories(false, listOf(someone("DONOR")), ua.mandat.data.Mode.RADA))
+        org.junit.Assert.assertEquals(ua.mandat.data.PersonCategory.OFFICIAL, ua.mandat.data.suggestCategory("Пенсійний фонд України", ""))
         val plain = ua.mandat.data.standardCategories(deputy = false, people = emptyList())
         org.junit.Assert.assertTrue(c in plain && ua.mandat.data.PersonCategory.COLLEAGUE_MP in plain)
         org.junit.Assert.assertTrue(ua.mandat.data.PersonCategory.OTHER !in plain && ua.mandat.data.PersonCategory.OTHER !in elected)

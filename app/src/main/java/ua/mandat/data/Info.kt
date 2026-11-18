@@ -153,6 +153,9 @@ interface InfoDao {
     @Query("UPDATE info_items SET personId = NULL WHERE personId = :personId")
     suspend fun clearPerson(personId: Long)
 
+    @Query("DELETE FROM info_items WHERE personId = :personId")
+    suspend fun deleteForPerson(personId: Long)
+
     @Query("SELECT * FROM key_messages ORDER BY updatedAt DESC")
     fun observeMessages(): Flow<List<KeyMessage>>
 
@@ -191,6 +194,9 @@ interface InfoDao {
 
     @Query("UPDATE alliances SET personId = NULL WHERE personId = :personId")
     suspend fun clearAlliancePerson(personId: Long)
+
+    @Query("DELETE FROM alliances WHERE personId = :personId")
+    suspend fun deleteAlliancesForPerson(personId: Long)
 }
 
 /** Trims the free text; null when there is no title. */

@@ -101,7 +101,7 @@ fun PeopleList(db: MandatDb, session: Session) {
     val categorySlices = buildList {
         add(Slice("TEAM", teamLabel, people.count { it.teamRole != null }, ChartColors.blue))
         // Standard categories, then the owner's own words, each with its own row
-        (ua.mandat.data.standardCategories(AppMode.mode.deputy, people).map { it.name } + ownCategories(people) + PersonCategory.OTHER.name)
+        (ua.mandat.data.standardCategories(AppMode.mode.deputy, people, AppMode.mode).map { it.name } + ownCategories(people) + PersonCategory.OTHER.name)
             .forEachIndexed { i, key ->
                 add(Slice(key, categoryLabel(key), people.count { it.teamRole == null && categoryKey(it) == key }, SeriesColors[(i + 1) % SeriesColors.size]))
             }
@@ -141,9 +141,9 @@ fun PeopleList(db: MandatDb, session: Session) {
                     }
                     stance?.let { st ->
                         val label = when (st) {
-                            "ALLY" -> R.string.strip_allies
+                            "ALLY" -> byMode(R.string.strip_allies, official = R.string.strip_allies_office)
                             "UNDECIDED" -> R.string.strip_undecided
-                            "OPPONENT" -> R.string.strip_opponents
+                            "OPPONENT" -> byMode(R.string.strip_opponents, official = R.string.strip_opponents_office)
                             else -> R.string.stance_neutral_many
                         }
                         FilterBadge(stringResource(label)) { stance = null }
@@ -271,9 +271,9 @@ fun PeopleList(db: MandatDb, session: Session) {
                     Spacer(Modifier.height(4.dp))
                     StackBar(
                         listOf(
-                            Slice("ALLY", stringResource(R.string.strip_allies), links.count { it.stance == "ALLY" }, ChartColors.teal),
+                            Slice("ALLY", stringResource(byMode(R.string.strip_allies, official = R.string.strip_allies_office)), links.count { it.stance == "ALLY" }, ChartColors.teal),
                             Slice("UNDECIDED", stringResource(R.string.strip_undecided), links.count { it.stance == "UNDECIDED" }, ChartColors.amberLight),
-                            Slice("OPPONENT", stringResource(R.string.strip_opponents), links.count { it.stance == "OPPONENT" }, ChartColors.salmon),
+                            Slice("OPPONENT", stringResource(byMode(R.string.strip_opponents, official = R.string.strip_opponents_office)), links.count { it.stance == "OPPONENT" }, ChartColors.salmon),
                             Slice("NEUTRAL", stringResource(R.string.stance_neutral_many), links.count { it.stance == "NEUTRAL" }, ChartColors.grayLight),
                         ),
                         selected = stance, onPick = { stance = it },
@@ -285,9 +285,9 @@ fun PeopleList(db: MandatDb, session: Session) {
                         val perMatter = links.filter { it.stance != null }.groupBy { it.matterId }
                             .entries.sortedByDescending { it.value.size }
                         val shownRows = if (allStance) perMatter else perMatter.take(8)
-                        val allyL = stringResource(R.string.strip_allies)
+                        val allyL = stringResource(byMode(R.string.strip_allies, official = R.string.strip_allies_office))
                         val undL = stringResource(R.string.strip_undecided)
-                        val oppL = stringResource(R.string.strip_opponents)
+                        val oppL = stringResource(byMode(R.string.strip_opponents, official = R.string.strip_opponents_office))
                         val neuL = stringResource(R.string.stance_neutral_many)
                         shownRows.forEach { (mid, ls) ->
                             ByMatterRow(titleOf[mid] ?: "—", listOf(
@@ -421,12 +421,13 @@ fun PersonEditor(db: MandatDb, session: Session, draft: PersonDraft) {
                     onPick = { draft.reportsToId = it },
                 )
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // (the whole row is the switch: a screen reader says its text once, with on or off)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().switchRow(draft.isGroup) { draft.isGroup = it }) {
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.person_is_group), style = MaterialTheme.typography.bodyLarge)
                         Text(stringResource(R.string.person_is_group_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                     }
-                    androidx.compose.material3.Switch(modifier = Modifier.named(stringResource(R.string.person_is_group)), checked = draft.isGroup, onCheckedChange = { draft.isGroup = it })
+                    androidx.compose.material3.Switch(checked = draft.isGroup, onCheckedChange = null)
                 }
                 // Influence and stance: for the influence map; never for the team (no rating of people)
                 Text(stringResource(R.string.influence), style = MaterialTheme.typography.labelLarge)
@@ -473,16 +474,39 @@ fun PersonEditor(db: MandatDb, session: Session, draft: PersonDraft) {
     }
 
     if (confirmDelete) {
+        // With everything tied to the person, or only the card (the records stay, without the name).
+        // A person hidden in trip mode takes everything by default: left behind, it would no longer be hidden
+        // While trip mode or the lens hides something, "everything" could take records the owner cannot see: only the card then
+        val hiddenNow by session.hidden.collectAsStateWithLifecycle()
+        val nothingHidden = hiddenNow.isEmpty
+        var all by remember { mutableStateOf(draft.person.sensitive && nothingHidden) }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            // What was tied to a sensitive person stays, and nothing hides it any more
-            text = { Text(stringResource(R.string.person_delete_confirm) + if (draft.person.sensitive) "\n\n" + stringResource(R.string.person_delete_sensitive) else "") },
+            text = {
+                Column {
+                    // (for a hidden person, what stays behind is said either way: it will no longer be hidden)
+                    Text(stringResource(if (all) R.string.person_delete_all_confirm else R.string.person_delete_confirm) +
+                        if (draft.person.sensitive) "\n\n" + stringResource(if (all) R.string.person_delete_sensitive_rest else R.string.person_delete_sensitive) else "")
+                    if (nothingHidden) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp).checkRow(all) { all = it }) {
+                        androidx.compose.material3.Checkbox(checked = all, onCheckedChange = null)
+                        Text(stringResource(R.string.person_delete_all), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
                     session.personDraft = null
                     session.write { db ->
                         db.withTransaction {
+                            // (checked again now: trip mode may have come on while the dialog was open)
+                            if (all && session.hidden.value.isEmpty) {
+                                db.promises().idsForPerson(id).forEach { db.communities().unlinkRef(ua.mandat.data.LinkKind.PROMISE, it) }
+                                db.promises().deleteForPerson(id)
+                                db.delegations().deleteForPerson(id)
+                                db.info().deleteForPerson(id)
+                                db.info().deleteAlliancesForPerson(id)
+                            }
                             db.people().unlinkPerson(id)
                             db.events().unlinkPerson(id)
                             db.info().clearPerson(id)
@@ -533,7 +557,7 @@ private fun PersonLinks(db: MandatDb, session: Session, personId: Long) {
     // (one under the other: two side by side do not fit a narrow phone)
     Column {
         TextButton(onClick = { session.delegationDraft = newDelegation(personId = personId) }) { Text("+ " + stringResource(R.string.add_delegation)) }
-        TextButton(onClick = { session.delegationDraft = newDelegation(personId = personId, incoming = true) }) { Text("+ " + stringResource(R.string.kind_delegation_in)) }
+        TextButton(onClick = { session.delegationDraft = newDelegation(personId = personId, incoming = true) }) { Text("+ " + stringResource(ua.mandat.ui.dirLabel(R.string.kind_delegation_in))) }
     }
 
     LinkSection(stringResource(R.string.promises))
@@ -542,7 +566,7 @@ private fun PersonLinks(db: MandatDb, session: Session, personId: Long) {
     openP.forEach { PromiseRow(it, null, it.matterId?.let(titleOf::get), session) }
     Column {
         TextButton(onClick = { session.promiseDraft = newPromise(personId = personId) }) { Text("+ " + stringResource(R.string.add_promise)) }
-        TextButton(onClick = { session.promiseDraft = newPromise(personId = personId, incoming = true) }) { Text("+ " + stringResource(R.string.kind_promise_in)) }
+        TextButton(onClick = { session.promiseDraft = newPromise(personId = personId, incoming = true) }) { Text("+ " + stringResource(ua.mandat.ui.dirLabel(R.string.kind_promise_in))) }
     }
 
     if (closedD.isNotEmpty() || closedP.isNotEmpty()) {

@@ -44,6 +44,8 @@ sealed interface BackupNotice {
     data object ExistingFile : BackupNotice
     /** The data is larger than a backup file can hold. */
     data object TooBig : BackupNotice
+    /** The owner checked the password of automatic copies: right or not. */
+    data class PasswordChecked(val right: Boolean) : BackupNotice
 }
 
 /**
@@ -157,6 +159,24 @@ class Backups(private val context: Context, private val session: Session) {
         session.withRealDb { ua.mandat.backup.AutoBackup.disable(context, it) }
         refreshAuto()
         BackupNotice.AutoOff
+    }
+
+    /**
+     * Checks that the owner still remembers the password of automatic copies. The stored key is read
+     * under the database lock; the slow derivation runs outside it, so locking never waits for it.
+     */
+    fun checkAutoPassword(password: String) = run(onCrash = { BackupNotice.AutoFailed }) {
+        val chars = password.toCharArray()
+        var pair: Pair<ByteArray, ByteArray>? = null
+        try {
+            pair = session.withRealDb { ua.mandat.backup.AutoBackup.storedPair(it) } ?: return@run BackupNotice.AutoFailed
+            val p = pair
+            BackupNotice.PasswordChecked(withContext(Dispatchers.Default) { ua.mandat.backup.AutoBackup.passwordMatches(p, chars) })
+        } finally {
+            chars.fill(' ')
+            // (the stored key is wiped whatever happened, also when the check was cancelled)
+            pair?.second?.fill(0)
+        }
     }
 
     /** Makes an automatic copy right now, without waiting a day. */

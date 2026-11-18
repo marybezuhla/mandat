@@ -96,25 +96,51 @@ fun TimeTab(db: MandatDb, session: Session) {
 
 fun ua.mandat.data.Repeat.label(): Int = when (this) {
     ua.mandat.data.Repeat.DAILY -> R.string.repeat_daily
+    ua.mandat.data.Repeat.DAYS -> R.string.repeat_days
     ua.mandat.data.Repeat.WEEKLY -> R.string.repeat_weekly
     ua.mandat.data.Repeat.BIWEEKLY -> R.string.repeat_biweekly
     ua.mandat.data.Repeat.MONTHLY -> R.string.repeat_monthly
+    ua.mandat.data.Repeat.MONTHLY_NTH -> R.string.repeat_monthly_nth
+    ua.mandat.data.Repeat.MONTHLY_LAST -> R.string.repeat_monthly_last
     ua.mandat.data.Repeat.YEARLY -> R.string.repeat_yearly
+}
+
+/**
+ * The rule of repeating in words ("щотижня: пн, ср, пт", "щомісяця в другий вівторок") for the
+ * stored [key] of an event with a time on [day]; null for one that happens once.
+ */
+fun repeatText(context: android.content.Context, key: String?, day: Long): String? {
+    val kind = ua.mandat.data.Repeat.of(key) ?: return null
+    val date = java.time.LocalDate.ofEpochDay(day)
+    val dow = date.dayOfWeek.value
+    fun list(id: Int) = context.getString(id).split('|')
+    return when (kind) {
+        ua.mandat.data.Repeat.DAYS -> context.getString(R.string.repeat_on_days,
+            ua.mandat.data.Repeat.daysOf(key).ifEmpty { setOf(dow) }.joinToString(", ") { list(R.string.weekdays_short)[it - 1] })
+        ua.mandat.data.Repeat.MONTHLY_NTH, ua.mandat.data.Repeat.MONTHLY_LAST -> {
+            // (Monday, Tuesday and Thursday take one form of the word, the other days another)
+            val place = if (kind == ua.mandat.data.Repeat.MONTHLY_LAST) 5 else minOf(5, (date.dayOfMonth - 1) / 7 + 1)
+            val ordinals = list(if (dow in setOf(1, 2, 4)) R.string.ordinals_m else R.string.ordinals_f)
+            context.getString(R.string.repeat_monthly_on, ordinals[place - 1], list(R.string.weekdays_on)[dow - 1])
+        }
+        else -> context.getString(kind.label())
+    }
 }
 
 fun EventKind.label(): Int = when (this) {
     EventKind.MEETING -> R.string.event_meeting
-    EventKind.SESSION -> forMode(R.string.event_session, R.string.event_session_plain)
+    EventKind.SESSION -> byMode(forMode(R.string.event_session, R.string.event_session_plain), official = R.string.event_session_office)
     EventKind.COMMITTEE -> when (AppMode.mode) {
         // (a local council works through standing commissions, not committees; an assistant may serve either)
         ua.mandat.data.Mode.COUNCIL -> R.string.event_committee_council
         ua.mandat.data.Mode.ASSISTANT -> R.string.event_committee_assistant
+        ua.mandat.data.Mode.OFFICIAL -> R.string.event_committee_office
         else -> forMode(R.string.event_committee, R.string.event_committee_plain)
     }
     EventKind.TRIP -> R.string.event_trip
-    EventKind.RECEPTION -> if (AppMode.mode.civic) R.string.event_reception_citizen else R.string.event_reception
+    EventKind.RECEPTION -> if (AppMode.mode.civic) R.string.event_reception_citizen else byMode(R.string.event_reception, official = R.string.event_reception_office)
     EventKind.CALL -> R.string.event_call
-    EventKind.MEDIA -> R.string.event_media
+    EventKind.MEDIA -> byMode(R.string.event_media, official = R.string.event_media_office)
     EventKind.OTHER -> R.string.event_other
 }
 
@@ -399,7 +425,7 @@ fun EventRow(e: Event, names: List<String>, matterTitle: String?, onDay: Long?, 
             Spacer(Modifier.height(4.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 MiniChip(stringResource(kind.label()))
-                ua.mandat.data.Repeat.of(e.repeat)?.let { MiniChip("↻ " + stringResource(it.label())) }
+                repeatText(androidx.compose.ui.platform.LocalContext.current, e.repeat, e.day)?.let { MiniChip("↻ " + it) }
                 if (onDay == null) MiniChip(Dates.short(e.day))
                 if (e.place.isNotBlank()) MiniChip(e.place)
                 names.take(3).forEach { MiniChip(it) }
@@ -459,7 +485,7 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
         }
         SheetGroup(stringResource(R.string.event_when)) {
             // One time of a repeating event, or all of them: said first, so it is clear what a change touches
-            if (draft.detached) Text(stringResource(R.string.event_one_time_note), style = MaterialTheme.typography.labelMedium, color = Muted)
+            if (draft.detached) Text(stringResource(if (draft.following) R.string.event_following_note else R.string.event_one_time_note), style = MaterialTheme.typography.labelMedium, color = Muted)
             else if (!draft.isNew && draft.event.repeats) Text(stringResource(R.string.event_series_note), style = MaterialTheme.typography.labelMedium, color = Muted)
             DueField(draft.day, allowClear = false, label = if (draft.repeat != null) R.string.event_first_day else R.string.event_day) {
                 if (it != null) {
@@ -481,7 +507,7 @@ fun EventDialog(db: MandatDb, session: Session, draft: EventDraft) {
             if (draft.kind == EventKind.TRIP || draft.endDay != null) {
                 DueField(draft.endDay, label = R.string.event_end_day) { draft.endDay = it?.takeIf { d -> d > draft.day } }
             }
-            if (!draft.detached) RepeatPicker(draft)
+            if (!draft.detached || draft.following) RepeatPicker(draft)
             OutlinedTextField(value = draft.place, onValueChange = { draft.place = it },
                 label = { Text(stringResource(R.string.event_place)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         }
@@ -589,9 +615,36 @@ private fun RepeatPicker(draft: EventDraft) {
     Text(stringResource(R.string.event_repeat), style = MaterialTheme.typography.labelLarge)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         QuickChip(stringResource(R.string.repeat_none), draft.repeat == null) { draft.repeat = null }
-        ua.mandat.data.Repeat.entries.forEach { r -> QuickChip(stringResource(r.label()), draft.repeat == r) { draft.repeat = r } }
+        val context = androidx.compose.ui.platform.LocalContext.current
+        ua.mandat.data.Repeat.entries.forEach { r ->
+            // The monthly weekday ones are named for the chosen first date ("щомісяця в другий вівторок")
+            val name = if (r == ua.mandat.data.Repeat.MONTHLY_NTH || r == ua.mandat.data.Repeat.MONTHLY_LAST) repeatText(context, r.name, draft.day).orEmpty() else stringResource(r.label())
+            // (a second Tuesday is also the last one in some months: the same chip is not offered twice)
+            // and "the last such weekday" only from a first date that is the last one
+            val first = java.time.LocalDate.ofEpochDay(draft.day)
+            val fifth = (first.dayOfMonth - 1) / 7 + 1 == 5
+            val last = first.plusWeeks(1).monthValue != first.monthValue
+            if (r == ua.mandat.data.Repeat.MONTHLY_NTH && fifth) return@forEach
+            if (r == ua.mandat.data.Repeat.MONTHLY_LAST && !last) return@forEach
+            // (what is saved: a weekday rule the first date does not fit becomes the one it fits)
+            val saved = ua.mandat.data.Repeat.of(ua.mandat.data.Repeat.key(draft.repeat, draft.days, draft.day))
+            // (several weekdays stay chosen while only the first date's own is picked)
+            val chosen = if (draft.repeat == ua.mandat.data.Repeat.DAYS) ua.mandat.data.Repeat.DAYS else saved
+            QuickChip(name, chosen == r) { draft.repeat = r }
+        }
     }
     val r = draft.repeat ?: return
+    // Several weekdays: the first date's own is always one of them
+    if (r == ua.mandat.data.Repeat.DAYS) {
+        val own = java.time.LocalDate.ofEpochDay(draft.day).dayOfWeek.value
+        val names = stringResource(R.string.weekdays_short).split('|')
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            (1..7).forEach { d ->
+                QuickChip(names[d - 1], d == own || d in draft.days) { if (d != own) draft.days = if (d in draft.days) draft.days - d else draft.days + d }
+            }
+        }
+        Text(stringResource(R.string.repeat_days_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
+    }
     DueField(draft.repeatUntil, label = R.string.event_repeat_until) { draft.repeatUntil = it?.takeIf { d -> d >= draft.day } }
     // The dates taken out of it: a tap brings one back (the latest ones, so the row stays short)
     if (draft.skipped.isNotEmpty()) {
@@ -601,7 +654,7 @@ private fun RepeatPicker(draft: EventDraft) {
         }
     }
     // Something that lasts longer than the gap between two times cannot repeat that often: said, not silently dropped on saving
-    if ((draft.endDay ?: draft.day) - draft.day >= r.minGap) Text(stringResource(R.string.event_repeat_too_long), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+    if (draft.current(0).let { ua.mandat.data.cleanEvent(it.copy(title = "x"))?.repeat == null }) Text(stringResource(R.string.event_repeat_too_long), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
 }
 
 /** A repeating event tapped on one day: this time, every time, or skip this time. */
@@ -614,6 +667,7 @@ fun EventChoiceDialog(session: Session, choice: Session.EventChoice) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(R.string.event_choice_text, Dates.format(choice.day)), style = MaterialTheme.typography.bodyMedium)
                 TextButton(onClick = { session.openEventTime(choice) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.event_choice_one)) }
+                if (choice.day > choice.event.day && session.followingFits(choice)) TextButton(onClick = { session.openEventFollowing(choice) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.event_choice_following)) }
                 TextButton(onClick = { session.openEventSeries(choice) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.event_choice_all)) }
                 TextButton(onClick = { session.skipEventTime(choice) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.event_choice_skip), color = MaterialTheme.colorScheme.error) }
             }

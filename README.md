@@ -2,16 +2,16 @@
 
 Приватний офлайн-органайзер для Android: справи, люди, календар, доручення й обіцянки в одному зашифрованому місці. Українська та англійська. Безкоштовно, без реклами й акаунтів.
 
-> **Статус: тестова версія.** Помилки й побажання: [Issues](../../issues).
+> **Статус: версія 1.0.** Формат резервної копії й бази даних далі змінюватиметься лише так, щоб копії версії 1.0 і новіших відкривалися. Помилки й побажання: [Issues](../../issues).
 
 ## Особливості
 
 - 🔒 **Приватність.** Дозволу на інтернет немає, дані лише на телефоні й завжди зашифровані (SQLCipher). Вхід відбитком або PIN-кодом (за бажанням лише PIN, і тоді ключ сам не приймає відбитка), автоблокування, знімки екрана заборонені. Копії, експорт, вимкнення режиму поїздки, дозвіл на знімки екрана й «Стерти всі дані» підтверджуються відбитком або PIN-кодом телефона. За бажанням — нейтральна назва й іконка. Резервна копія лише з паролем (Argon2id + AES-256).
 - 🗂️ **Справи й увага.** Фокус, фон і сплячі справи, наступний крок, застряглі й без кроку, розбір давніх прострочених.
 - 👥 **Люди.** Свої категорії, позиції в справах, команда, розмова віч-на-віч, довідник контактів з імпортом .vcf і CSV.
-- 📅 **Календар і час.** Місяць, тиждень із сіткою годин, список; повторювані події (щодня, щотижня, що два тижні, щомісяця, щороку); щільність тижня з вільними вікнами; строки, доручення й обіцянки на одній стрічці.
+- 📅 **Календар і час.** Місяць, тиждень із сіткою годин, список; повторювані події (щодня, у кілька днів тижня, що два тижні, щомісяця, «другий вівторок», щороку; змінити можна одну дату або «цю й наступні»); щільність тижня з вільними вікнами; строки, доручення й обіцянки на одній стрічці.
 - 📊 **Наочність.** Зведення за тиждень, місяць, рік; кожне число відкриває записи, з яких воно складається. Кольори завжди з підписом чи відсотком.
-- 🧳 **Режим поїздки й лінза.** Позначені справи й усе пов'язане з ними (люди, записи щоденника, громади) зникають з екранів, пошуку, ШІ й експорту. Вимкнути режим можна лише відбитком чи PIN телефона. Числа й списки схованого не видають, але сам перемикач в Опціях видно; від того, хто змусить відкрити телефон, режим не захищає. Сховати можна й людину: тоді зникають її картка, прив'язані до неї доручення, обіцянки й події, а також записи з її повним іменем. Згадка самим прізвищем лишається видимою, а нотатка без прив'язки ховається, лише якщо містить усі слова назви справи чи імені людини.
+- 🧳 **Режим поїздки й лінза.** Позначені справи й усе пов'язане з ними (люди, записи щоденника, громади) зникають з екранів, пошуку, ШІ й експорту. Вимкнути режим можна лише відбитком чи PIN телефона. Числа й списки схованого не видають, але сам перемикач в Опціях видно; від того, хто змусить відкрити телефон, режим не захищає. Сховати можна й людину: тоді зникають її картка, прив'язані до неї доручення, обіцянки й події, а також записи з її повним іменем і справи, де воно є в назві, описі, цілі чи наступному кроці. Згадка самим прізвищем лишається видимою, а нотатка без прив'язки ховається, лише якщо містить усі слова назви справи чи імені людини.
 - 📤 **Експорт і імпорт.** .vcf, .ics, CSV, Markdown, PDF, сховище для Obsidian, пакет справ для колеги; за будь-який період. За замовчуванням зашифрований файл Мандата, ZIP з паролем — для інших застосунків.
 - 🔭 **Ретроспектива.** Напрямки, пріоритети минулого й динаміка за місяцями з журналу змін.
 - ✍️ **Тексти.** Листи, виступи, колонки, записки з шаблонами, версіями й експортом у Word і PDF.
@@ -44,16 +44,16 @@ Kotlin · Jetpack Compose · Room · SQLCipher · [LiteRT-LM](https://github.com
 
 A private, offline organiser for Android: matters, people, calendar, delegations and promises in one encrypted place. Ukrainian and English. Free, no ads, no accounts.
 
-> **Status: test version.** Bugs and wishes: [Issues](../../issues).
+> **Status: version 1.0.** From here on the backup and database formats change only in ways that keep backups from 1.0 on opening. Bugs and wishes: [Issues](../../issues).
 
 ## Features
 
 - 🔒 **Privacy.** No internet permission, data stays on the phone and is always encrypted (SQLCipher). Fingerprint or PIN to open (optionally PIN only, and then the key itself refuses a fingerprint), automatic lock, screenshots blocked. Backups, exports, turning trip mode off, allowing screenshots and Erase all data are confirmed with the phone's fingerprint or PIN. Optionally a neutral name and icon. Backups only with a password (Argon2id + AES-256).
 - 🗂️ **Matters and attention.** Focus, background and sleeping matters, next steps, stuck ones and ones without a step, sorting out old overdue items.
 - 👥 **People.** Your own categories, stances in matters, a team, one-to-one talks, an address book with .vcf and CSV import.
-- 📅 **Calendar and time.** Month, week with an hour grid, list; repeating events (every day, week, two weeks, month or year); week density with free windows; deadlines, delegations and promises on one strip.
+- 📅 **Calendar and time.** Month, week with an hour grid, list; repeating events (every day, on several weekdays, every two weeks, monthly, "the second Tuesday", yearly; one date or "this and later dates" can be changed on their own); week density with free windows; deadlines, delegations and promises on one strip.
 - 📊 **At a glance.** Week, month and year overviews; every number opens the records it counts. Colours always come with a label or a percentage.
-- 🧳 **Trip mode and lens.** Marked matters and everything linked to them (people, diary entries, communities) disappear from screens, search, AI and export. Turning trip mode off needs the phone's fingerprint or PIN. Numbers and lists do not give away what is hidden, but the switch itself is visible in Options, and the mode does not protect against someone who forces you to open the phone. A person can be hidden too: then their card, the delegations, promises and events tied to them, and the records with their full name disappear. A mention by the surname alone stays visible, and a note not tied to anything is hidden only when it contains every word of the matter's title or the person's name.
+- 🧳 **Trip mode and lens.** Marked matters and everything linked to them (people, diary entries, communities) disappear from screens, search, AI and export. Turning trip mode off needs the phone's fingerprint or PIN. Numbers and lists do not give away what is hidden, but the switch itself is visible in Options, and the mode does not protect against someone who forces you to open the phone. A person can be hidden too: then their card, the delegations, promises and events tied to them, and the records with their full name and the matters with it in the title, description, goal or next step disappear. A mention by the surname alone stays visible, and a note not tied to anything is hidden only when it contains every word of the matter's title or the person's name.
 - 📤 **Export and import.** .vcf, .ics, CSV, Markdown, PDF, an Obsidian vault, a packet of matters for a colleague; for any period. By default an encrypted Mandat file; a ZIP with a password for other apps.
 - 🔭 **Retrospective.** Directions, past priorities and month-by-month movement from a journal of changes.
 - ✍️ **Texts.** Letters, speeches, columns, notes with templates, versions and export to Word and PDF.

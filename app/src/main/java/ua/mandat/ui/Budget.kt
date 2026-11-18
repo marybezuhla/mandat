@@ -86,15 +86,24 @@ fun hryvnias(minor: Long) = formatAmount(minor) + " ₴"
 fun categoryName(key: String): String = when (key) {
     IncomeCategory.SALARY.name -> stringResource(R.string.in_salary)
     IncomeCategory.ACTIVITY_FUNDS.name -> stringResource(forMode(R.string.in_activity, R.string.in_activity_plain))
+    // (each mode has categories of its own; none is renamed by a mode, so a record keeps its meaning)
+    IncomeCategory.BONUSES.name -> stringResource(R.string.in_activity_office)
+    IncomeCategory.GRANTS.name -> stringResource(R.string.in_grants)
+    IncomeCategory.DONATIONS.name -> stringResource(R.string.in_donations)
+    IncomeCategory.BENEFITS.name -> stringResource(R.string.in_benefits)
+    IncomeCategory.SIDE_JOB.name -> stringResource(R.string.in_side_job)
     IncomeCategory.REFUNDS.name -> stringResource(R.string.in_refunds)
     IncomeCategory.ROYALTIES.name -> stringResource(R.string.in_royalties)
     IncomeCategory.PRACTICE.name -> stringResource(R.string.in_practice)
     IncomeCategory.TEACHING.name -> stringResource(R.string.in_teaching)
     IncomeCategory.OTHER_IN.name -> stringResource(R.string.in_other)
     ExpenseCategory.HOME.name -> stringResource(R.string.out_home)
+    ExpenseCategory.HOUSING.name -> stringResource(R.string.out_housing)
+    ExpenseCategory.HEALTH.name -> stringResource(R.string.out_health)
     ExpenseCategory.OFFICE.name -> stringResource(R.string.out_office)
     ExpenseCategory.CHARITY.name -> stringResource(R.string.out_charity)
     ExpenseCategory.EXPERTS.name -> stringResource(R.string.out_experts)
+    ExpenseCategory.CONTRACTORS.name -> stringResource(R.string.out_contractors)
     ExpenseCategory.TRIPS.name -> stringResource(R.string.out_trips)
     ExpenseCategory.PHONE.name -> stringResource(R.string.out_phone)
     ExpenseCategory.TRANSPORT.name -> stringResource(R.string.out_transport)
@@ -392,7 +401,7 @@ fun MoneyDialog(db: MandatDb, session: Session, d: MoneyDraft) {
     val income = d.kind == MoneyKind.INCOME.name
     val own = decodeCategories(settings.firstOrNull { it.key == (if (income) SETTING_INCOME_CATEGORIES else SETTING_EXPENSE_CATEGORIES) }?.value)
     // (an official is not offered income from a private practice; an entry that already has it keeps it)
-    val defaults = if (income) IncomeCategory.entries.filter { it != IncomeCategory.PRACTICE || AppMode.mode != ua.mandat.data.Mode.OFFICIAL }.map { it.name } else ExpenseCategory.entries.map { it.name }
+    val defaults = if (income) ua.mandat.data.incomeFor(AppMode.mode).map { it.name } else ua.mandat.data.expenseFor(AppMode.mode).map { it.name }
     val categories = (defaults + own + listOf(d.category)).distinct()
     var otherCurrency by remember { mutableStateOf(d.currency !in listOf("UAH", "USD", "EUR")) }
 
@@ -467,7 +476,9 @@ fun MoneyDialog(db: MandatDb, session: Session, d: MoneyDraft) {
 /** Monthly limits per expense category (empty means no limit). */
 @Composable
 private fun LimitsDialog(session: Session, settings: Map<String, String>, onClose: () -> Unit) {
-    val cats = ExpenseCategory.entries.map { it.name } + decodeCategories(settings[SETTING_EXPENSE_CATEGORIES])
+    // (a limit set in another mode stays editable here)
+    val cats = (ua.mandat.data.expenseFor(AppMode.mode).map { it.name } + decodeCategories(settings[SETTING_EXPENSE_CATEGORIES]) +
+        settings.keys.filter { it.startsWith(SETTING_LIMIT_PREFIX) }.map { it.removePrefix(SETTING_LIMIT_PREFIX) }).distinct()
     val texts = remember { mutableStateOf(cats.associateWith { c -> settings[SETTING_LIMIT_PREFIX + c]?.toLongOrNull()?.let { formatAmount(it).replace(" ", "") }.orEmpty() }) }
     EditSheet(
         title = stringResource(R.string.money_limits),

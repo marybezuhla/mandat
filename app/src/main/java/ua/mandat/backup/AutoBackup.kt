@@ -94,6 +94,23 @@ object AutoBackup {
         }
     }
 
+    /**
+     * The salt and the key automatic copies are made with, for the owner to check that they still
+     * remember the password ([passwordMatches], away from the database); null when they are off.
+     */
+    suspend fun storedPair(db: MandatDb): Pair<ByteArray, ByteArray>? {
+        val s = db.settings()
+        val salt = s.get(KEY_SALT)?.value?.unhex() ?: return null
+        val stored = s.get(KEY_KEY)?.value?.unhex() ?: return null
+        return salt to stored
+    }
+
+    /** True when [password] gives [pair]'s key from its salt (Argon2id: a second or two). Wipes what it made and the key. */
+    fun passwordMatches(pair: Pair<ByteArray, ByteArray>, password: CharArray): Boolean {
+        val made = BackupCrypto.deriveKey(password, pair.first, BackupCrypto.DEFAULT)
+        return try { java.security.MessageDigest.isEqual(made, pair.second) } finally { made.fill(0); pair.second.fill(0) }
+    }
+
     /** Forgets the automatic copies; when a copy was last made by hand stays known. */
     private suspend fun forget(s: ua.mandat.data.SettingDao) {
         val kept = s.get(KEY_MANUAL)

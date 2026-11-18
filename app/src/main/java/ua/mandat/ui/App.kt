@@ -104,7 +104,7 @@ fun App(session: Session, onUnlock: () -> Unit, onStartOver: () -> Unit) {
         ) {
         when (val state = session.state) {
             // With data already on the phone, the plain "set a screen lock" would hide what has happened
-            LockState.NeedsScreenLock -> Message(
+            LockState.NeedsScreenLock -> NeedsLock(
                 stringResource(if (MandatDb.exists(androidx.compose.ui.platform.LocalContext.current)) R.string.no_screen_lock_data else R.string.no_screen_lock),
             )
             LockState.KeyLost -> KeyLost(onStartOver)
@@ -143,6 +143,20 @@ private fun Notice() {
 @Composable
 private fun Message(text: String) = Centered {
     Text(text, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+}
+
+/** No screen lock yet: what to do, and a door straight to the phone's security settings. */
+@Composable
+private fun NeedsLock(text: String) = Centered {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Text(text, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+    Spacer(Modifier.height(24.dp))
+    androidx.compose.material3.OutlinedButton(onClick = {
+        // (some phones have no such screen: then nothing opens, and the text above still says where to look)
+        try {
+            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) { }
+    }) { Text(stringResource(R.string.open_security_settings)) }
 }
 
 @Composable
