@@ -1,0 +1,57 @@
+name: Clean up old runs
+
+# Run by hand, after a release: removes every workflow run (with its logs and artifacts) and every
+# deployment record except those of the commit the latest release was built from, so only the
+# current version stays visible in Actions. Releases, tags and branches are not touched: old releases
+# and tags are deleted by the owner on the Releases page. Cannot be undone.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Напишіть ТАК, щоб видалити старі запуски й записи розгортань"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  clean:
+    if: github.event.inputs.confirm == 'ТАК' || github.event.inputs.confirm == 'так'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: write
+      deployments: write
+    steps:
+      - name: Remove runs and deployments of everything but the latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SELF: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="$(gh api "repos/$REPO/releases/latest" --jq .tag_name)"
+          KEEP="$(gh api "repos/$REPO/commits/$TAG" --jq .sha)"
+          echo "Keeping the runs of $TAG ($KEEP)."
+          runs=0; deps=0
+          # Runs: only finished ones; a build still going or waiting for approval (a release) is never touched
+          gh api --paginate "repos/$REPO/actions/runs?per_page=100" --jq '.workflow_runs[] | "\(.id) \(.head_sha) \(.status)"' > runs.txt
+          while read -r id sha status; do
+            [ "$id" = "$SELF" ] && continue
+            [ "$sha" = "$KEEP" ] && continue
+            [ "$status" != "completed" ] && { echo "Left as it is (not finished): run $id"; echo "$sha" >> busy.txt; continue; }
+            gh api -X DELETE "repos/$REPO/actions/runs/$id" >/dev/null 2>&1 && runs=$((runs+1)) || echo "::warning::run $id not deleted"
+          done < runs.txt
+          # Deployments: made inactive, then deleted
+          gh api --paginate "repos/$REPO/deployments?per_page=100" --jq '.[] | "\(.id) \(.sha)"' > deps.txt
+          touch busy.txt
+          while read -r id sha; do
+            [ "$sha" = "$KEEP" ] && continue
+            # The deployment of a build still waiting for approval stays with it
+            grep -qx "$sha" busy.txt && continue
+            gh api -X POST "repos/$REPO/deployments/$id/statuses" -f state=inactive >/dev/null 2>&1 || true
+            gh api -X DELETE "repos/$REPO/deployments/$id" >/dev/null 2>&1 && deps=$((deps+1)) || echo "::warning::deployment $id not deleted"
+          done < deps.txt
+          echo "Deleted $runs runs and $deps deployment records; kept those of $TAG." | tee -a "$GITHUB_STEP_SUMMARY"
