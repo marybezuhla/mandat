@@ -252,7 +252,8 @@ jobs:
         run: |
           set -e
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          printf %s "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/mandat.jks"
+          # (line breaks or spaces a paste may add are dropped before decoding)
+          printf %s "$KEYSTORE" | tr -d '\r\n ' | base64 -d > "$RUNNER_TEMP/mandat.jks"
           mkdir -p out
           "$BT/zipalign" -P 16 -f 4 unsigned/app-release-unsigned.apk "$RUNNER_TEMP/aligned.apk"
           OUT="out/mandat-$(tr -d '[:space:]' < version.txt).apk"
