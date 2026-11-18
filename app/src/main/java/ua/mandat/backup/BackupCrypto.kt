@@ -9,8 +9,8 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * The one-piece encrypted file: an export (.mandatx), and a backup made before 0.3.0 (backups are
- * now written in parts, see [BackupStream]). It has no readable header or marker at all: to anyone
+ * The one-piece encrypted file: Mandat's own export (.mandatx). Backups are written in parts
+ * ([BackupStream]); a one-piece backup of the test versions before 0.3.0 is no longer restored. It has no readable header or marker at all: to anyone
  * without the password it looks like random bytes, so it does not reveal that it comes from Mandat.
  *
  * Layout: salt (16) | nonce (12) | AES-256-GCM ciphertext with 16-byte tag.

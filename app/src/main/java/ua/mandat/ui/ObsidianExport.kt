@@ -181,7 +181,7 @@ internal suspend fun obsidianVault(
     events.forEach { e ->
         note(fEvents, eName.getValue(e.id), "event",
             "date: ${Export.day(e.day)}\n" + yamlLine("kind", s(ua.mandat.data.EventKind.of(e.kind).label())) + yamlLine("place", e.place) +
-                (ua.mandat.data.Repeat.of(e.repeat)?.let { r -> yamlLine("repeat", s(r.label())) + (e.repeatUntil?.let { "until: ${Export.day(it)}\n" } ?: "") } ?: ""),
+                (repeatText(context, e.repeat, e.day)?.let { r -> yamlLine("repeat", r) + (e.repeatUntil?.let { "until: ${Export.day(it)}\n" } ?: "") } ?: ""),
             buildString {
                 ml(e.matterId)?.let { append("**").append(s(R.string.obs_matter)).append(":** ").append(it).append("\n\n") }
                 val who = eventPeople[e.id].orEmpty().mapNotNull { pl(it) }

@@ -962,7 +962,7 @@
     <string name="import_csv">Контакти (.csv) у довідник</string>
     <string name="import_failed">Не вдалося прочитати файл (завеликий або не того формату).</string>
     <string name="import_save_failed">Файл прочитано, але записати не вдалося (можливо, Мандат заблокувався). Нічого не додано, файл лишився на місці.</string>
-    <string name="import_ics_summary">Знайдено подій: %1$d. Ті, що вже є, буде пропущено. Правило повтору, якого в Мандаті немає (як-от «другий вівторок місяця» чи «лише десять разів»), стане однією подією на першу дату.</string>
+    <string name="import_ics_summary">Знайдено подій: %1$d. Ті, що вже є, буде пропущено. Правило повтору, якого в Мандаті немає (як-от «через місяць» чи «лише десять разів»), стане однією подією на першу дату.</string>
     <string name="import_notes_summary">Знайдено нотаток: %1$d (поділено за порожніми рядками).</string>
     <string name="import_csv_summary">Знайдено контактів: %1$d. Далі можна вибрати, кого додати.</string>
     <string name="import_go">Імпортувати</string>
@@ -1530,7 +1530,7 @@
     <string name="event_repeat_until">Повторювати до (включно)</string>
     <string name="event_repeat_too_long">Подія триває довше, ніж проміжок між повторами: вона збережеться без повтору.</string>
     <string name="event_first_day">Перша дата</string>
-    <string name="event_series_note">Подія повторюється: зміни стосуються всіх повторів, і минулих теж. Щоб змінити лише надалі, закінчіть цю («Повторювати до») і створіть нову.</string>
+    <string name="event_series_note">Подія повторюється: зміни стосуються всіх повторів, і минулих теж. Щоб змінити лише надалі, відкрийте потрібну дату в календарі й оберіть «Ця й наступні дати».</string>
     <string name="event_one_time_note">Лише ця дата. Якщо щось зміните, після збереження вона стане окремою подією, а решта повторів не зміниться.</string>
     <string name="event_outcome_series">Одне поле на всі повтори. Щоб записати, що вийшло саме того дня, відкрийте подію з календаря й оберіть «Лише ця дата».</string>
     <string name="event_delete_series">Видалити подію разом з усіма повторами? Дати, які ви змінювали окремо, залишаться.</string>
@@ -1596,4 +1596,15 @@
     <string name="act_pos_board_chair">Голова правління</string>
     <string name="act_pos_exec">Виконавчий директор</string>
     <string name="report_other_matters">Інші справи, з яких беруться обіцянки, зустрічі й допомога</string>
+    <string name="repeat_days">у кілька днів тижня</string>
+    <string name="repeat_monthly_nth">щомісяця в той самий день тижня</string>
+    <string name="repeat_monthly_last">щомісяця в останній такий день тижня</string>
+    <string name="repeat_on_days">щотижня: %1$s</string>
+    <string name="repeat_monthly_on">щомісяця в %1$s %2$s</string>
+    <string name="weekdays_short">пн|вт|ср|чт|пт|сб|нд</string>
+    <string name="weekdays_on">понеділок|вівторок|середу|четвер|п\'ятницю|суботу|неділю</string>
+    <string name="ordinals_m">перший|другий|третій|четвертий|останній</string>
+    <string name="ordinals_f">першу|другу|третю|четверту|останню</string>
+    <string name="event_choice_following">Ця й наступні дати</string>
+    <string name="event_following_note">Ця й наступні дати. Якщо щось зміните, після збереження з цієї дати почнеться нова подія з тим самим повтором, а попередня закінчиться напередодні.</string>
 </resources>

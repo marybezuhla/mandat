@@ -151,7 +151,8 @@ class BackupStreamTest {
         expect<BackupCrypto.WrongPasswordOrDamaged> { BackupFile.open(ByteArrayInputStream(moved), BackupStream.storedKey(b, k)).use { it.readBytes() } }
     }
 
-    @Test fun anOlderOnePieceFileIsNotTakenForOneInParts() {
+    @Test fun aOnePieceFileIsNotTakenForOneInParts() {
+        // (an export is one piece, made with the same password and salt as a backup)
         val old = BackupCrypto.encrypt("{\"format\":1}".toByteArray(), pw, fast)
         expect<BackupCrypto.WrongPasswordOrDamaged> { unseal(old) }
         // ...and opens as before with the key the same password and salt give

@@ -960,7 +960,7 @@
     <string name="import_csv">Contacts (.csv) into the address book</string>
     <string name="import_failed">Could not read the file (too big, or not the right format).</string>
     <string name="import_save_failed">The file was read, but saving failed (Mandat may have locked). Nothing was added, and the file stays where it was.</string>
-    <string name="import_ics_summary">Events found: %1$d. Already existing ones are skipped. A way of repeating that Mandat does not keep (such as \"the second Tuesday of the month\" or \"ten times only\") becomes one event on its first date.</string>
+    <string name="import_ics_summary">Events found: %1$d. Already existing ones are skipped. A way of repeating that Mandat does not keep (such as \"every other month\" or \"ten times only\") becomes one event on its first date.</string>
     <string name="import_notes_summary">Notes found: %1$d (split at blank lines).</string>
     <string name="import_csv_summary">Contacts found: %1$d. Next you can choose which to add.</string>
     <string name="import_go">Import</string>
@@ -1514,7 +1514,7 @@
     <string name="event_repeat_until">Repeat until (inclusive)</string>
     <string name="event_repeat_too_long">The event lasts longer than the gap between its dates: it will be saved without repeating.</string>
     <string name="event_first_day">First date</string>
-    <string name="event_series_note">This event repeats: changes apply to every date of it, past ones too. To change it only from now on, end this one (\"Repeat until\") and make a new one.</string>
+    <string name="event_series_note">This event repeats: changes apply to every date of it, past ones too. To change it only from some date on, open that date in the calendar and choose \"This and later dates\".</string>
     <string name="event_one_time_note">This date only. If you change something, once saved it becomes an event of its own, and the other dates stay as they were.</string>
     <string name="event_outcome_series">One field for every date. To write what came of one day, open the event from the calendar and choose \"This date only\".</string>
     <string name="event_delete_series">Delete the event with all of its dates? The dates you changed on their own will stay.</string>
@@ -1580,4 +1580,15 @@
     <string name="act_pos_board_chair">Chair of the board</string>
     <string name="act_pos_exec">Executive director</string>
     <string name="report_other_matters">Other matters that give promises, meetings and aid</string>
+    <string name="repeat_days">on several weekdays</string>
+    <string name="repeat_monthly_nth">monthly on the same weekday</string>
+    <string name="repeat_monthly_last">monthly on the last such weekday</string>
+    <string name="repeat_on_days">weekly: %1$s</string>
+    <string name="repeat_monthly_on">monthly on the %1$s %2$s</string>
+    <string name="weekdays_short">Mon|Tue|Wed|Thu|Fri|Sat|Sun</string>
+    <string name="weekdays_on">Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday</string>
+    <string name="ordinals_m">first|second|third|fourth|last</string>
+    <string name="ordinals_f">first|second|third|fourth|last</string>
+    <string name="event_choice_following">This and later dates</string>
+    <string name="event_following_note">This and later dates. If you change something, once saved a new event with the same repeat begins on this date, and the earlier one ends the day before.</string>
 </resources>

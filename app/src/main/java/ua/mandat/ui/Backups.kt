@@ -67,20 +67,17 @@ private fun sizeIsZero(context: Context, uri: Uri): Boolean = try {
 
 /**
  * A backup that opened with the password and was checked to its end, waiting for the owner's
- * "Replace". A copy written in parts waits as it came, encrypted, in [file] inside Mandat's own
- * storage, with its [key] in memory; a one-piece copy (made before 0.3.0) waits decrypted in
- * memory ([json]). Nothing unencrypted is written anywhere.
+ * "Replace". It waits as it came, encrypted, in [file] inside Mandat's own storage, with its
+ * [key] in memory. Nothing unencrypted is written anywhere.
  */
 class PendingRestore internal constructor(
     val summary: BackupData.Summary,
-    internal val json: ByteArray? = null,
-    internal val file: File? = null,
-    internal val key: BackupStream.Key? = null,
+    internal val file: File,
+    internal val key: BackupStream.Key,
 ) {
     internal fun drop() {
-        json?.fill(0)
-        key?.wipe()
-        file?.delete()
+        key.wipe()
+        file.delete()
     }
 }
 
@@ -272,8 +269,8 @@ class Backups(private val context: Context, private val session: Session) {
                 val summary = try {
                     file.inputStream().use { BackupFile.read(it, k, BackupData.Checker(layout)) }
                 } catch (e: BackupCrypto.WrongPasswordOrDamaged) {
-                    // Not a copy written in parts. One piece, then: an export, or a backup made before 0.3.0
-                    return@run openOnePiece(file, k, startedAt)
+                    // Not a copy written in parts. Mandat's own export file is one piece with the same salt: named as such
+                    return@run if (isExport(file, k)) BackupNotice.IsExport else BackupNotice.WrongPassword
                 }
                 withContext(Dispatchers.Main) {
                     // Locked meanwhile: drop it instead of keeping the key in memory
@@ -303,31 +300,11 @@ class Backups(private val context: Context, private val session: Session) {
         }
     }
 
-    /**
-     * A one-piece file (it has the same salt at its start, so the key is the same): an export is
-     * said to be one; a backup made before 0.3.0 waits, decrypted in memory, for the owner's "Replace".
-     */
-    private suspend fun openOnePiece(file: File, key: BackupStream.Key, startedAt: Int): BackupNotice? {
-        if (file.length() > BackupCrypto.MAX_FILE_BYTES) return BackupNotice.WrongPassword
-        val json = BackupCrypto.decryptWithKey(file.readBytes(), key.ikm)
-        if (BackupCrypto.startsWithExportMark(json)) {
-            json.fill(0)
-            return BackupNotice.IsExport
-        }
-        val summary = try {
-            BackupData.summary(json)
-        } catch (e: Exception) {
-            json.fill(0)
-            return BackupNotice.Incompatible
-        }
-        if (summary.schema > ua.mandat.data.DB_VERSION) {
-            json.fill(0)
-            return BackupNotice.FromNewer
-        }
-        withContext(Dispatchers.Main) {
-            if (startedAt == session.generationNow()) pending = PendingRestore(summary, json = json) else json.fill(0)
-        }
-        return null
+    /** A one-piece file with the same salt (Mandat's own export, opened here by mistake), checked in memory and wiped. */
+    private fun isExport(file: File, key: BackupStream.Key): Boolean {
+        if (file.length() > BackupCrypto.MAX_FILE_BYTES) return false
+        val plain = try { BackupCrypto.decryptWithKey(file.readBytes(), key.ikm) } catch (e: Exception) { return false }
+        return BackupCrypto.startsWithExportMark(plain).also { plain.fill(0) }
     }
 
     /** Takes the chosen file into [to], refusing anything larger than a backup can be. */
@@ -372,17 +349,8 @@ class Backups(private val context: Context, private val session: Session) {
                     if (!ok) return@run BackupNotice.RestoreNoSafetyCopy
                 }
                 session.withRealDb { db ->
-                    val json = restore.json
-                    val file = restore.file
-                    val key = restore.key
-                    if (json != null) {
-                        BackupData.restore(db, json)
-                    } else if (file != null && key != null) {
-                        // Read again from Mandat's own storage; it replaces anything only if it is still what was shown
-                        file.inputStream().use { input -> BackupFile.open(input, key).use { BackupData.restore(db, it, restore.summary) } }
-                    } else {
-                        throw IllegalStateException()
-                    }
+                    // Read again from Mandat's own storage; it replaces anything only if it is still what was shown
+                    restore.file.inputStream().use { input -> BackupFile.open(input, restore.key).use { BackupData.restore(db, it, restore.summary) } }
                     noteRestoredCopy(db, restore.summary.createdAt)
                 }
                     ?.let { BackupNotice.Restored(restore.summary.rows) }

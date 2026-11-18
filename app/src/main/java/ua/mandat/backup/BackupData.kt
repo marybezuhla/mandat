@@ -14,7 +14,7 @@ import ua.mandat.data.MandatDb
  *
  * A backup is written and read row by row ([BackupLines]), so its size is not held in memory.
  * The older form, one JSON document kept in memory, is still made for the "everything" part of an
- * export and still read from backups made before 0.3.0.
+ * export and read for the demo data and in tests.
  */
 object BackupData {
 

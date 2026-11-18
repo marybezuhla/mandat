@@ -40,7 +40,10 @@ data class Event(
     val remind: Boolean = false,
     val createdAt: Long,
     val updatedAt: Long,
-    /** A key of [Repeat] for an event that comes again and again ([day] is then its first time); null for one that happens once. */
+    /**
+     * A key of [Repeat] for an event that comes again and again ([day] is then its first time); null
+     * for one that happens once. [Repeat.DAYS] carries its weekdays: "DAYS:1,3,5" (1 is Monday).
+     */
     val repeat: String? = null,
     /** The last day on which it may come again; null for no end. */
     val repeatUntil: Long? = null,
@@ -52,15 +55,37 @@ data class Event(
     val repeats: Boolean get() = Repeat.of(repeat) != null
 }
 
-/** How often an event comes again. Keys are stored. */
+/**
+ * How often an event comes again. Keys are stored. [DAYS] is every week on several weekdays;
+ * [MONTHLY_NTH] the same weekday in the same place of every month (the second Tuesday), and
+ * [MONTHLY_LAST] the last such weekday of every month; both take the weekday of the first time.
+ */
 enum class Repeat {
-    DAILY, WEEKLY, BIWEEKLY, MONTHLY, YEARLY;
+    DAILY, DAYS, WEEKLY, BIWEEKLY, MONTHLY, MONTHLY_NTH, MONTHLY_LAST, YEARLY;
 
     /** The shortest gap between two times, in days: an event that repeats must be shorter than this. */
-    val minGap: Long get() = when (this) { DAILY -> 1; WEEKLY -> 7; BIWEEKLY -> 14; MONTHLY -> 28; YEARLY -> 365 }
+    val minGap: Long get() = when (this) { DAILY, DAYS -> 1; WEEKLY -> 7; BIWEEKLY -> 14; MONTHLY, MONTHLY_NTH, MONTHLY_LAST -> 28; YEARLY -> 365 }
 
     companion object {
-        fun of(key: String?) = key?.let { k -> entries.firstOrNull { it.name == k } }
+        /** The kind of a stored key ("DAYS:1,3" is [DAYS]); null for none or an unknown one. */
+        fun of(key: String?) = key?.let { k -> k.substringBefore(':').let { n -> entries.firstOrNull { it.name == n } } }
+
+        /** The weekdays (1 Monday … 7 Sunday) of a [DAYS] key; empty for any other. */
+        fun daysOf(key: String?): Set<Int> =
+            if (of(key) != DAYS) emptySet() else key!!.substringAfter(':', "").split(',').mapNotNull { it.trim().toIntOrNull()?.takeIf { d -> d in 1..7 } }.toSortedSet()
+
+        /**
+         * The key to store for [kind] (with [days] for [DAYS]) on an event whose first time is [firstDay]:
+         * the weekday of the first time is always one of the days, and one weekday alone is plain [WEEKLY].
+         */
+        fun key(kind: Repeat?, days: Set<Int> = emptySet(), firstDay: Long): String? {
+            if (kind == null) return null
+            // A fifth weekday comes only in some months: it is kept as the last one
+            if (kind == MONTHLY_NTH && (LocalDate.ofEpochDay(firstDay).dayOfMonth - 1) / 7 + 1 == 5) return MONTHLY_LAST.name
+            if (kind != DAYS) return kind.name
+            val all = (days.filter { it in 1..7 } + LocalDate.ofEpochDay(firstDay).dayOfWeek.value).toSortedSet()
+            return if (all.size == 1) WEEKLY.name else "DAYS:" + all.joinToString(",")
+        }
     }
 }
 
@@ -84,6 +109,18 @@ object Repeats {
             Repeat.BIWEEKLY -> e.day + 14 * n
             Repeat.MONTHLY -> LocalDate.ofEpochDay(e.day).plusMonths(n).toEpochDay()
             Repeat.YEARLY -> LocalDate.ofEpochDay(e.day).plusYears(n).toEpochDay()
+            Repeat.MONTHLY_NTH, Repeat.MONTHLY_LAST -> {
+                val first = LocalDate.ofEpochDay(e.day)
+                val month = first.withDayOfMonth(1).plusMonths(n)
+                // A fifth Tuesday is in only some months: such an event is taken as the last Tuesday
+                val place = (first.dayOfMonth - 1) / 7 + 1
+                month.with(
+                    if (kind == Repeat.MONTHLY_LAST || place == 5) java.time.temporal.TemporalAdjusters.lastInMonth(first.dayOfWeek)
+                    else java.time.temporal.TemporalAdjusters.dayOfWeekInMonth(place, first.dayOfWeek),
+                ).toEpochDay()
+            }
+            // Not counted by number (see [starts])
+            Repeat.DAYS -> null
         }
     } catch (x: java.time.DateTimeException) { null }
 
@@ -96,10 +133,11 @@ object Repeats {
         val last = minOf(to, e.repeatUntil ?: Long.MAX_VALUE, EVENT_MAX_DAY)
         if (last < e.day) return emptyList()
         val skip = skipped(e)
+        if (kind == Repeat.DAYS) return weekdays(e, from, last, span, skip)
         // Jump close to the window instead of walking from the first time
         var n = when (kind) {
-            Repeat.DAILY, Repeat.WEEKLY, Repeat.BIWEEKLY -> maxOf(0L, (from - span - e.day) / kind.minGap)
-            Repeat.MONTHLY -> maxOf(0L, (from - span - e.day) / 31 - 1)
+            Repeat.DAILY, Repeat.WEEKLY, Repeat.BIWEEKLY, Repeat.DAYS -> maxOf(0L, (from - span - e.day) / kind.minGap)
+            Repeat.MONTHLY, Repeat.MONTHLY_NTH, Repeat.MONTHLY_LAST -> maxOf(0L, (from - span - e.day) / 31 - 1)
             Repeat.YEARLY -> maxOf(0L, (from - span - e.day) / 366 - 1)
         }
         val out = ArrayList<Long>()
@@ -107,6 +145,25 @@ object Repeats {
             val s = start(e, kind, n++) ?: break
             if (s > last) break
             if (s + span >= from && s !in skip) out += s
+        }
+        return out
+    }
+
+    /** The times of a [Repeat.DAYS] event from [from] to [last]: week by week, on each of its weekdays. */
+    private fun weekdays(e: Event, from: Long, last: Long, span: Long, skip: Set<Long>): List<Long> {
+        val days = Repeat.daysOf(e.repeat).ifEmpty { setOf(LocalDate.ofEpochDay(e.day).dayOfWeek.value) }
+        // The Monday of the first week, and of the week where the window begins
+        val monday = e.day - (LocalDate.ofEpochDay(e.day).dayOfWeek.value - 1)
+        var week = maxOf(0L, (from - span - monday) / 7)
+        val out = ArrayList<Long>()
+        while (out.size < MAX_TIMES) {
+            val base = monday + 7 * week++
+            if (base > last) break
+            for (d in days) {
+                val s = base + d - 1
+                if (s < e.day || s > last) continue
+                if (s + span >= from && s !in skip) out += s
+            }
         }
         return out
     }
@@ -141,8 +198,8 @@ object Repeats {
     private fun numberOf(e: Event, kind: Repeat, day: Long): Long? {
         if (day < e.day) return null
         val guess = when (kind) {
-            Repeat.DAILY, Repeat.WEEKLY, Repeat.BIWEEKLY -> (day - e.day) / kind.minGap
-            Repeat.MONTHLY -> (day - e.day) * 12 / 365
+            Repeat.DAILY, Repeat.WEEKLY, Repeat.BIWEEKLY, Repeat.DAYS -> (day - e.day) / kind.minGap
+            Repeat.MONTHLY, Repeat.MONTHLY_NTH, Repeat.MONTHLY_LAST -> (day - e.day) * 12 / 365
             Repeat.YEARLY -> (day - e.day) / 365
         }
         return (guess - 2..guess + 2).firstOrNull { n -> n >= 0 && start(e, kind, n) == day }
@@ -160,9 +217,22 @@ object Repeats {
         val was = Repeat.of(before.repeat) ?: return edited
         val now = Repeat.of(edited.repeat) ?: return edited
         if (was != now || before.day == edited.day) return edited
+        // Several weekdays are not counted by number: their days stay
+        if (was == Repeat.DAYS) return edited
         if (kotlin.math.abs(edited.day - before.day) >= was.minGap) return edited
         val moved = skipped(edited).mapNotNull { d -> numberOf(before, was, d)?.let { n -> start(edited, now, n) } }
         return edited.copy(skipDays = moved.sorted().joinToString(","))
+    }
+
+    /**
+     * For each person, the last time up to [today] that a repeating meeting they take part in has
+     * happened (looking back a year): their last contact, which no save of the event moved forward.
+     */
+    fun lastHeld(events: List<Event>, links: List<EventPerson>, today: Long): Map<Long, Long> {
+        val held = events.filter { it.repeats }.mapNotNull { e -> starts(e, today - 366, today).lastOrNull { it <= today }?.let { e.id to it } }.toMap()
+        val out = HashMap<Long, Long>()
+        links.forEach { l -> held[l.eventId]?.let { d -> if ((out[l.personId] ?: Long.MIN_VALUE) < d) out[l.personId] = d } }
+        return out
     }
 
     /** [e] with its time that starts on [day] left out. */
@@ -283,11 +353,14 @@ fun cleanEvent(e: Event): Event? {
     val end = if (start == null) null else e.endMin?.coerceIn(0, 24 * 60)
     val endDay = e.endDay?.takeIf { it > e.day && it - e.day <= EVENT_MAX_SPAN }
     // Something that repeats must end before it comes again, and its end cannot come before its start
-    val repeat = Repeat.of(e.repeat)?.takeIf { (endDay ?: e.day) - e.day < it.minGap }
+    val kind = Repeat.of(e.repeat)
+    // (for several weekdays: shorter than the smallest gap between two of them)
+    val gap = if (kind == Repeat.DAYS) Repeat.daysOf(Repeat.key(kind, Repeat.daysOf(e.repeat), e.day)).let { d -> if (d.size < 2) 7L else (d.zipWithNext { a, b -> (b - a).toLong() } + (7L - d.last() + d.first())).min() } else kind?.minGap
+    val repeat = Repeat.key(kind, Repeat.daysOf(e.repeat), e.day)?.takeIf { gap != null && (endDay ?: e.day) - e.day < gap }
     val until = if (repeat == null) null else e.repeatUntil?.takeIf { it >= e.day }?.coerceAtMost(EVENT_MAX_DAY)
     val skip = if (repeat == null) "" else Repeats.skipped(e).filter { it >= e.day && (until == null || it <= until) }.sorted().takeLast(MAX_SKIP_DAYS).joinToString(",")
     return e.copy(
-        repeat = repeat?.name, repeatUntil = until, skipDays = skip,
+        repeat = repeat, repeatUntil = until, skipDays = skip,
         title = title, place = e.place.trim().take(500), notes = e.notes.trim().take(MAX_NOTE_LENGTH),
         outcome = e.outcome.trim().take(MAX_NOTE_LENGTH), startMin = start,
         // On one day the end must be after the start

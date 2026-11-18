@@ -755,7 +755,7 @@ private suspend fun buildFiles(context: Context, db: MandatDb, hidden: Set<Long>
             listOf(e.title, Export.day(e.day), Export.day(e.endDay), timeText(e.startMin), timeText(e.endMin),
                 context.getString(ua.mandat.data.EventKind.of(e.kind).label()), e.place, e.matterId?.let(titles::get).orEmpty(), e.notes, e.outcome,
                 // ("day" is then the first time)
-                ua.mandat.data.Repeat.of(e.repeat)?.let { context.getString(it.label()) }.orEmpty(), Export.day(e.repeatUntil))
+                repeatText(context, e.repeat, e.day).orEmpty(), Export.day(e.repeatUntil))
         },
     ))
     if ("money" in plan.tables) add("budget.csv", Export.csv(

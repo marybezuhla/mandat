@@ -170,8 +170,16 @@ class RepeatsTest {
         assertNull(rule("FREQ=DAILY;BYMONTH=1"))
         assertNull(rule("FREQ=MONTHLY;BYMONTH=1;BYMONTHDAY=5"))
         assertEquals(Repeat.YEARLY, rule("FREQ=YEARLY;BYMONTH=1"))
-        assertNull(rule("FREQ=WEEKLY;BYDAY=MO,WE,FR"))
+        // Several weekdays with the event's own among them; a numbered weekday only monthly, in the event's own place
+        assertEquals(Repeat.DAYS, rule("FREQ=WEEKLY;BYDAY=MO,WE,FR"))
+        assertEquals(Repeat.DAYS, rule("FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR"))
+        assertNull(rule("FREQ=WEEKLY;BYDAY=TU,WE"))
+        assertNull(rule("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE"))
         assertNull(rule("FREQ=WEEKLY;BYDAY=TU"))
+        assertEquals(Repeat.MONTHLY_NTH, rule("FREQ=MONTHLY;BYDAY=1MO"))
+        assertNull(rule("FREQ=MONTHLY;BYDAY=2MO"))
+        assertEquals(Repeat.MONTHLY_LAST, IcsReader.repeatOf("FREQ=MONTHLY;BYDAY=-1FR", day(2026, 1, 30), zone)?.first)
+        assertNull(IcsReader.repeatOf("FREQ=MONTHLY;BYDAY=-1FR", day(2026, 1, 23), zone))
         assertNull(rule("FREQ=WEEKLY;COUNT=10"))
         assertNull(rule("FREQ=WEEKLY;INTERVAL=3"))
         assertNull(rule("FREQ=MONTHLY;BYDAY=2TU"))
@@ -250,5 +258,57 @@ class RepeatsTest {
         val times = Repeats.eachTime(listOf(weekly, once), 0, 27)
         val top = ua.mandat.data.Retro.topPeople(ua.mandat.data.Span(0, 27), times, listOf(EventPerson(1, 50), EventPerson(2, 60), EventPerson(2, 50)))
         assertEquals(listOf(50L to 5, 60L to 1), top)
+    }
+
+    @Test fun severalWeekdaysAndANumberedWeekdayOfTheMonth() {
+        val monday = day(2026, 1, 5)
+        val mwf = event(monday).copy(repeat = "DAYS:1,3,5")
+        assertEquals(listOf(monday, monday + 2, monday + 4, monday + 7), Repeats.starts(mwf, monday, monday + 7))
+        // Far ahead, without walking from the first week
+        assertEquals(listOf(monday + 7 * 300 + 2), Repeats.starts(mwf, monday + 7 * 300 + 1, monday + 7 * 300 + 3))
+        // The first time's own weekday is always one of the days, and one weekday alone is plain weekly
+        assertEquals("DAYS:1,3,5", Repeat.key(Repeat.DAYS, setOf(3, 5), monday))
+        assertEquals("WEEKLY", Repeat.key(Repeat.DAYS, emptySet(), monday))
+        assertEquals("DAYS:1,3", cleanEvent(event(monday).copy(repeat = "DAYS:3,9,x"))!!.repeat)
+        // Two days long on Monday and Wednesday: fits; three days long: no longer repeats
+        assertEquals("DAYS:1,3", cleanEvent(event(monday, endDay = monday + 1).copy(repeat = "DAYS:1,3"))!!.repeat)
+        assertNull(cleanEvent(event(monday, endDay = monday + 2).copy(repeat = "DAYS:1,3"))!!.repeat)
+        // The second Tuesday of every month, and the last Friday
+        val second = event(day(2026, 1, 13), Repeat.MONTHLY_NTH)
+        assertEquals(listOf(day(2026, 1, 13), day(2026, 2, 10), day(2026, 3, 10)), Repeats.starts(second, day(2026, 1, 1), day(2026, 3, 31)))
+        val lastFriday = event(day(2026, 1, 30), Repeat.MONTHLY_LAST)
+        assertEquals(listOf(day(2026, 1, 30), day(2026, 2, 27), day(2026, 3, 27)), Repeats.starts(lastFriday, day(2026, 1, 1), day(2026, 3, 31)))
+        // A fifth Thursday is taken as the last one
+        val fifth = event(day(2026, 1, 29), Repeat.MONTHLY_NTH)
+        assertEquals(listOf(day(2026, 1, 29), day(2026, 2, 26)), Repeats.starts(fifth, day(2026, 1, 1), day(2026, 2, 28)))
+        // Written and read back through the calendar file
+        val kyiv = ZoneId.of("Europe/Kyiv")
+        assertEquals("FREQ=WEEKLY;BYDAY=MO,WE,FR", Export.rrule(mwf, kyiv))
+        assertEquals("FREQ=MONTHLY;BYDAY=2TU", Export.rrule(second, kyiv))
+        assertEquals("FREQ=MONTHLY;BYDAY=-1FR", Export.rrule(lastFriday, kyiv))
+        assertEquals("FREQ=MONTHLY;BYDAY=-1TH", Export.rrule(fifth, kyiv))
+        val back = IcsReader.read(Export.ics(listOf(mwf.copy(startMin = 600), second, lastFriday), { it }, kyiv, now = 0), kyiv)
+        assertEquals(listOf("DAYS:1,3,5", "MONTHLY_NTH", "MONTHLY_LAST"), back.map { it.repeat })
+    }
+
+    @Test fun aTimedRepeatingEventCarriesItsTimeZone() {
+        val kyiv = ZoneId.of("Europe/Kyiv")
+        val text = Export.ics(listOf(event(day(2026, 1, 5), Repeat.WEEKLY, start = 600)), { it }, kyiv, now = 0)
+        assertTrue(text.contains("BEGIN:VTIMEZONE\r\nTZID:Europe/Kyiv"))
+        assertTrue(text.contains("TZOFFSETFROM:+0200\r\nTZOFFSETTO:+0300"))
+        assertTrue(text.contains("RRULE:FREQ=YEARLY;BYMONTH=3;BYMONTHDAY=25,26,27,28,29,30,31;BYDAY=SU"))
+        assertTrue(text.contains("RRULE:FREQ=YEARLY;BYMONTH=10;BYMONTHDAY=25,26,27,28,29,30,31;BYDAY=SU"))
+        // One that happens once needs none
+        assertFalse(Export.ics(listOf(event(day(2026, 1, 5), start = 600)), { it }, kyiv, now = 0).contains("VTIMEZONE"))
+        // The reader skips it and still takes the event
+        assertEquals(1, IcsReader.read(text, kyiv).size)
+    }
+
+    @Test fun aRepeatingMeetingThatHappenedIsTheLastContact() {
+        val today = day(2026, 3, 20)
+        val weekly = event(day(2026, 1, 5), Repeat.WEEKLY).copy(id = 1)
+        val ahead = event(today + 3, Repeat.WEEKLY).copy(id = 2)
+        val held = Repeats.lastHeld(listOf(weekly, ahead), listOf(EventPerson(1, 50), EventPerson(2, 60), EventPerson(2, 50)), today)
+        assertEquals(mapOf(50L to day(2026, 3, 16)), held)
     }
 }
