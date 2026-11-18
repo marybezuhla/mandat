@@ -276,11 +276,21 @@ class Session(app: Application) : AndroidViewModel(app) {
      * itself that is simply the whole event.
      */
     fun openEventFollowing(c: EventChoice) {
-        if (c.day <= c.event.day) return openEventSeries(c)
+        if (c.day <= c.event.day || !followingFits(c)) return openEventSeries(c)
         eventChoice = null
         val from = ua.mandat.data.Repeats.at(c.event, c.day).copy(id = 0, outcome = "",
             skipDays = ua.mandat.data.Repeats.skipped(c.event).filter { it > c.day }.sorted().joinToString(","))
         eventDraft = EventDraft(from, isNew = true, c.people, detachFrom = c.event.id, detachDay = c.day, following = true)
+    }
+
+    /**
+     * A new event from [EventChoice.day] keeps the rhythm only when that day is the same day of the
+     * month as the first one (a monthly event on the 31st met on the 30th would move to the 30th).
+     */
+    fun followingFits(c: EventChoice): Boolean {
+        val kind = ua.mandat.data.Repeat.of(c.event.repeat)
+        if (kind != ua.mandat.data.Repeat.MONTHLY && kind != ua.mandat.data.Repeat.YEARLY) return true
+        return java.time.LocalDate.ofEpochDay(c.day).dayOfMonth == java.time.LocalDate.ofEpochDay(c.event.day).dayOfMonth
     }
 
     /** A repeating event does not come on this one day. */

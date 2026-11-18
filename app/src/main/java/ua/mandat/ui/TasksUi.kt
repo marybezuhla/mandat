@@ -197,8 +197,8 @@ fun DelegationRow(d: Delegation, personName: String?, matterTitle: String?, sess
         kind = if (d.incoming) TaskKind.DELEGATION_IN else TaskKind.DELEGATION,
         chips = listOfNotNull(
             who, matterTitle,
-            d.checkIn?.takeIf { TaskStatus.of(d.status) == TaskStatus.OPEN }?.let { stringResource(R.string.check_in_chip, Dates.short(it)) },
-            if (d.returned) stringResource(R.string.returned_chip) else null,
+            d.checkIn?.takeIf { TaskStatus.of(d.status) == TaskStatus.OPEN }?.let { stringResource(if (d.incoming && controlDoc()) R.string.interim_chip else R.string.check_in_chip, Dates.short(it)) },
+            if (d.returned) stringResource(ua.mandat.ui.dirLabel(R.string.returned_chip)) else null,
             ua.mandat.data.Freedom.of(d.freedom)?.let { stringResource(it.label()) },
         ),
         due = d.due,
@@ -368,11 +368,11 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
                 OutlinedTextField(
                     value = draft.purpose, onValueChange = { draft.purpose = it },
                     // (for a task handed to the owner: where it came from, as a control document names it)
-                    label = { Text(stringResource(if (draft.incoming) R.string.delegation_in_source else R.string.delegation_purpose)) }, modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(if (draft.incoming && controlDoc()) R.string.delegation_in_source else R.string.delegation_purpose)) }, modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = draft.doneMeans, onValueChange = { draft.doneMeans = it },
-                    label = { Text(stringResource(if (draft.incoming) R.string.delegation_in_closing else R.string.delegation_done_means)) }, modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(if (draft.incoming && controlDoc()) R.string.delegation_in_closing else R.string.delegation_done_means)) }, modifier = Modifier.fillMaxWidth(),
                 )
                 // (the simple view leaves these out, unless this record already has them: nothing is ever edited blind)
                 if (!draft.incoming && (!AppMode.simple || draft.delegation.freedom != null)) FreedomPicker(draft.freedom) { draft.freedom = it }
@@ -381,10 +381,10 @@ fun DelegationDialog(db: MandatDb, session: Session, draft: DelegationDraft) {
                 MatterPicker(matters, allMatters, draft.matterId) { draft.matterId = it }
                 DueField(draft.due) { draft.due = it }
                 // (the simple view leaves out the check-in day and "it came back")
-                if (!AppMode.simple || draft.delegation.checkIn != null) DueField(draft.checkIn, label = if (draft.incoming) R.string.delegation_in_interim else R.string.delegation_check_in) { draft.checkIn = it }
+                if (!AppMode.simple || draft.delegation.checkIn != null) DueField(draft.checkIn, label = if (draft.incoming && controlDoc()) R.string.delegation_in_interim else R.string.delegation_check_in) { draft.checkIn = it }
                 if (!draft.incoming && (!AppMode.simple || draft.delegation.returned)) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().switchRow(draft.returned) { draft.returned = it }) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.delegation_returned), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(ua.mandat.ui.dirLabel(R.string.delegation_returned)), style = MaterialTheme.typography.bodyLarge)
                         Text(stringResource(R.string.delegation_returned_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
                     }
                     androidx.compose.material3.Switch(checked = draft.returned, onCheckedChange = null)

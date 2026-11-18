@@ -360,7 +360,8 @@ class EventDraft(
                 // The new event stays in the communities of the repeating one, and that one no longer comes on this day
                 db.communities().communitiesOf(ua.mandat.data.LinkKind.EVENT, detachFrom).forEach { c -> db.communities().link(ua.mandat.data.CommunityLink(c, ua.mandat.data.LinkKind.EVENT, id)) }
                 db.events().get(detachFrom)?.let { base ->
-                    val rest = if (following) base.copy(repeatUntil = detachDay - 1, updatedAt = now) else ua.mandat.data.Repeats.skipping(base, detachDay)
+                    // (the old one ends the day before the new one begins, wherever its first date was moved)
+                    val rest = if (following) base.copy(repeatUntil = minOf(detachDay, edited.day) - 1, updatedAt = now) else ua.mandat.data.Repeats.skipping(base, detachDay)
                     ua.mandat.data.cleanEvent(rest)?.let { db.events().update(it) }
                 }
             }

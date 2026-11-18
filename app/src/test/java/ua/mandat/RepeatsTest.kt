@@ -278,6 +278,10 @@ class RepeatsTest {
         assertEquals(listOf(day(2026, 1, 13), day(2026, 2, 10), day(2026, 3, 10)), Repeats.starts(second, day(2026, 1, 1), day(2026, 3, 31)))
         val lastFriday = event(day(2026, 1, 30), Repeat.MONTHLY_LAST)
         assertEquals(listOf(day(2026, 1, 30), day(2026, 2, 27), day(2026, 3, 27)), Repeats.starts(lastFriday, day(2026, 1, 1), day(2026, 3, 31)))
+        // "The last such weekday" only from a first date that is the last one; otherwise its own place in the month
+        assertEquals("MONTHLY_NTH", Repeat.key(Repeat.MONTHLY_LAST, emptySet(), day(2026, 11, 10)))
+        assertEquals("MONTHLY_LAST", Repeat.key(Repeat.MONTHLY_LAST, emptySet(), day(2026, 11, 24)))
+        assertEquals("MONTHLY_LAST", Repeat.key(Repeat.MONTHLY_NTH, emptySet(), day(2026, 1, 29)))
         // A fifth Thursday is taken as the last one
         val fifth = event(day(2026, 1, 29), Repeat.MONTHLY_NTH)
         assertEquals(listOf(day(2026, 1, 29), day(2026, 2, 26)), Repeats.starts(fifth, day(2026, 1, 1), day(2026, 2, 28)))
@@ -310,5 +314,8 @@ class RepeatsTest {
         val ahead = event(today + 3, Repeat.WEEKLY).copy(id = 2)
         val held = Repeats.lastHeld(listOf(weekly, ahead), listOf(EventPerson(1, 50), EventPerson(2, 60), EventPerson(2, 50)), today)
         assertEquals(mapOf(50L to day(2026, 3, 16)), held)
+        // A yearly birthday is no contact
+        val birthday = event(day(2025, 3, 1), Repeat.YEARLY).copy(id = 3, kind = EventKind.OTHER.name)
+        assertEquals(emptyMap<Long, Long>(), Repeats.lastHeld(listOf(birthday), listOf(EventPerson(3, 70)), today))
     }
 }

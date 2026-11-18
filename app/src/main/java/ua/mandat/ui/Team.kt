@@ -341,7 +341,7 @@ fun InfluenceMapScreen(db: MandatDb, session: Session, matterId: Long?) {
             contentPadding = PaddingValues(start = Space.screen, end = Space.screen, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(Space.gap),
         ) {
-            item(key = "hint") { Text(stringResource(R.string.influence_hint), style = MaterialTheme.typography.bodyMedium, color = Muted) }
+            item(key = "hint") { Text(stringResource(byMode(R.string.influence_hint, official = R.string.influence_hint_office)), style = MaterialTheme.typography.bodyMedium, color = Muted) }
             item(key = "grid") {
                 val scheme = MaterialTheme.colorScheme
                 val dark = androidx.compose.foundation.isSystemInDarkTheme()
@@ -353,7 +353,7 @@ fun InfluenceMapScreen(db: MandatDb, session: Session, matterId: Long?) {
                     Triple(Cell.INFORM, R.string.cell_inform, scheme.surfaceVariant to scheme.onSurfaceVariant),
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(stringResource(R.string.influence_axes), style = MaterialTheme.typography.labelSmall, color = Muted)
+                    Text(stringResource(byMode(R.string.influence_axes, official = R.string.influence_axes_office)), style = MaterialTheme.typography.labelSmall, color = Muted)
                     cells.chunked(2).forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             row.forEach { (cellKind, title, colors) ->

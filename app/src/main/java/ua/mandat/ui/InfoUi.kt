@@ -154,7 +154,7 @@ fun InfoScreen(db: MandatDb, session: Session) {
                 }
             }
             if (attacks.isNotEmpty()) item(key = "pipeline") {
-                SectionCard(Sym.warning, stringResource(R.string.info_attacks_way), count = attacks.size) {
+                SectionCard(Sym.warning, stringResource(byMode(R.string.info_attacks_way, official = R.string.info_attacks_way_office)), count = attacks.size) {
                     Spacer(Modifier.height(6.dp))
                     StagePipeline(attacks, stagePick) { stagePick = it; if (it != null) kindPick = InfoKind.ATTACK.name }
                 }
@@ -354,7 +354,7 @@ fun InfoDialog(db: MandatDb, session: Session, d: InfoDraft) {
 private fun InfoKind.hint(): Int = when (this) {
     InfoKind.DISCUSSION -> R.string.info_discussion_hint
     InfoKind.CRITIQUE -> R.string.info_critique_hint
-    InfoKind.ATTACK -> R.string.info_attack_hint
+    InfoKind.ATTACK -> byMode(R.string.info_attack_hint, official = R.string.info_attack_hint_office)
     InfoKind.CORRECTION -> R.string.info_correction_hint
 }
 

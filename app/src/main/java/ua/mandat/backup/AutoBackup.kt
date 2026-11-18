@@ -95,15 +95,20 @@ object AutoBackup {
     }
 
     /**
-     * True when [password] is the one automatic copies are made with (the owner checks that they
-     * still remember it); null when automatic copies are off. Nothing is written or kept.
+     * The salt and the key automatic copies are made with, for the owner to check that they still
+     * remember the password ([passwordMatches], away from the database); null when they are off.
      */
-    suspend fun checkPassword(db: MandatDb, password: CharArray): Boolean? {
+    suspend fun storedPair(db: MandatDb): Pair<ByteArray, ByteArray>? {
         val s = db.settings()
         val salt = s.get(KEY_SALT)?.value?.unhex() ?: return null
         val stored = s.get(KEY_KEY)?.value?.unhex() ?: return null
-        val made = BackupCrypto.deriveKey(password, salt, BackupCrypto.DEFAULT)
-        return try { java.security.MessageDigest.isEqual(made, stored) } finally { made.fill(0); stored.fill(0) }
+        return salt to stored
+    }
+
+    /** True when [password] gives [pair]'s key from its salt (Argon2id: a second or two). Wipes what it made and the key. */
+    fun passwordMatches(pair: Pair<ByteArray, ByteArray>, password: CharArray): Boolean {
+        val made = BackupCrypto.deriveKey(password, pair.first, BackupCrypto.DEFAULT)
+        return try { java.security.MessageDigest.isEqual(made, pair.second) } finally { made.fill(0); pair.second.fill(0) }
     }
 
     /** Forgets the automatic copies; when a copy was last made by hand stays known. */
@@ -314,8 +319,16 @@ object AutoBackup {
                 context.contentResolver.openInputStream(uri)!!.use { BackupFile.read(it, key) }
                 Checked(uri)
             } catch (e: BackupCrypto.WrongPasswordOrDamaged) {
-                deleteQuietly(context, uri)
-                Checked(null)
+                // A copy made by a version before 0.3.0 just before the update is one piece, and still a good copy
+                when (opensAsOnePiece(context, uri, key)) {
+                    true -> Checked(uri)
+                    false -> {
+                        deleteQuietly(context, uri)
+                        Checked(null)
+                    }
+                    // Could not be read just now: left for next time, never deleted for that
+                    null -> Checked(null, unknown = true)
+                }
             } catch (e: BackupCrypto.NotABackup) {
                 deleteQuietly(context, uri)
                 Checked(null)
@@ -438,6 +451,24 @@ object AutoBackup {
         }
         return null
     }
+
+    /**
+     * True when the file at [uri] is a whole one-piece copy made with [key] (the layout before
+     * 0.3.0), false when it is not one, null when that could not be found out now.
+     */
+    private fun opensAsOnePiece(context: Context, uri: Uri, key: BackupStream.Key): Boolean? =
+        try {
+            val bytes = java.io.ByteArrayOutputStream()
+            context.contentResolver.openInputStream(uri)!!.use { BackupFile.copy(it, bytes, BackupCrypto.MAX_FILE_BYTES) }
+            BackupCrypto.decryptWithKey(bytes.toByteArray(), key.ikm).fill(0)
+            true
+        } catch (e: BackupCrypto.WrongPasswordOrDamaged) {
+            false
+        } catch (e: BackupCrypto.NotABackup) {
+            false
+        } catch (e: Throwable) {
+            null
+        }
 
     private fun deleteQuietly(context: Context, uri: Uri) {
         try {

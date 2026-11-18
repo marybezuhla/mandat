@@ -134,7 +134,8 @@ object Export {
             return sign + String.format(java.util.Locale.ROOT, "%02d%02d", a / 3600, a % 3600 / 60)
         }
         if (changes.isEmpty()) {
-            val o = rules.getOffset(Instant.now())
+            // (a zone without a yearly rule: its standard offset, not whatever holds on the day of export)
+            val o = rules.getStandardOffset(Instant.now())
             append("BEGIN:STANDARD\r\nDTSTART:19700101T000000\r\nTZOFFSETFROM:").append(offset(o)).append("\r\nTZOFFSETTO:").append(offset(o)).append("\r\nEND:STANDARD\r\n")
         } else for (r in changes) {
             val t = r.createTransition(1970)

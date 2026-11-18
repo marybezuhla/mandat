@@ -620,8 +620,15 @@ private fun RepeatPicker(draft: EventDraft) {
             // The monthly weekday ones are named for the chosen first date ("щомісяця в другий вівторок")
             val name = if (r == ua.mandat.data.Repeat.MONTHLY_NTH || r == ua.mandat.data.Repeat.MONTHLY_LAST) repeatText(context, r.name, draft.day).orEmpty() else stringResource(r.label())
             // (a second Tuesday is also the last one in some months: the same chip is not offered twice)
-            if (r == ua.mandat.data.Repeat.MONTHLY_NTH && (java.time.LocalDate.ofEpochDay(draft.day).dayOfMonth - 1) / 7 + 1 == 5) return@forEach
-            QuickChip(name, draft.repeat == r) { draft.repeat = r }
+            // and "the last such weekday" only from a first date that is the last one
+            val first = java.time.LocalDate.ofEpochDay(draft.day)
+            val fifth = (first.dayOfMonth - 1) / 7 + 1 == 5
+            val last = first.plusWeeks(1).monthValue != first.monthValue
+            if (r == ua.mandat.data.Repeat.MONTHLY_NTH && fifth) return@forEach
+            if (r == ua.mandat.data.Repeat.MONTHLY_LAST && !last) return@forEach
+            // (what is saved: a weekday rule the first date does not fit becomes the one it fits)
+            val saved = ua.mandat.data.Repeat.of(ua.mandat.data.Repeat.key(draft.repeat, draft.days, draft.day))
+            QuickChip(name, saved == r) { draft.repeat = r }
         }
     }
     val r = draft.repeat ?: return
@@ -634,6 +641,7 @@ private fun RepeatPicker(draft: EventDraft) {
                 QuickChip(names[d - 1], d == own || d in draft.days) { if (d != own) draft.days = if (d in draft.days) draft.days - d else draft.days + d }
             }
         }
+        Text(stringResource(R.string.repeat_days_hint), style = MaterialTheme.typography.labelSmall, color = Muted)
     }
     DueField(draft.repeatUntil, label = R.string.event_repeat_until) { draft.repeatUntil = it?.takeIf { d -> d >= draft.day } }
     // The dates taken out of it: a tap brings one back (the latest ones, so the row stays short)
@@ -657,7 +665,7 @@ fun EventChoiceDialog(session: Session, choice: Session.EventChoice) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(R.string.event_choice_text, Dates.format(choice.day)), style = MaterialTheme.typography.bodyMedium)
                 TextButton(onClick = { session.openEventTime(choice) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.event_choice_one)) }
-                if (choice.day > choice.event.day) TextButton(onClick = { session.openEventFollowing(choice) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.event_choice_following)) }
+                if (choice.day > choice.event.day && session.followingFits(choice)) TextButton(onClick = { session.openEventFollowing(choice) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.event_choice_following)) }
                 TextButton(onClick = { session.openEventSeries(choice) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.event_choice_all)) }
                 TextButton(onClick = { session.skipEventTime(choice) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.event_choice_skip), color = MaterialTheme.colorScheme.error) }
             }

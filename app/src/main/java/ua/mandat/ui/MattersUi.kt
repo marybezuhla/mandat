@@ -716,9 +716,9 @@ private fun MatterStrip(db: MandatDb, matter: Matter, session: Session) {
             Text(stringResource(R.string.stances_people), style = MaterialTheme.typography.labelMedium, color = Muted)
             Spacer(Modifier.height(4.dp))
             StackBar(listOf(
-                Slice("a", stringResource(R.string.strip_allies), withStance.count { it.stance == "ALLY" }, ChartColors.teal),
+                Slice("a", stringResource(byMode(R.string.strip_allies, official = R.string.strip_allies_office)), withStance.count { it.stance == "ALLY" }, ChartColors.teal),
                 Slice("u", stringResource(R.string.strip_undecided), withStance.count { it.stance == "UNDECIDED" }, ChartColors.amberLight),
-                Slice("o", stringResource(R.string.strip_opponents), withStance.count { it.stance == "OPPONENT" }, ChartColors.salmon),
+                Slice("o", stringResource(byMode(R.string.strip_opponents, official = R.string.strip_opponents_office)), withStance.count { it.stance == "OPPONENT" }, ChartColors.salmon),
                 Slice("n", stringResource(R.string.stance_neutral_many), withStance.count { it.stance == "NEUTRAL" }, ChartColors.grayLight),
             ), selected = stancePick, onPick = { stancePick = it })
             // The people behind the chosen part, right under the bar; a name opens the brief
@@ -799,9 +799,9 @@ private fun VoteCounter(linked: List<ua.mandat.data.MatterPersonRow>, draft: Mat
                 rows.forEach { r -> MiniChip(r.name, onClick = { session.saveDraft(); session.oneOnOne = r.personId }) }
             }
         }
-        Group(stringResource(R.string.strip_allies), forThem, ChartColors.teal)
+        Group(stringResource(byMode(R.string.strip_allies, official = R.string.strip_allies_office)), forThem, ChartColors.teal)
         Group(stringResource(R.string.strip_undecided), undecided, ChartColors.amberLight)
-        Group(stringResource(R.string.strip_opponents), against, ChartColors.salmon)
+        Group(stringResource(byMode(R.string.strip_opponents, official = R.string.strip_opponents_office)), against, ChartColors.salmon)
         // Who moved in the last 30 days
         val moved = linked.filter { it.stanceSince != null && it.stanceSince > today - 30 && it.previousStance != null }
         if (moved.isNotEmpty()) {

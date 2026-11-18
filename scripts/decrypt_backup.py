@@ -21,9 +21,8 @@ This is Google Tink's AES-GCM-HKDF streaming layout without its first byte (alwa
 is gzip; unpacked, one JSON value per line: a first line about the copy, then for each table a
 line {"t": name, "c": [columns]} followed by one line per row, and {"end": rows} as the last.
 
-Mandat's own export file (.mandatx), and a backup of the test versions before 0.3.0, is one
-piece: salt (16) | nonce (12) | AES-256-GCM ciphertext with tag, with salt and nonce as the
-associated data.
+A backup made before 0.3.0 is one piece: salt (16) | nonce (12) | AES-256-GCM ciphertext with
+tag, with salt and nonce as the associated data. Inside is one JSON document.
 """
 import getpass
 import gzip
@@ -72,7 +71,7 @@ def decrypt_parts(data: bytes, key: bytes) -> bytes:
 
 
 def decrypt_one_piece(data: bytes, key: bytes) -> bytes:
-    """An export file (.mandatx), or a backup of a test version before 0.3.0."""
+    """A backup made before 0.3.0."""
     return AESGCM(key).decrypt(data[16:28], data[28:], data[:28])
 
 

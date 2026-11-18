@@ -262,7 +262,7 @@ jobs:
           # The certificate must be exactly Mandat's own (its fingerprint is public, kept in the repository)
           "$BT/apksigner" verify --print-certs "$OUT" | tee certs.txt
           EXPECTED=$(tr -d '[:space:]:' < signing/certificate-sha256.txt | tr 'A-F' 'a-f')
-          if [ ${#EXPECTED} -ne 64 ] || ! tr -d ' ' < certs.txt | grep -qi "SHA-256digest:$EXPECTED"; then
+          if ! [[ $EXPECTED =~ ^[0-9a-f]{64}$ ]] || ! tr -d ' ' < certs.txt | tr 'A-F' 'a-f' | grep -qF "sha-256digest:$EXPECTED"; then
             echo "::error::Unexpected signing certificate"; exit 1
           fi
 

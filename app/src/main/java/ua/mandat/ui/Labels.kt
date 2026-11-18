@@ -48,8 +48,13 @@ fun dirLabel(id: Int): Int = if (AppMode.mode != Mode.ASSISTANT) id else when (i
     R.string.dir_promise_out -> R.string.dir_promise_out_assistant
     R.string.dir_delegation_out -> R.string.dir_delegation_out_assistant
     R.string.chip_to_me -> R.string.chip_to_us
+    R.string.delegation_returned -> R.string.delegation_returned_us
+    R.string.returned_chip -> R.string.returned_chip_us
     else -> id
 }
+
+/** Work where a task comes with a control document (an office, a deputy and their assistant): not civic work or a home. */
+fun controlDoc(): Boolean = !AppMode.mode.civic
 
 /** A word of its own for an official, an activist or a citizen where one exists; [other] for the rest. */
 fun byMode(other: Int, official: Int? = null, activist: Int? = null, citizen: Int? = null): Int = when (AppMode.mode) {
@@ -269,10 +274,13 @@ fun ua.mandat.data.PersonCategory.label(): Int = when (this) {
     ua.mandat.data.PersonCategory.EXPERT -> R.string.cat_EXPERT
     ua.mandat.data.PersonCategory.JOURNALIST -> R.string.cat_JOURNALIST
     ua.mandat.data.PersonCategory.NGO -> R.string.cat_NGO
-    // (for a citizen the same keys name the people of a home life; for civic work, its partners)
     ua.mandat.data.PersonCategory.BUSINESS -> byMode(R.string.cat_BUSINESS, citizen = R.string.cat_BUSINESS_home)
-    ua.mandat.data.PersonCategory.INTERNATIONAL -> byMode(R.string.cat_INTERNATIONAL, activist = R.string.cat_INTERNATIONAL_civic, citizen = R.string.cat_FAMILY)
-    ua.mandat.data.PersonCategory.VOTER -> byMode(forMode(R.string.cat_VOTER, R.string.cat_VOTER_plain), citizen = R.string.cat_NEIGHBOUR)
+    ua.mandat.data.PersonCategory.INTERNATIONAL -> R.string.cat_INTERNATIONAL
+    ua.mandat.data.PersonCategory.VOTER -> forMode(R.string.cat_VOTER, R.string.cat_VOTER_plain)
+    // (categories of their own for civic work and a home life: never another mode's word for the same key)
+    ua.mandat.data.PersonCategory.DONOR -> R.string.cat_INTERNATIONAL_civic
+    ua.mandat.data.PersonCategory.FAMILY -> R.string.cat_FAMILY
+    ua.mandat.data.PersonCategory.NEIGHBOUR -> R.string.cat_NEIGHBOUR
     ua.mandat.data.PersonCategory.OTHER -> R.string.cat_OTHER
 }
 
@@ -374,7 +382,7 @@ fun ua.mandat.data.AttackDecision.label(): Int = when (this) {
     ua.mandat.data.AttackDecision.IGNORE -> R.string.decision_ignore
     ua.mandat.data.AttackDecision.ANSWER -> R.string.decision_answer
     ua.mandat.data.AttackDecision.REFUTE -> R.string.decision_refute
-    ua.mandat.data.AttackDecision.ALLIES -> R.string.decision_allies
+    ua.mandat.data.AttackDecision.ALLIES -> byMode(R.string.decision_allies, official = R.string.decision_allies_office)
     ua.mandat.data.AttackDecision.LEGAL -> R.string.decision_legal
 }
 

@@ -457,7 +457,7 @@ fun ReputationTiles(db: MandatDb, session: Session) {
     val active = alliances.count { it.status == ua.mandat.data.AllianceStatus.ACTIVE.name }
     Row(horizontalArrangement = Arrangement.spacedBy(Space.gap)) {
         StatTile(risky, stringResource(R.string.tile_risky_promises), attention = true) { session.showPromises = true }
-        StatTile(attacks, stringResource(R.string.tile_attacks), attention = true) { session.showInfo = true }
+        StatTile(attacks, stringResource(byMode(R.string.tile_attacks, official = R.string.tile_attacks_office)), attention = true) { session.showInfo = true }
         StatTile(active, stringResource(forMode(R.string.tile_alliances, R.string.tile_alliances_plain))) { session.showAlliances = true }
     }
 }

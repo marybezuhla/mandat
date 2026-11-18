@@ -67,6 +67,8 @@ fun suggestCategory(organization: String, jobTitle: String): PersonCategory? {
         has("фракці", "депутатська група", "народний депутат", "народна депутатка", "депутат ради", "депутатка ради") -> PersonCategory.COLLEAGUE_MP
         has("посольств", "представництво єс", " оон", "міжнародн", "pace", "оебсє", "обсє", "нато") -> PersonCategory.INTERNATIONAL
         has("телеканал", "радіо", "газет", "вісник", "медіа", "редакц", "журналіст", "кореспондент", "ведуч", "видання") -> PersonCategory.JOURNALIST
+        // (state funds are offices, not civic organisations)
+        has("пенсійн", "фонд соціальн", "фонд державн") -> PersonCategory.OFFICIAL
         has(" го ", "го «", "громадськ", " бф ", "бф «", "благодійн", "фонд", "асоціац", "спілк", "волонтер") -> PersonCategory.NGO
         has("університет", "інститут", "академі", "кафедр", "аналітичн", "дослідж", "експерт", "науков") -> PersonCategory.EXPERT
         has("міністерств", "адміністрац", "департамент", "управлінн", "служб", "агентств", "інспекці", "кабінет міністрів",
@@ -194,7 +196,7 @@ enum class TeamRole {
  * not a deputy. The two are kept apart, so changing the mode never turns one into the other.
  */
 enum class PersonCategory {
-    COLLEAGUE_MP, COLLEAGUE, OFFICIAL, EXPERT, JOURNALIST, NGO, BUSINESS, INTERNATIONAL, VOTER, OTHER;
+    COLLEAGUE_MP, COLLEAGUE, OFFICIAL, EXPERT, JOURNALIST, NGO, BUSINESS, INTERNATIONAL, VOTER, DONOR, FAMILY, NEIGHBOUR, OTHER;
 
     companion object {
         fun of(key: String?) = key?.let { k -> entries.firstOrNull { it.name == k } }
@@ -206,10 +208,18 @@ enum class PersonCategory {
  * For a deputy ([deputy]) colleagues are deputies, so the plain "colleague" is offered only
  * when someone among [people] already has it (it was given in another mode).
  */
-fun standardCategories(deputy: Boolean, people: List<Person>): List<PersonCategory> =
+fun standardCategories(deputy: Boolean, people: List<Person>, mode: Mode? = null): List<PersonCategory> =
     PersonCategory.entries.filter { c ->
+        val used = people.any { c.name in it.allCategories }
         c != PersonCategory.OTHER &&
-            (c != PersonCategory.COLLEAGUE || !deputy || people.any { PersonCategory.COLLEAGUE.name in it.allCategories })
+            (c != PersonCategory.COLLEAGUE || !deputy || used) &&
+            // A category of one kind of owner is offered in that mode (or where someone already has it)
+            (used || when (c) {
+                PersonCategory.DONOR -> mode == Mode.ACTIVIST
+                PersonCategory.FAMILY, PersonCategory.NEIGHBOUR -> mode == Mode.CITIZEN
+                PersonCategory.INTERNATIONAL -> mode != Mode.CITIZEN
+                else -> true
+            })
     }
 
 /** Levels of freedom in a delegation (after Management 3.0 and situational leadership). */

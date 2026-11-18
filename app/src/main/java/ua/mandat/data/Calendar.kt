@@ -80,8 +80,12 @@ enum class Repeat {
          */
         fun key(kind: Repeat?, days: Set<Int> = emptySet(), firstDay: Long): String? {
             if (kind == null) return null
-            // A fifth weekday comes only in some months: it is kept as the last one
-            if (kind == MONTHLY_NTH && (LocalDate.ofEpochDay(firstDay).dayOfMonth - 1) / 7 + 1 == 5) return MONTHLY_LAST.name
+            // A fifth weekday comes only in some months: it is kept as the last one; and "the last
+            // such weekday" only from a first date that is one, so the first date is always a time
+            val date = LocalDate.ofEpochDay(firstDay)
+            val isLast = date.plusWeeks(1).monthValue != date.monthValue
+            if (kind == MONTHLY_NTH && (date.dayOfMonth - 1) / 7 + 1 == 5) return MONTHLY_LAST.name
+            if (kind == MONTHLY_LAST && !isLast) return MONTHLY_NTH.name
             if (kind != DAYS) return kind.name
             val all = (days.filter { it in 1..7 } + LocalDate.ofEpochDay(firstDay).dayOfWeek.value).toSortedSet()
             return if (all.size == 1) WEEKLY.name else "DAYS:" + all.joinToString(",")
@@ -229,7 +233,9 @@ object Repeats {
      * happened (looking back a year): their last contact, which no save of the event moved forward.
      */
     fun lastHeld(events: List<Event>, links: List<EventPerson>, today: Long): Map<Long, Long> {
-        val held = events.filter { it.repeats }.mapNotNull { e -> starts(e, today - 366, today).lastOrNull { it <= today }?.let { e.id to it } }.toMap()
+        // (only what is a contact: a meeting, a reception, a call; not a birthday or a trip)
+        val contact = setOf(EventKind.MEETING.name, EventKind.RECEPTION.name, EventKind.CALL.name)
+        val held = events.filter { it.repeats && it.kind in contact }.mapNotNull { e -> starts(e, today - 366, today).lastOrNull { it <= today }?.let { e.id to it } }.toMap()
         val out = HashMap<Long, Long>()
         links.forEach { l -> held[l.eventId]?.let { d -> if ((out[l.personId] ?: Long.MIN_VALUE) < d) out[l.personId] = d } }
         return out
